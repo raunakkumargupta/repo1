@@ -1,0 +1,38 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+
+@theme {
+  --color-brand-blue-light: var(--color-blue-900);
+  --color-brand-blue-dark: var(--color-blue-500);
+  --color-brand-red-light: var(--color-red-600);
+  --color-brand-red-dark: var(--color-red-500);
+  
+  --color-surface-light: var(--color-slate-100);
+  --color-surface-dark: var(--color-slate-800);
+}
+
+:root {
+  --background: var(--color-slate-50);
+  --foreground: var(--color-slate-900);
+  --surface: var(--color-surface-light);
+  --primary: var(--color-brand-blue-light);
+  --destructive: var(--color-brand-red-light);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: var(--color-gray-950);
+    --foreground: var(--color-slate-50);
+    --surface: var(--color-surface-dark);
+    --primary: var(--color-brand-blue-dark);
+    --destructive: var(--color-brand-red-dark);
+  }
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  @apply antialiased min-h-screen selection:bg-blue-500/30;
+}

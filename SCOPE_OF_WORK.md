@@ -1,96 +1,84 @@
 # Scope of Work: Hackathon Command & Mentor Routing Matrix
 
 ## Application Use Case
-The application is a centralized dispatch and communication platform designed for managing high-concurrency technical events and hackathons. It handles team formation, real-time participant collaboration, and a specialized routing system to connect hackathon teams with available technical mentors.
+A production-ready "Hackathon Command & Mentor Routing Matrix" designed to manage live event logistics, participant registration, team formation, and technical mentor ticket routing.
 
 ## Problem Statement
-During large-scale hackathons, participants face severe bottlenecks when seeking technical help. Organizers rely on fragmented communication tools that lack structured ticketing, leading to lost requests and chaotic event management. A production-ready application is required to cleanly handle user roles, ticket routing, real-time support chats, and platform-wide moderation.
+During large-scale hackathons, managing mentor requests via Discord or Slack becomes chaotic. Organizers lack visibility into which teams need help, which mentors are active, and how long participants have been waiting. There is a need for a centralized platform to manage users, route technical issues to available agents, and track resolution metrics.
 
 ## Target Users
-*   **Participants:** Individuals hacking on projects who require team collaboration tools and fast technical support.
-*   **Mentors/Subject Matter Experts:** Professionals providing technical guidance who need a structured queue of help requests.
-*   **Event Organizers:** Hackathon administrators who need global oversight, user management, and broadcast capabilities.
+1. **Hackathon Participants (Hackers)**: Need to form teams, ask for help, and share ideas.
+2. **Technical Mentors (Agents)**: Need to see a live queue of who needs help and claim tickets.
+3. **Event Organizers (Admins/Managers)**: Need a bird's-eye view of the event, user management, and system metrics.
 
 ## User Roles
-*   **Admin (Organizer):** Full system access.
-*   **Manager (Lead Mentor):** Oversees the mentor queue and active mentor-participant chats.
-*   **Agent (Mentor):** Accepts incoming help tickets and engages in 1-on-1 support chats with participants.
-*   **User (Participant):** Submits mentor requests and chats within their dedicated team group.
-*   **Moderator:** Monitors public event channels for spam or inappropriate content.
-
-## User Permissions
-*   **Admins:** Create/Read/Update/Delete (CRUD) on all entities; full access to the admin dashboard.
-*   **Managers:** Read all tickets; update ticket assignments.
-*   **Agents:** Read unassigned tickets; update the status of assigned tickets.
-*   **Users:** Create and update their own profiles; create tickets; read own team data.
-*   **Moderators:** Read public channels; flag or delete messages.
+- **Admin**: Full system access. Can modify roles and view system-wide metrics.
+- **Manager**: Can manage teams and oversee the ticket queue.
+- **Agent (Mentor)**: Can view the unassigned ticket queue, accept, and resolve tickets.
+- **User (Participant)**: Can register, submit mentor requests, and post in the community hub.
+- **Moderator**: Can moderate the community hub posts.
 
 ## User Workflows
-*   **Participant Workflow:** Registers -> Joins a Team -> Submits a "Mentor Request" activity -> Receives a push notification when an Agent accepts -> Chats with the Agent -> Ticket is marked resolved.
-*   **Agent Workflow:** Logs in -> Views active ticket queue -> Accepts a ticket -> Joins a support chat with the User -> Resolves the issue.
-*   **Admin Workflow:** Logs into the web dashboard -> Views system usage and webhook activity -> Monitors moderation logs.
+1. **Participant Registration**: User lands on the public site, enters the 3-step registration funnel (Account -> Hacker Profile -> Team Status).
+2. **Mentor Request Flow**: A participant submits a ticket detailing their bug/issue. The ticket enters the global Redis-backed queue.
+3. **Ticket Resolution Flow**: An Agent views the live mentor queue, clicks "Accept Ticket", helps the team, and marks the ticket as "Resolved".
+4. **Community Building**: Participants post ideas or "Looking for Group" requests in the Community Hub using rich-text markdown.
 
-## Screens/Pages
-**Frontend (Next.js - Admin & Mentor Web App):**
-*   Login and Registration screens.
-*   Admin Dashboard.
-*   Role-specific screens (Mentor Support Queue).
-*   Activity screens (Active Tickets).
-*   Error, empty, and loading states.
-
-**Mobile (Flutter - Participant App):**
-*   Login and Registration screens.
-*   User dashboard (Team Status).
-*   Notification UI.
-*   Profile screen.
+## Screens & Pages
+- **Public Landing Page** (`/`): High-conversion hero, event tracks, and live countdown.
+- **Registration Funnel** (`/register`): Multi-step state machine for onboarding.
+- **Participant Dashboard** (`/dashboard`): Team status, live schedule, and ticket submission modal.
+- **Community Hub** (`/community`): Filterable forum feed with markdown support.
+- **Admin Dashboard** (`/admin`): System metrics, user directory, and role modification tables.
+- **Mentor Queue** (`/mentor-queue`): Live auto-polling queue of active tickets.
 
 ## Backend APIs
-*   REST APIs built with Go.
-*   Authentication and Authorization endpoints.
-*   User and Role management APIs.
-*   Activity and Notification trigger APIs.
-*   Admin APIs.
+- **Auth**: `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/forget-password`
+- **Users**: `GET /api/users`, `PUT /api/users/{id}/role`
+- **Tickets**: `POST /api/tickets`, `GET /api/tickets/queue`, `PUT /api/tickets/{id}/status`
+- **Teams**: `POST /api/teams`, `POST /api/teams/{id}/members`
+- **Registrations**: `POST /api/registrations`, `GET /api/registrations/me`
+- **Community**: `POST /api/community`, `GET /api/community`
 
-## Database Entities
-*   **Users:** Manages credentials, roles, and profiles for 100+ seeded users.
-*   **Teams:** Manages team structures and project links.
-*   **Tickets:** Tracks user activities (mentor requests), statuses, and assigned agents.
-*   **Announcements:** Stores global broadcast messages.
+## Database Entities (PostgreSQL)
+- `users`: Core identity and role management.
+- `teams` & `team_members`: Hackathon team grouping.
+- `tickets`: Mentor requests tracking status and timestamps.
+- `registrations`: Extended hacker profiles (GitHub, LinkedIn, Skills).
+- `community_posts`: Forum posts with categories.
 
 ## Notification Flows
-*   **Pre-Integration (App Core):** Push notifications are triggered for selected user activities, such as a new task (ticket) assigned or a request updated.
-*   **Post-Integration (CometChat):** Existing app notifications continue working alongside CometChat push notifications for one-on-one messages, group messages, and calls.
+- **Push Notification Trigger**: When an Agent accepts a ticket, a push notification is dispatched to the User's FCM/APNS token indicating "A mentor is on their way!".
+- **Push Notification Trigger**: When an Admin makes a global announcement, a broadcast push notification is sent to all active devices.
 
 ## Admin Dashboard Scope
-*   View, create, update, and deactivate users.
-*   Assign roles or levels.
-*   View user activities and notification logs.
-*   Search or filter users and activities.
-*   View basic system-level usage summaries.
+- View all 100+ seeded users in a data table.
+- Update user roles (e.g., promote a User to an Agent).
+- View high-level metrics: Total active tickets, unresolved tickets, total registered hackers.
 
 ## Assumptions
-*   The system will process high concurrent reads during event announcements, mitigated by Redis caching.
-*   FCM (Firebase Cloud Messaging) is used for all device token handling and push notification delivery.
-*   All seeded users and new registrants will be automatically synced with CometChat UIDs.
+- Users have GitHub and LinkedIn accounts.
+- The event operates in a single timezone.
+- Agents are physically present at the venue or available via a third-party call link.
 
 ## Out-of-Scope Items
-*   Live video broadcasting functionality.
-*   Automated resume parsing or algorithmic team matching.
-*   Payment gateways or financial transactions.
+- **Real-Time Chat & Video Calling**: Currently out of scope. (This is intentionally reserved for Step 2: CometChat Integration).
+- **Advanced Code-Execution Environments**: We are routing mentors, not providing an online IDE.
 
 ## Acceptance Criteria
-*   **Step 1:** The production-ready app is functional with an implemented frontend, backend, and admin dashboard. 100+ users are seeded with different roles and levels. Push notifications for app activities work.
-*   **Step 2:** Existing and new users are synced with CometChat. Real-time messaging, agent chat, and moderation features work. Existing app push notifications continue working alongside CometChat notifications. At least one webhook use case is implemented and visible in the dashboard.
+- A user can register, log in, and submit a mentor ticket.
+- An Agent can view the ticket in the queue and change its status.
+- An Admin can view the user directory and change roles.
+- The Next.js frontend and Go backend communicate securely via JWTs.
+- The Native Mobile shells successfully compile and interface with the API.
 
 ## Testing Plan
-*   **Multi-Outcome Edge Case Testing:** Verify system stability under varied outcomes, including network drops during chat sessions, invalid ticket assignments, and unauthorized API access attempts.
-*   **Database Validation:** Confirm seeders accurately generate 100+ users across all required roles.
-*   **Webhook Integrity:** Test CometChat webhook payload processing to ensure database logging does not fail under high message volumes.
+- **Backend**: Unit testing the Chi router endpoints and PostgreSQL queries.
+- **Frontend**: Manual end-to-end testing of the registration funnel, JWT cookie persistence, and layout responsiveness.
+- **Security**: Verifying that RBAC middleware strictly rejects unauthorized role access.
 
 ## Demo Plan
-1.  Admin logs in and views seeded users, verifying role assignments.
-2.  User logs in and performs an activity triggering an existing app push notification.
-3.  User opens CometChat, sending a one-on-one message and joining a group conversation to demonstrate real-time updates and typing indicators.
-4.  User chats with an agent, who responds from the agent dashboard.
-5.  A moderation rule is triggered and demonstrated.
-6.  A webhook event is received, logged, and viewed by the admin in the dashboard.
+1. Demonstrate the public landing page and seamless registration flow.
+2. Log in as the newly created User and submit a Mentor Request from the Dashboard.
+3. Log in as an Agent on a separate browser, view the live Mentor Queue, and accept the ticket.
+4. Log in as an Admin, view the system metrics reflecting the active ticket, and upgrade a User to a Moderator.
