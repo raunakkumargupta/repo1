@@ -22,3 +22,7 @@ func (s *UserService) GetUsers(ctx context.Context) ([]models.User, error) {
 func (s *UserService) UpdateUserRole(ctx context.Context, userID, role string) error {
 	return s.pgRepo.UpdateUserRole(ctx, userID, role)
 }
+
+func (s *UserService) GetUserByID(ctx context.Context, id string) (*models.User, error) {
+	return s.pgRepo.GetUserByID(ctx, id)
+}

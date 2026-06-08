@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/raunakkumargupta/repo1/backend/internal/middleware"
 	"github.com/raunakkumargupta/repo1/backend/internal/models"
 	"github.com/raunakkumargupta/repo1/backend/internal/service"
@@ -17,6 +18,96 @@ func NewRegistrationHandler(regService *service.RegistrationService) *Registrati
 	return &RegistrationHandler{regService: regService}
 }
 
+func (h *RegistrationHandler) Apply(w http.ResponseWriter, r *http.Request) {
+	hackathonID := chi.URLParam(r, "id")
+	if hackathonID == "" {
+		http.Error(w, "hackathon id is required", http.StatusBadRequest)
+		return
+	}
+
+	claims := middleware.GetUserClaims(r.Context())
+	var req models.ApplyHackathonRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	reg, err := h.regService.Apply(r.Context(), claims.UserID, hackathonID, req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(reg)
+}
+
+func (h *RegistrationHandler) GetMyRegistration(w http.ResponseWriter, r *http.Request) {
+	hackathonID := chi.URLParam(r, "id")
+	if hackathonID == "" {
+		http.Error(w, "hackathon id is required", http.StatusBadRequest)
+		return
+	}
+
+	claims := middleware.GetUserClaims(r.Context())
+	reg, err := h.regService.GetRegistration(r.Context(), claims.UserID, hackathonID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if reg == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"message": "not found"})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(reg)
+}
+
+func (h *RegistrationHandler) ListByHackathon(w http.ResponseWriter, r *http.Request) {
+	hackathonID := chi.URLParam(r, "id")
+	if hackathonID == "" {
+		http.Error(w, "hackathon id is required", http.StatusBadRequest)
+		return
+	}
+
+	list, err := h.regService.ListByHackathon(r.Context(), hackathonID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(list)
+}
+
+func (h *RegistrationHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
+	regID := chi.URLParam(r, "reg_id")
+	if regID == "" {
+		http.Error(w, "registration id is required", http.StatusBadRequest)
+		return
+	}
+
+	var req models.UpdateRegistrationStatusRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	err := h.regService.UpdateStatus(r.Context(), regID, req.Status)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "Status updated successfully!"})
+}
+
+// Legacy compatibility
 func (h *RegistrationHandler) CreateRegistration(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.GetUserClaims(r.Context())
 	var req models.CreateRegistrationRequest
@@ -25,7 +116,20 @@ func (h *RegistrationHandler) CreateRegistration(w http.ResponseWriter, r *http.
 		return
 	}
 
-	reg, err := h.regService.CreateRegistration(r.Context(), claims.UserID, req)
+	// Fetch or stub a default/active hackathon ID if available
+	hackathonID := "00000000-0000-0000-0000-000000000000" // placeholder for backwards compatibility
+	skillsArr := []string{}
+	_ = json.Unmarshal([]byte(req.Skills), &skillsArr)
+
+	applyReq := models.ApplyHackathonRequest{
+		GithubURL:      req.GithubURL,
+		LinkedinURL:    req.LinkedinURL,
+		Skills:         skillsArr,
+		TeamPreference: req.Status, // maps old status ('Looking for Team' etc) to preference
+		ResumeURL:      nil,
+	}
+
+	reg, err := h.regService.Apply(r.Context(), claims.UserID, hackathonID, applyReq)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -33,22 +137,5 @@ func (h *RegistrationHandler) CreateRegistration(w http.ResponseWriter, r *http.
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(reg)
-}
-
-func (h *RegistrationHandler) GetMyRegistration(w http.ResponseWriter, r *http.Request) {
-	claims := middleware.GetUserClaims(r.Context())
-
-	reg, err := h.regService.GetRegistrationByUserID(r.Context(), claims.UserID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if reg == nil {
-		http.Error(w, "not found", http.StatusNotFound)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(reg)
 }

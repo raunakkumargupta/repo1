@@ -19,13 +19,19 @@ func NewTicketHandler(ticketService *service.TicketService) *TicketHandler {
 }
 
 func (h *TicketHandler) CreateTicket(w http.ResponseWriter, r *http.Request) {
+	hackathonID := chi.URLParam(r, "id")
+	if hackathonID == "" {
+		http.Error(w, "hackathon id is required", http.StatusBadRequest)
+		return
+	}
+
 	var req models.CreateTicketRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	ticket, err := h.ticketService.CreateTicket(r.Context(), req)
+	ticket, err := h.ticketService.CreateTicket(r.Context(), hackathonID, req)
 	if err != nil {
 		http.Error(w, "failed to create ticket", http.StatusInternalServerError)
 		return
@@ -37,7 +43,13 @@ func (h *TicketHandler) CreateTicket(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TicketHandler) GetQueue(w http.ResponseWriter, r *http.Request) {
-	tickets, err := h.ticketService.GetUnassignedTickets(r.Context())
+	hackathonID := chi.URLParam(r, "id")
+	if hackathonID == "" {
+		http.Error(w, "hackathon id is required", http.StatusBadRequest)
+		return
+	}
+
+	tickets, err := h.ticketService.GetHackathonTicketsQueue(r.Context(), hackathonID)
 	if err != nil {
 		http.Error(w, "failed to fetch tickets", http.StatusInternalServerError)
 		return
@@ -48,7 +60,11 @@ func (h *TicketHandler) GetQueue(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TicketHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
-	ticketID := chi.URLParam(r, "id")
+	ticketID := chi.URLParam(r, "ticket_id")
+	if ticketID == "" {
+		// Fallback to older param key
+		ticketID = chi.URLParam(r, "id")
+	}
 	if ticketID == "" {
 		http.Error(w, "ticket id required", http.StatusBadRequest)
 		return

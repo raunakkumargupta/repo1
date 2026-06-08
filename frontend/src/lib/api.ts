@@ -2,7 +2,7 @@
 // Note: In Next.js CSR, using standard fetch includes credentials (cookies) implicitly for same-origin if configured,
 // but since the Go API is at localhost:8080 and Next.js is at localhost:3000, we must specify credentials: 'include'.
 
-const API_BASE = "http://localhost:8080/api";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
 
 export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const defaultOptions: RequestInit = {

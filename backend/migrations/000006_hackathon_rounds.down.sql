@@ -1,0 +1,2 @@
+ALTER TABLE hackathons
+DROP COLUMN IF EXISTS rounds;

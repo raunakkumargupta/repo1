@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"path/filepath"
-	"runtime"
 	"strconv"
 	"time"
 
@@ -23,12 +21,7 @@ import (
 )
 
 func runMigrations(dbURL string) error {
-	// Get the directory of the current file to construct the migrations path
-	_, b, _, _ := runtime.Caller(0)
-	basepath := filepath.Dir(b)
-	migrationsPath := filepath.Join(basepath, "..", "..", "migrations")
-
-	sourceURL := fmt.Sprintf("file://%s", migrationsPath)
+	sourceURL := "file://migrations"
 	
 	log.Printf("Running migrations from: %s", sourceURL)
 	
@@ -113,6 +106,12 @@ func main() {
 	userService := service.NewUserService(pgRepo)
 	regService := service.NewRegistrationService(pgRepo)
 	commService := service.NewCommunityService(pgRepo)
+	hackathonService := service.NewHackathonService(pgRepo)
+	judgeService := service.NewJudgeService(pgRepo)
+	superAdminService := service.NewSuperAdminService(pgRepo)
+	staffService := service.NewStaffService(pgRepo)
+	announcementService := service.NewAnnouncementService(pgRepo, wp)
+	profileService := service.NewProfileService(pgRepo)
 
 	// Setup Handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -121,9 +120,20 @@ func main() {
 	userHandler := handler.NewUserHandler(userService)
 	regHandler := handler.NewRegistrationHandler(regService)
 	commHandler := handler.NewCommunityHandler(commService)
+	hackathonHandler := handler.NewHackathonHandler(hackathonService)
+	judgeHandler := handler.NewJudgeHandler(judgeService)
+	superAdminHandler := handler.NewSuperAdminHandler(superAdminService)
+	staffHandler := handler.NewStaffHandler(staffService)
+	announcementHandler := handler.NewAnnouncementHandler(announcementService)
+	profileHandler := handler.NewProfileHandler(profileService)
 
 	// Setup Router
-	r := handler.NewRouter(authHandler, ticketHandler, teamHandler, userHandler, regHandler, commHandler, cfg.JWTSecret, cfg.AllowedOrigins, redisClient)
+	r := handler.NewRouter(
+		authHandler, ticketHandler, teamHandler, userHandler, regHandler, commHandler,
+		hackathonHandler, judgeHandler, superAdminHandler, staffHandler, announcementHandler,
+		profileHandler,
+		cfg.JWTSecret, cfg.AllowedOrigins, redisClient,
+	)
 
 	// Start Server
 	log.Printf("Server starting on port %s", cfg.Port)

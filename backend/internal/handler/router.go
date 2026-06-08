@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"net/http"
-
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -13,7 +11,23 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func NewRouter(authHandler *AuthHandler, ticketHandler *TicketHandler, teamHandler *TeamHandler, userHandler *UserHandler, regHandler *RegistrationHandler, commHandler *CommunityHandler, jwtSecret string, allowedOrigins string, redisClient *redis.Client) *chi.Mux {
+func NewRouter(
+	authHandler *AuthHandler,
+	ticketHandler *TicketHandler,
+	teamHandler *TeamHandler,
+	userHandler *UserHandler,
+	regHandler *RegistrationHandler,
+	commHandler *CommunityHandler,
+	hackathonHandler *HackathonHandler,
+	judgeHandler *JudgeHandler,
+	superAdminHandler *SuperAdminHandler,
+	staffHandler *StaffHandler,
+	announcementHandler *AnnouncementHandler,
+	profileHandler *ProfileHandler,
+	jwtSecret string,
+	allowedOrigins string,
+	redisClient *redis.Client,
+) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(chimiddleware.Logger)
@@ -32,59 +46,130 @@ func NewRouter(authHandler *AuthHandler, ticketHandler *TicketHandler, teamHandl
 		MaxAge:           300,
 	}))
 
-	// Rate Limit Middleware specifically for potentially abused POST routes
-	// 5 requests per second capacity 5
-	rateLimiter := middleware.RateLimitMiddleware(redisClient, 5, 5)
+	// Rate Limit Middleware
+	rateLimiter := middleware.RateLimitMiddleware(redisClient, 10, 10)
 
+	// ==========================================
 	// Public Routes
+	// ==========================================
 	r.Group(func(r chi.Router) {
 		r.Post("/api/auth/register", authHandler.Register)
 		r.With(rateLimiter).Post("/api/auth/login", authHandler.Login)
 		r.Post("/api/auth/forget-password", authHandler.ForgetPassword)
 		r.Post("/api/auth/reset-password", authHandler.ResetPassword)
+		
+		// Public hackathon list/details
+		r.Get("/api/hackathons", hackathonHandler.ListApproved)
+		r.Get("/api/hackathons/{id}", hackathonHandler.GetByID)
+		
+		// Community reads
+		r.Get("/api/community", commHandler.GetPosts)
 	})
 
-	// Protected Routes
+	// ==========================================
+	// Protected Routes (Required Authentication)
+	// ==========================================
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.AuthMiddleware(jwtSecret))
 		
 		r.Post("/api/auth/logout", authHandler.Logout)
+		r.Get("/api/auth/me", userHandler.GetMe)
 
-		// Example RBAC route for Admins only
-		r.With(middleware.RequireRole(models.RoleAdmin)).Get("/api/admin/dashboard", func(w http.ResponseWriter, req *http.Request) {
-			w.Write([]byte("Welcome to the admin dashboard!"))
+		// Create a hackathon (accessible to all authenticated users)
+		r.Post("/api/hackathons", hackathonHandler.Create)
+		// Fetch all hackathons (including pending)
+		r.Get("/api/hackathons/all", hackathonHandler.ListAll)
+
+		// Hacker Profile (Global Profile)
+		r.Get("/api/profile/me", profileHandler.GetMyProfile)
+		r.Post("/api/profile/me", profileHandler.UpdateMyProfile)
+
+		// For backward compatibility (legacy routes)
+		r.Post("/api/registrations", regHandler.CreateRegistration)
+		r.Get("/api/registrations/me", regHandler.GetMyRegistration)
+		r.Post("/api/community", commHandler.CreatePost)
+
+		// ------------------------------------------
+		// Hacker (User) Roles - Shared
+		// ------------------------------------------
+		r.Group(func(r chi.Router) {
+			// Apply to hackathon
+			r.Post("/api/hackathons/{id}/apply", regHandler.Apply)
+			// Get application details
+			r.Get("/api/hackathons/{id}/my-registration", regHandler.GetMyRegistration)
+			
+			// Teams
+			r.Post("/api/hackathons/{id}/teams", teamHandler.Create)
+			r.Post("/api/hackathons/{id}/teams/join", teamHandler.Join)
+			r.Get("/api/hackathons/{id}/my-team", teamHandler.GetMyTeam)
+			r.Put("/api/hackathons/{id}/teams/submit", teamHandler.SubmitProject)
+			
+			// Tickets
+			r.Post("/api/hackathons/{id}/tickets", ticketHandler.CreateTicket)
+			
+			// Broadcast announcements history
+			r.Get("/api/hackathons/{id}/broadcasts", announcementHandler.List)
 		})
 
-		// Example RBAC route for Agents and Managers
-		r.With(middleware.RequireRole(models.RoleAgent, models.RoleManager)).Get("/api/agent/tickets", func(w http.ResponseWriter, req *http.Request) {
-			w.Write([]byte("Here are the active tickets..."))
+		// ------------------------------------------
+		// Organizer
+		// ------------------------------------------
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.RequireRole(models.RoleOrganizer, models.RoleManager, models.RoleAdmin, models.RoleSuperAdmin))
+			
+			// Update hackathon event details (description, prizes, schedule, rounds etc.)
+			r.Patch("/api/hackathons/{id}/details", hackathonHandler.UpdateDetails)
+			
+			// View metrics & details
+			r.Get("/api/hackathons/{id}/applications", regHandler.ListByHackathon)
+			r.Put("/api/registrations/{reg_id}/status", regHandler.UpdateStatus)
+			
+			// Staffing
+			r.Post("/api/hackathons/{id}/staff", staffHandler.Assign)
+			
+			// Broadcast announcements
+			r.Post("/api/hackathons/{id}/broadcasts", announcementHandler.Create)
+			
+			// Submissions list
+			r.Get("/api/hackathons/{id}/submissions", teamHandler.ListSubmissions)
 		})
-		
-		// Example RBAC route for Users
-		r.With(middleware.RequireRole(models.RoleUser)).Get("/api/user/profile", func(w http.ResponseWriter, req *http.Request) {
-			claims := middleware.GetUserClaims(req.Context())
-			w.Write([]byte("Hello user " + claims.UserID))
+
+		// ------------------------------------------
+		// Mentor (Agent)
+		// ------------------------------------------
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.RequireRole(models.RoleMentor, models.RoleAgent, models.RoleOrganizer, models.RoleAdmin, models.RoleSuperAdmin))
+			
+			r.Get("/api/hackathons/{id}/tickets", ticketHandler.GetQueue)
+			r.Put("/api/tickets/{ticket_id}/status", ticketHandler.UpdateStatus)
 		})
-		// Ticket Routes
-		r.With(middleware.RequireRole(models.RoleUser), rateLimiter).Post("/api/tickets", ticketHandler.CreateTicket)
-		r.With(middleware.RequireRole(models.RoleAgent, models.RoleManager)).Get("/api/tickets/queue", ticketHandler.GetQueue)
-		r.With(middleware.RequireRole(models.RoleAgent)).Put("/api/tickets/{id}/status", ticketHandler.UpdateStatus)
 
-		// Team Routes
-		r.With(middleware.RequireRole(models.RoleAdmin, models.RoleManager)).Post("/api/teams", teamHandler.CreateTeam)
-		r.With(middleware.RequireRole(models.RoleAdmin, models.RoleManager)).Post("/api/teams/{id}/members", teamHandler.AddMember)
+		// ------------------------------------------
+		// Judge
+		// ------------------------------------------
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.RequireRole(models.RoleJudge, models.RoleModerator, models.RoleOrganizer, models.RoleAdmin, models.RoleSuperAdmin))
+			
+			r.Get("/api/hackathons/{id}/projects", judgeHandler.ListSubmittedProjects)
+			r.Post("/api/hackathons/{id}/evaluations", judgeHandler.SubmitEvaluation)
+		})
 
-		// User Routes
-		r.With(middleware.RequireRole(models.RoleAdmin)).Get("/api/users", userHandler.GetUsers)
-		r.With(middleware.RequireRole(models.RoleAdmin)).Put("/api/users/{id}/role", userHandler.UpdateRole)
-
-		// Registration Routes
-		r.With(middleware.RequireRole(models.RoleUser)).Post("/api/registrations", regHandler.CreateRegistration)
-		r.With(middleware.RequireRole(models.RoleUser)).Get("/api/registrations/me", regHandler.GetMyRegistration)
-
-		// Community Routes
-		r.With(middleware.RequireRole(models.RoleUser, models.RoleAdmin, models.RoleManager, models.RoleAgent, models.RoleModerator)).Post("/api/community", commHandler.CreatePost)
-		r.With(middleware.RequireRole(models.RoleUser, models.RoleAdmin, models.RoleManager, models.RoleAgent, models.RoleModerator)).Get("/api/community", commHandler.GetPosts)
+		// ------------------------------------------
+		// Super Admin
+		// ------------------------------------------
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.RequireRole(models.RoleSuperAdmin, models.RoleAdmin))
+			
+			r.Get("/api/admin/organizers/pending", superAdminHandler.ListPending)
+			r.Put("/api/admin/organizers/{id}/status", superAdminHandler.Approve)
+			r.Get("/api/admin/metrics", superAdminHandler.GetMetrics)
+			r.Get("/api/admin/moderation/logs", superAdminHandler.GetModerationLogs)
+			r.Put("/api/admin/users/{id}/status", superAdminHandler.BanUser)
+			
+			// Legacy user fetch
+			r.Get("/api/users", userHandler.GetUsers)
+			r.Put("/api/users/{id}/role", userHandler.UpdateRole)
+		})
 	})
 
 	return r

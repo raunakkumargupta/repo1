@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-
 	"fmt"
 
 	"github.com/raunakkumargupta/repo1/backend/internal/models"
@@ -24,58 +23,51 @@ func NewTicketService(pgRepo *repository.PostgresRepo, redisRepo *repository.Red
 	}
 }
 
-func (s *TicketService) CreateTicket(ctx context.Context, req models.CreateTicketRequest) (*models.Ticket, error) {
+func (s *TicketService) CreateTicket(ctx context.Context, hackathonID string, req models.CreateTicketRequest) (*models.Ticket, error) {
 	ticket := &models.Ticket{
+		HackathonID: hackathonID,
 		TeamID:      req.TeamID,
 		Description: req.Description,
-		Status:      "open",
+		Status:      "Open",
 	}
 
 	if err := s.pgRepo.CreateTicket(ctx, ticket); err != nil {
 		return nil, err
 	}
 
-	// Add to Redis Queue
-	if err := s.redisRepo.AddTicketToQueue(ctx, ticket.ID); err != nil {
-		// Even if Redis fails, the ticket is in the DB.
-		// A background sync could recover this.
-		return ticket, nil 
-	}
+	// Add unassigned ticket ID to Redis Queue (event-specific list)
+	key := fmt.Sprintf("hackathon:%s:open_tickets", hackathonID)
+	_ = s.redisRepo.AddTicketToQueue(ctx, key) // fallback cache mapping
 
 	// Dispatch asynchronous auditing
 	s.workerPool.Enqueue(worker.Job{
 		Type:    "AUDIT_LOG",
-		Payload: fmt.Sprintf("Ticket %s created for Team %s", ticket.ID, ticket.TeamID),
+		Payload: fmt.Sprintf("Ticket %s created for Team %s in Hackathon %s", ticket.ID, ticket.TeamID, hackathonID),
 	})
 
 	return ticket, nil
 }
 
-func (s *TicketService) GetUnassignedTickets(ctx context.Context) ([]models.Ticket, error) {
-	ids, err := s.redisRepo.GetUnassignedTicketIDs(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.pgRepo.GetTicketsByIDs(ctx, ids)
+func (s *TicketService) GetHackathonTicketsQueue(ctx context.Context, hackathonID string) ([]models.Ticket, error) {
+	return s.pgRepo.GetTicketsQueue(ctx, hackathonID)
 }
 
-func (s *TicketService) UpdateTicketStatus(ctx context.Context, ticketID, status, agentID string) error {
-	err := s.pgRepo.UpdateTicketStatus(ctx, ticketID, status, agentID)
+func (s *TicketService) UpdateTicketStatus(ctx context.Context, ticketID, status, mentorID string) error {
+	err := s.pgRepo.UpdateTicketStatus(ctx, ticketID, status, mentorID)
 	if err != nil {
 		return err
 	}
 
-	// If the ticket is being assigned (active) or resolved, remove it from the unassigned queue
-	if status == "active" || status == "resolved" {
-		_ = s.redisRepo.RemoveTicketFromQueue(ctx, ticketID)
-	}
-
-	// Dispatch asynchronous notification
+	// Dispatch asynchronous push notification (simulated)
 	s.workerPool.Enqueue(worker.Job{
 		Type:    "FCM_NOTIFICATION",
-		Payload: fmt.Sprintf("Ticket %s status updated to %s by agent %s", ticketID, status, agentID),
+		Payload: fmt.Sprintf("Ticket %s status updated to %s by mentor %s", ticketID, status, mentorID),
 	})
 
 	return nil
+}
+
+// Backwards compatibility method
+func (s *TicketService) GetUnassignedTickets(ctx context.Context) ([]models.Ticket, error) {
+	return s.pgRepo.GetTicketsByQueue(ctx)
 }

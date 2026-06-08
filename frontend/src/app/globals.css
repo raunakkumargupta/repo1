@@ -1,38 +1,88 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+/* Force dark class strategy — Tailwind dark: utilities read from html.dark */
+@custom-variant dark (&:where(.dark, .dark *));
 
-@theme {
-  --color-brand-blue-light: var(--color-blue-900);
-  --color-brand-blue-dark: var(--color-blue-500);
-  --color-brand-red-light: var(--color-red-600);
-  --color-brand-red-dark: var(--color-red-500);
-  
-  --color-surface-light: var(--color-slate-100);
-  --color-surface-dark: var(--color-slate-800);
-}
-
+/* Design Tokens */
 :root {
-  --background: var(--color-slate-50);
-  --foreground: var(--color-slate-900);
-  --surface: var(--color-surface-light);
-  --primary: var(--color-brand-blue-light);
-  --destructive: var(--color-brand-red-light);
+  /* Light Mode */
+  --background: #F8FAFC;
+  --foreground: #0F172A;
+  --surface: rgba(255,255,255,0.7);
+  --surface-border: rgba(226,232,240,0.6);
+  --muted: #64748B;
+  --primary: #2563EB;
+  --primary-glow: rgba(37,99,235,0.25);
+  --destructive: #DC2626;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: var(--color-gray-950);
-    --foreground: var(--color-slate-50);
-    --surface: var(--color-surface-dark);
-    --primary: var(--color-brand-blue-dark);
-    --destructive: var(--color-brand-red-dark);
-  }
+.dark {
+  /* Dark Mode — Gunmetal Obsidian */
+  --background: #0B0F19;
+  --foreground: #F1F5F9;
+  --surface: rgba(15,23,42,0.6);
+  --surface-border: rgba(255,255,255,0.08);
+  --muted: #94A3B8;
+  --primary: #3B82F6;
+  --primary-glow: rgba(59,130,246,0.3);
+  --destructive: #EF4444;
+}
+
+/* Base */
+html {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-  @apply antialiased min-h-screen selection:bg-blue-500/30;
+  @apply antialiased min-h-screen selection:bg-blue-500/30 overflow-x-hidden transition-colors duration-200;
 }
+
+/* Reusable Glass Panel */
+.glass {
+  background: var(--surface);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--surface-border);
+}
+
+/* Input base */
+.input-base {
+  color: var(--foreground);
+  border-bottom: 1px solid var(--surface-border);
+  background-color: transparent;
+  padding: 0.75rem 0;
+  font-size: 0.875rem;
+  transition: border-color 200ms;
+}
+.input-base::placeholder {
+  color: var(--muted);
+  opacity: 0.7;
+}
+.input-base:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
+/* Fix for native select dropdown options legibility on Windows/Chrome in light/dark themes */
+select option {
+  background-color: var(--background) !important;
+  color: var(--foreground) !important;
+}
+
+/* Force native browser calendar icon to be visible and white in dark mode */
+.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  cursor: pointer;
+  opacity: 0.75;
+  transition: opacity 0.2s;
+}
+.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+

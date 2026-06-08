@@ -17,6 +17,10 @@ func NewPostgresRepo(pool *pgxpool.Pool) *PostgresRepo {
 	return &PostgresRepo{pool: pool}
 }
 
+// ==========================================
+// Users Logic
+// ==========================================
+
 func (r *PostgresRepo) CreateUser(ctx context.Context, user *models.User) error {
 	query := `
 		INSERT INTO users (name, email, password_hash, role)
@@ -45,7 +49,7 @@ func (r *PostgresRepo) GetUserByEmail(ctx context.Context, email string) (*model
 		)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil // Return nil, nil instead of error for standard 'not found' check
+			return nil, nil
 		}
 		return nil, err
 	}
@@ -55,49 +59,6 @@ func (r *PostgresRepo) GetUserByEmail(ctx context.Context, email string) (*model
 func (r *PostgresRepo) UpdateUserPassword(ctx context.Context, userID, newHash string) error {
 	query := `UPDATE users SET password_hash = $1 WHERE id = $2`
 	_, err := r.pool.Exec(ctx, query, newHash, userID)
-	return err
-}
-
-func (r *PostgresRepo) CreateTicket(ctx context.Context, ticket *models.Ticket) error {
-	query := `
-		INSERT INTO tickets (team_id, description, status)
-		VALUES ($1, $2, $3)
-		RETURNING id, created_at
-	`
-	return r.pool.QueryRow(ctx, query, ticket.TeamID, ticket.Description, ticket.Status).
-		Scan(&ticket.ID, &ticket.CreatedAt)
-}
-
-func (r *PostgresRepo) UpdateTicketStatus(ctx context.Context, ticketID, status, agentID string) error {
-	var query string
-	var err error
-	
-	if status == "resolved" {
-		query = `UPDATE tickets SET status = $1, assigned_agent_id = $2, resolved_at = CURRENT_TIMESTAMP WHERE id = $3`
-		_, err = r.pool.Exec(ctx, query, status, agentID, ticketID)
-	} else if status == "active" {
-		query = `UPDATE tickets SET status = $1, assigned_agent_id = $2 WHERE id = $3`
-		_, err = r.pool.Exec(ctx, query, status, agentID, ticketID)
-	} else {
-		query = `UPDATE tickets SET status = $1 WHERE id = $2`
-		_, err = r.pool.Exec(ctx, query, status, ticketID)
-	}
-	return err
-}
-
-func (r *PostgresRepo) CreateTeam(ctx context.Context, team *models.Team) error {
-	query := `
-		INSERT INTO teams (team_name, repository_url)
-		VALUES ($1, $2)
-		RETURNING id, created_at
-	`
-	return r.pool.QueryRow(ctx, query, team.TeamName, team.RepositoryURL).
-		Scan(&team.ID, &team.CreatedAt)
-}
-
-func (r *PostgresRepo) AddUserToTeam(ctx context.Context, teamID, userID string) error {
-	query := `INSERT INTO team_members (team_id, user_id) VALUES ($1, $2)`
-	_, err := r.pool.Exec(ctx, query, teamID, userID)
 	return err
 }
 
@@ -126,13 +87,388 @@ func (r *PostgresRepo) UpdateUserRole(ctx context.Context, userID, role string) 
 	return err
 }
 
+func (r *PostgresRepo) UpdateUserStatus(ctx context.Context, userID, status string) error {
+	query := `UPDATE users SET status = $1 WHERE id = $2`
+	_, err := r.pool.Exec(ctx, query, status, userID)
+	return err
+}
+
+// ==========================================
+// Hackathons Logic
+// ==========================================
+
+func (r *PostgresRepo) CreateHackathon(ctx context.Context, h *models.Hackathon) error {
+	query := `
+		INSERT INTO hackathons (organizer_id, title, description, cover_image, tracks, start_date, end_date, problem_statement, prizes, schedule, sponsors, min_team_size, max_team_size, registration_fee, rounds)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+		RETURNING id, registration_status, is_approved, created_at
+	`
+	return r.pool.QueryRow(ctx, query, h.OrganizerID, h.Title, h.Description, h.CoverImage, h.Tracks, h.StartDate, h.EndDate, h.ProblemStatement, h.Prizes, h.Schedule, h.Sponsors, h.MinTeamSize, h.MaxTeamSize, h.RegistrationFee, h.Rounds).
+		Scan(&h.ID, &h.RegistrationStatus, &h.IsApproved, &h.CreatedAt)
+}
+
+func (r *PostgresRepo) GetHackathonByID(ctx context.Context, id string) (*models.Hackathon, error) {
+	query := `
+		SELECT id, organizer_id, title, COALESCE(description, ''), COALESCE(cover_image, ''), tracks, start_date, end_date, registration_status, is_approved, created_at,
+		       COALESCE(problem_statement, ''), COALESCE(prizes, ''), COALESCE(schedule, ''), COALESCE(sponsors, ''), COALESCE(min_team_size, 1), COALESCE(max_team_size, 4), COALESCE(registration_fee, 'Free'), COALESCE(rounds, '')
+		FROM hackathons
+		WHERE id = $1
+	`
+	h := &models.Hackathon{}
+	err := r.pool.QueryRow(ctx, query, id).
+		Scan(
+			&h.ID, &h.OrganizerID, &h.Title, &h.Description, &h.CoverImage, &h.Tracks,
+			&h.StartDate, &h.EndDate, &h.RegistrationStatus, &h.IsApproved, &h.CreatedAt,
+			&h.ProblemStatement, &h.Prizes, &h.Schedule, &h.Sponsors, &h.MinTeamSize, &h.MaxTeamSize, &h.RegistrationFee, &h.Rounds,
+		)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return h, nil
+}
+
+func (r *PostgresRepo) GetHackathons(ctx context.Context, onlyApproved bool) ([]models.Hackathon, error) {
+	var query string
+	if onlyApproved {
+		query = `SELECT id, organizer_id, title, COALESCE(description, ''), COALESCE(cover_image, ''), tracks, start_date, end_date, registration_status, is_approved, created_at,
+		                COALESCE(problem_statement, ''), COALESCE(prizes, ''), COALESCE(schedule, ''), COALESCE(sponsors, ''), COALESCE(min_team_size, 1), COALESCE(max_team_size, 4), COALESCE(registration_fee, 'Free'), COALESCE(rounds, '')
+		         FROM hackathons WHERE is_approved = true ORDER BY start_date ASC`
+	} else {
+		query = `SELECT id, organizer_id, title, COALESCE(description, ''), COALESCE(cover_image, ''), tracks, start_date, end_date, registration_status, is_approved, created_at,
+		                COALESCE(problem_statement, ''), COALESCE(prizes, ''), COALESCE(schedule, ''), COALESCE(sponsors, ''), COALESCE(min_team_size, 1), COALESCE(max_team_size, 4), COALESCE(registration_fee, 'Free'), COALESCE(rounds, '')
+		         FROM hackathons ORDER BY created_at DESC`
+	}
+
+	rows, err := r.pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []models.Hackathon
+	for rows.Next() {
+		var h models.Hackathon
+		err := rows.Scan(
+			&h.ID, &h.OrganizerID, &h.Title, &h.Description, &h.CoverImage, &h.Tracks,
+			&h.StartDate, &h.EndDate, &h.RegistrationStatus, &h.IsApproved, &h.CreatedAt,
+			&h.ProblemStatement, &h.Prizes, &h.Schedule, &h.Sponsors, &h.MinTeamSize, &h.MaxTeamSize, &h.RegistrationFee, &h.Rounds,
+		)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, h)
+	}
+	return list, rows.Err()
+}
+
+func (r *PostgresRepo) UpdateHackathonDetails(ctx context.Context, id string, req models.UpdateHackathonDetailsRequest) error {
+	query := `
+		UPDATE hackathons SET
+			title = $2,
+			tracks = $3,
+			cover_image = $4,
+			start_date = $5,
+			end_date = $6,
+			description = $7,
+			problem_statement = $8,
+			prizes = $9,
+			schedule = $10,
+			sponsors = $11,
+			min_team_size = $12,
+			max_team_size = $13,
+			registration_fee = $14,
+			rounds = $15
+		WHERE id = $1
+	`
+	_, err := r.pool.Exec(ctx, query, id,
+		req.Title, req.Tracks, req.CoverImage, req.StartDate, req.EndDate,
+		req.Description, req.ProblemStatement, req.Prizes, req.Schedule,
+		req.Sponsors, req.MinTeamSize, req.MaxTeamSize, req.RegistrationFee, req.Rounds,
+	)
+	return err
+}
+
+func (r *PostgresRepo) ApproveHackathon(ctx context.Context, id string) error {
+	query := `UPDATE hackathons SET is_approved = true WHERE id = $1`
+	_, err := r.pool.Exec(ctx, query, id)
+	return err
+}
+
+// ==========================================
+// Registrations Logic
+// ==========================================
+
+func (r *PostgresRepo) CreateRegistration(ctx context.Context, reg *models.Registration) error {
+	query := `
+		INSERT INTO registrations (user_id, hackathon_id, github_url, linkedin_url, skills, team_preference, approval_status, resume_url)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id, created_at
+	`
+	return r.pool.QueryRow(ctx, query, reg.UserID, reg.HackathonID, reg.GithubURL, reg.LinkedinURL, reg.Skills, reg.TeamPreference, reg.ApprovalStatus, reg.ResumeURL).
+		Scan(&reg.ID, &reg.CreatedAt)
+}
+
+func (r *PostgresRepo) UpsertRegistration(ctx context.Context, reg *models.Registration) error {
+	query := `
+		INSERT INTO registrations (user_id, hackathon_id, github_url, linkedin_url, skills, team_preference, approval_status, resume_url)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		ON CONFLICT (user_id, hackathon_id) DO UPDATE SET
+			github_url = EXCLUDED.github_url,
+			linkedin_url = EXCLUDED.linkedin_url,
+			skills = EXCLUDED.skills,
+			team_preference = EXCLUDED.team_preference,
+			resume_url = EXCLUDED.resume_url
+		RETURNING id, approval_status, created_at
+	`
+	return r.pool.QueryRow(ctx, query, reg.UserID, reg.HackathonID, reg.GithubURL, reg.LinkedinURL, reg.Skills, reg.TeamPreference, reg.ApprovalStatus, reg.ResumeURL).
+		Scan(&reg.ID, &reg.ApprovalStatus, &reg.CreatedAt)
+}
+
+func (r *PostgresRepo) GetRegistrationByUserID(ctx context.Context, userID string) (*models.Registration, error) {
+	query := `
+		SELECT id, user_id, hackathon_id, github_url, linkedin_url, skills, team_preference, approval_status, resume_url, created_at
+		FROM registrations
+		WHERE user_id = $1
+		LIMIT 1
+	`
+	reg := &models.Registration{}
+	err := r.pool.QueryRow(ctx, query, userID).
+		Scan(&reg.ID, &reg.UserID, &reg.HackathonID, &reg.GithubURL, &reg.LinkedinURL, &reg.Skills, &reg.TeamPreference, &reg.ApprovalStatus, &reg.ResumeURL, &reg.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return reg, nil
+}
+
+func (r *PostgresRepo) GetRegistrationByUserAndHackathon(ctx context.Context, userID, hackathonID string) (*models.Registration, error) {
+	query := `
+		SELECT id, user_id, hackathon_id, github_url, linkedin_url, skills, team_preference, approval_status, resume_url, created_at
+		FROM registrations
+		WHERE user_id = $1 AND hackathon_id = $2
+	`
+	reg := &models.Registration{}
+	err := r.pool.QueryRow(ctx, query, userID, hackathonID).
+		Scan(&reg.ID, &reg.UserID, &reg.HackathonID, &reg.GithubURL, &reg.LinkedinURL, &reg.Skills, &reg.TeamPreference, &reg.ApprovalStatus, &reg.ResumeURL, &reg.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return reg, nil
+}
+
+func (r *PostgresRepo) GetRegistrationsByHackathon(ctx context.Context, hackathonID string) ([]models.RegistrationProfile, error) {
+	query := `
+		SELECT r.id, r.user_id, r.hackathon_id, r.github_url, r.linkedin_url, r.skills, r.team_preference, r.approval_status, r.resume_url, r.created_at, u.name, u.email
+		FROM registrations r
+		JOIN users u ON r.user_id = u.id
+		WHERE r.hackathon_id = $1
+		ORDER BY r.created_at DESC
+	`
+	rows, err := r.pool.Query(ctx, query, hackathonID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	list := []models.RegistrationProfile{}
+	for rows.Next() {
+		var rp models.RegistrationProfile
+		err := rows.Scan(
+			&rp.ID, &rp.UserID, &rp.HackathonID, &rp.GithubURL, &rp.LinkedinURL, &rp.Skills,
+			&rp.TeamPreference, &rp.ApprovalStatus, &rp.ResumeURL, &rp.CreatedAt, &rp.UserName, &rp.UserEmail,
+		)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, rp)
+	}
+	return list, rows.Err()
+}
+
+func (r *PostgresRepo) UpdateRegistrationStatus(ctx context.Context, regID string, status string) error {
+	query := `UPDATE registrations SET approval_status = $1 WHERE id = $2`
+	_, err := r.pool.Exec(ctx, query, status, regID)
+	return err
+}
+
+// ==========================================
+// Teams Logic
+// ==========================================
+
+func (r *PostgresRepo) CreateTeam(ctx context.Context, team *models.Team) error {
+	query := `
+		INSERT INTO teams (hackathon_id, team_name, invite_code, repository_url, is_submitted)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, created_at
+	`
+	return r.pool.QueryRow(ctx, query, team.HackathonID, team.TeamName, team.InviteCode, team.RepositoryURL, team.IsSubmitted).
+		Scan(&team.ID, &team.CreatedAt)
+}
+
+func (r *PostgresRepo) AddUserToTeam(ctx context.Context, teamID, userID string) error {
+	query := `INSERT INTO team_members (team_id, user_id) VALUES ($1, $2)`
+	_, err := r.pool.Exec(ctx, query, teamID, userID)
+	return err
+}
+
+func (r *PostgresRepo) JoinTeamByInviteCode(ctx context.Context, userID string, inviteCode string) (*models.Team, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	// Get team details
+	query := `SELECT id, hackathon_id, team_name, invite_code, repository_url, is_submitted, created_at FROM teams WHERE invite_code = $1`
+	team := &models.Team{}
+	err = tx.QueryRow(ctx, query, inviteCode).
+		Scan(&team.ID, &team.HackathonID, &team.TeamName, &team.InviteCode, &team.RepositoryURL, &team.IsSubmitted, &team.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, errors.New("invalid invite code")
+		}
+		return nil, err
+	}
+
+	// Insert member mapping
+	insertQuery := `INSERT INTO team_members (team_id, user_id) VALUES ($1, $2)`
+	_, err = tx.Exec(ctx, insertQuery, team.ID, userID)
+	if err != nil {
+		// Unique violation or other error
+		return nil, errors.New("already in team or database constraint violation")
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	return team, nil
+}
+
+func (r *PostgresRepo) GetTeamByUserIDAndHackathon(ctx context.Context, userID, hackathonID string) (*models.Team, error) {
+	query := `
+		SELECT t.id, t.hackathon_id, t.team_name, t.invite_code, t.repository_url, t.is_submitted, t.created_at
+		FROM teams t
+		JOIN team_members tm ON t.id = tm.team_id
+		WHERE tm.user_id = $1 AND t.hackathon_id = $2
+	`
+	team := &models.Team{}
+	err := r.pool.QueryRow(ctx, query, userID, hackathonID).
+		Scan(&team.ID, &team.HackathonID, &team.TeamName, &team.InviteCode, &team.RepositoryURL, &team.IsSubmitted, &team.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return team, nil
+}
+
+func (r *PostgresRepo) GetTeamMembers(ctx context.Context, teamID string) ([]models.User, error) {
+	query := `
+		SELECT u.id, u.name, u.email, u.role, u.status, u.created_at
+		FROM users u
+		JOIN team_members tm ON u.id = tm.user_id
+		WHERE tm.team_id = $1
+	`
+	rows, err := r.pool.Query(ctx, query, teamID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []models.User
+	for rows.Next() {
+		var u models.User
+		err := rows.Scan(&u.ID, &u.Name, &u.Email, &u.Role, &u.Status, &u.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, u)
+	}
+	return list, rows.Err()
+}
+
+func (r *PostgresRepo) UpdateTeamRepositoryURL(ctx context.Context, teamID string, repoURL string) error {
+	query := `UPDATE teams SET repository_url = $1, is_submitted = true WHERE id = $2`
+	_, err := r.pool.Exec(ctx, query, repoURL, teamID)
+	return err
+}
+
+func (r *PostgresRepo) GetTeamByID(ctx context.Context, id string) (*models.Team, error) {
+	query := `SELECT id, hackathon_id, team_name, invite_code, repository_url, is_submitted, created_at FROM teams WHERE id = $1`
+	team := &models.Team{}
+	err := r.pool.QueryRow(ctx, query, id).
+		Scan(&team.ID, &team.HackathonID, &team.TeamName, &team.InviteCode, &team.RepositoryURL, &team.IsSubmitted, &team.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return team, nil
+}
+
+func (r *PostgresRepo) GetTeamsByHackathon(ctx context.Context, hackathonID string, onlySubmitted bool) ([]models.Team, error) {
+	var query string
+	if onlySubmitted {
+		query = `SELECT id, hackathon_id, team_name, invite_code, repository_url, is_submitted, created_at FROM teams WHERE hackathon_id = $1 AND is_submitted = true ORDER BY team_name ASC`
+	} else {
+		query = `SELECT id, hackathon_id, team_name, invite_code, repository_url, is_submitted, created_at FROM teams WHERE hackathon_id = $1 ORDER BY team_name ASC`
+	}
+
+	rows, err := r.pool.Query(ctx, query, hackathonID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	list := []models.Team{}
+	for rows.Next() {
+		var t models.Team
+		err := rows.Scan(&t.ID, &t.HackathonID, &t.TeamName, &t.InviteCode, &t.RepositoryURL, &t.IsSubmitted, &t.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, t)
+	}
+	return list, rows.Err()
+}
+
+// ==========================================
+// Help Tickets Logic
+// ==========================================
+
+func (r *PostgresRepo) CreateTicket(ctx context.Context, ticket *models.Ticket) error {
+	query := `
+		INSERT INTO tickets (hackathon_id, team_id, description, status)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, created_at
+	`
+	return r.pool.QueryRow(ctx, query, ticket.HackathonID, ticket.TeamID, ticket.Description, ticket.Status).
+		Scan(&ticket.ID, &ticket.CreatedAt)
+}
+
+func (r *PostgresRepo) UpdateTicketStatus(ctx context.Context, ticketID, status, mentorID string) error {
+	query := `UPDATE tickets SET status = $1, assigned_mentor_id = $2 WHERE id = $3`
+	_, err := r.pool.Exec(ctx, query, status, mentorID, ticketID)
+	return err
+}
+
 func (r *PostgresRepo) GetTicketsByIDs(ctx context.Context, ids []string) ([]models.Ticket, error) {
 	if len(ids) == 0 {
 		return []models.Ticket{}, nil
 	}
-	
 	query := `
-		SELECT id, team_id, assigned_agent_id, description, status, created_at, resolved_at 
+		SELECT id, hackathon_id, team_id, assigned_mentor_id, description, status, created_at
 		FROM tickets WHERE id = ANY($1)
 	`
 	rows, err := r.pool.Query(ctx, query, ids)
@@ -144,7 +480,7 @@ func (r *PostgresRepo) GetTicketsByIDs(ctx context.Context, ids []string) ([]mod
 	var tickets []models.Ticket
 	for rows.Next() {
 		var t models.Ticket
-		if err := rows.Scan(&t.ID, &t.TeamID, &t.AssignedAgentID, &t.Description, &t.Status, &t.CreatedAt, &t.ResolvedAt); err != nil {
+		if err := rows.Scan(&t.ID, &t.HackathonID, &t.TeamID, &t.AssignedMentorID, &t.Description, &t.Status, &t.CreatedAt); err != nil {
 			return nil, err
 		}
 		tickets = append(tickets, t)
@@ -152,32 +488,178 @@ func (r *PostgresRepo) GetTicketsByIDs(ctx context.Context, ids []string) ([]mod
 	return tickets, rows.Err()
 }
 
-func (r *PostgresRepo) CreateRegistration(ctx context.Context, reg *models.Registration) error {
+func (r *PostgresRepo) GetTicketsQueue(ctx context.Context, hackathonID string) ([]models.Ticket, error) {
 	query := `
-		INSERT INTO registrations (user_id, github_url, linkedin_url, skills, status)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, created_at
+		SELECT id, hackathon_id, team_id, assigned_mentor_id, description, status, created_at
+		FROM tickets
+		WHERE hackathon_id = $1 AND status != 'Resolved'
+		ORDER BY created_at ASC
 	`
-	return r.pool.QueryRow(ctx, query, reg.UserID, reg.GithubURL, reg.LinkedinURL, reg.Skills, reg.Status).
-		Scan(&reg.ID, &reg.CreatedAt)
-}
-
-func (r *PostgresRepo) GetRegistrationByUserID(ctx context.Context, userID string) (*models.Registration, error) {
-	query := `
-		SELECT id, user_id, github_url, linkedin_url, skills, status, created_at
-		FROM registrations
-		WHERE user_id = $1
-	`
-	reg := &models.Registration{}
-	err := r.pool.QueryRow(ctx, query, userID).
-		Scan(&reg.ID, &reg.UserID, &reg.GithubURL, &reg.LinkedinURL, &reg.Skills, &reg.Status, &reg.CreatedAt)
+	rows, err := r.pool.Query(ctx, query, hackathonID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
-		}
 		return nil, err
 	}
-	return reg, nil
+	defer rows.Close()
+
+	var tickets []models.Ticket
+	for rows.Next() {
+		var t models.Ticket
+		if err := rows.Scan(&t.ID, &t.HackathonID, &t.TeamID, &t.AssignedMentorID, &t.Description, &t.Status, &t.CreatedAt); err != nil {
+			return nil, err
+		}
+		tickets = append(tickets, t)
+	}
+	return tickets, rows.Err()
+}
+
+// ==========================================
+// Staff Linkage Logic
+// ==========================================
+
+func (r *PostgresRepo) AddStaff(ctx context.Context, hackathonID, userID, role string) error {
+	query := `
+		INSERT INTO hackathon_staff (hackathon_id, user_id, role)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (hackathon_id, user_id) DO UPDATE SET role = EXCLUDED.role
+	`
+	_, err := r.pool.Exec(ctx, query, hackathonID, userID, role)
+	return err
+}
+
+func (r *PostgresRepo) IsStaff(ctx context.Context, hackathonID, userID, role string) (bool, error) {
+	query := `SELECT COUNT(*) FROM hackathon_staff WHERE hackathon_id = $1 AND user_id = $2 AND role = $3`
+	var count int
+	err := r.pool.QueryRow(ctx, query, hackathonID, userID, role).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// ==========================================
+// Project Evaluation Grading Logic
+// ==========================================
+
+func (r *PostgresRepo) CreateEvaluation(ctx context.Context, ev *models.Evaluation) error {
+	query := `
+		INSERT INTO evaluations (hackathon_id, team_id, judge_id, technical_score, design_score, innovation_score, feedback)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id, created_at
+	`
+	return r.pool.QueryRow(ctx, query, ev.HackathonID, ev.TeamID, ev.JudgeID, ev.TechnicalScore, ev.DesignScore, ev.InnovationScore, ev.Feedback).
+		Scan(&ev.ID, &ev.CreatedAt)
+}
+
+func (r *PostgresRepo) GetEvaluationsByTeam(ctx context.Context, teamID string) ([]models.Evaluation, error) {
+	query := `
+		SELECT id, hackathon_id, team_id, judge_id, technical_score, design_score, innovation_score, feedback, created_at
+		FROM evaluations
+		WHERE team_id = $1
+	`
+	rows, err := r.pool.Query(ctx, query, teamID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var evs []models.Evaluation
+	for rows.Next() {
+		var ev models.Evaluation
+		err := rows.Scan(&ev.ID, &ev.HackathonID, &ev.TeamID, &ev.JudgeID, &ev.TechnicalScore, &ev.DesignScore, &ev.InnovationScore, &ev.Feedback, &ev.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		evs = append(evs, ev)
+	}
+	return evs, rows.Err()
+}
+
+func (r *PostgresRepo) GetEvaluatedTeamsByJudge(ctx context.Context, judgeID string) (map[string]bool, error) {
+	query := `SELECT team_id FROM evaluations WHERE judge_id = $1`
+	rows, err := r.pool.Query(ctx, query, judgeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	m := make(map[string]bool)
+	for rows.Next() {
+		var tid string
+		if err := rows.Scan(&tid); err != nil {
+			return nil, err
+		}
+		m[tid] = true
+	}
+	return m, nil
+}
+
+// ==========================================
+// Announcements / Broadcasts Logic
+// ==========================================
+
+func (r *PostgresRepo) CreateAnnouncement(ctx context.Context, ann *models.Announcement) error {
+	query := `
+		INSERT INTO announcements (hackathon_id, message)
+		VALUES ($1, $2)
+		RETURNING id, created_at
+	`
+	return r.pool.QueryRow(ctx, query, ann.HackathonID, ann.Message).
+		Scan(&ann.ID, &ann.CreatedAt)
+}
+
+func (r *PostgresRepo) GetAnnouncements(ctx context.Context, hackathonID string) ([]models.Announcement, error) {
+	query := `
+		SELECT id, hackathon_id, message, created_at
+		FROM announcements
+		WHERE hackathon_id = $1
+		ORDER BY created_at DESC
+	`
+	rows, err := r.pool.Query(ctx, query, hackathonID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []models.Announcement
+	for rows.Next() {
+		var a models.Announcement
+		if err := rows.Scan(&a.ID, &a.HackathonID, &a.Message, &a.CreatedAt); err != nil {
+			return nil, err
+		}
+		list = append(list, a)
+	}
+	if list == nil {
+		list = []models.Announcement{}
+	}
+	return list, rows.Err()
+}
+
+// ==========================================
+// Legacy Compatibility
+// ==========================================
+
+func (r *PostgresRepo) GetTicketsByQueue(ctx context.Context) ([]models.Ticket, error) {
+	query := `
+		SELECT id, team_id, assigned_agent_id, description, status, created_at 
+		FROM tickets WHERE status != 'resolved'
+	`
+	rows, err := r.pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tickets []models.Ticket
+	for rows.Next() {
+		var t models.Ticket
+		var agentID *string
+		if err := rows.Scan(&t.ID, &t.TeamID, &agentID, &t.Description, &t.Status, &t.CreatedAt); err != nil {
+			return nil, err
+		}
+		t.AssignedMentorID = agentID
+		tickets = append(tickets, t)
+	}
+	return tickets, rows.Err()
 }
 
 func (r *PostgresRepo) CreateCommunityPost(ctx context.Context, post *models.CommunityPost) error {
