@@ -71,18 +71,51 @@ type Registration struct {
 
 type RegistrationProfile struct {
 	Registration
-	UserName  string `json:"user_name"`
-	UserEmail string `json:"user_email"`
+	UserName  string  `json:"user_name"`
+	UserEmail string  `json:"user_email"`
+	Bio       *string `json:"bio"`
+	ReadmeMd  *string `json:"readme_md"`
 }
 
 type Team struct {
 	ID            string    `json:"id" db:"id"`
 	HackathonID   string    `json:"hackathon_id" db:"hackathon_id"`
+	LeaderID      *string   `json:"leader_id" db:"leader_id"`
 	TeamName      string    `json:"team_name" db:"team_name"`
 	InviteCode    string    `json:"invite_code" db:"invite_code"`
 	RepositoryURL *string   `json:"repository_url" db:"repository_url"`
 	IsSubmitted   bool      `json:"is_submitted" db:"is_submitted"`
+	IsWinner      bool      `json:"is_winner" db:"is_winner"`
 	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+}
+
+type TeamWithMembers struct {
+	Team
+	Members []User `json:"members"`
+}
+
+type TeamJoinRequest struct {
+	ID        string    `json:"id" db:"id"`
+	TeamID    string    `json:"team_id" db:"team_id"`
+	UserID    string    `json:"user_id" db:"user_id"`
+	Status    string    `json:"status" db:"status"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+
+	// Joined fields for display
+	UserName  string `json:"user_name,omitempty" db:"user_name"`
+	UserEmail string `json:"user_email,omitempty" db:"user_email"`
+	TeamName  string `json:"team_name,omitempty" db:"team_name"`
+}
+
+type TeamInvitation struct {
+	ID        string    `json:"id" db:"id"`
+	TeamID    string    `json:"team_id" db:"team_id"`
+	InviteeID string    `json:"invitee_id" db:"invitee_id"`
+	Status    string    `json:"status" db:"status"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+
+	// Joined fields for display
+	TeamName string `json:"team_name,omitempty" db:"team_name"`
 }
 
 type Ticket struct {
@@ -203,6 +236,18 @@ type JoinTeamRequest struct {
 	InviteCode string `json:"invite_code"`
 }
 
+type InviteUserRequest struct {
+	Email string `json:"email"`
+}
+
+type UpdateJoinRequestStatus struct {
+	Status string `json:"status"` // Accepted, Rejected
+}
+
+type UpdateInvitationStatus struct {
+	Status string `json:"status"` // Accepted, Declined
+}
+
 type UpdateRepoRequest struct {
 	RepositoryURL string `json:"repository_url"`
 }
@@ -221,8 +266,16 @@ type EvaluateProjectRequest struct {
 }
 
 type StaffAssignmentRequest struct {
+	Name  string `json:"name"`
 	Email string `json:"email"`
 	Role  string `json:"role"` // Judge, Mentor
+}
+
+type HackathonStaffResponse struct {
+	UserID string `json:"user_id"`
+	Name   string `json:"name"`
+	Email  string `json:"email"`
+	Role   string `json:"role"`
 }
 
 type AnnouncementRequest struct {
@@ -275,6 +328,9 @@ type HackerProfile struct {
 	ResumeURL              string    `json:"resume_url" db:"resume_url"`
 	Skills                 string    `json:"skills" db:"skills"`
 	DefaultTeamPreference  string    `json:"default_team_preference" db:"default_team_preference"`
+	Industry               string    `json:"industry" db:"industry"`
+	YearsOfExperience      int       `json:"years_of_experience" db:"years_of_experience"`
+	MentorExpertise        string    `json:"mentor_expertise" db:"mentor_expertise"`
 	CreatedAt              time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt              time.Time `json:"updated_at" db:"updated_at"`
 }

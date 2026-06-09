@@ -14,9 +14,16 @@ export async function POST(request: Request) {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
+      const text = await response.text();
+      let errorMsg = 'Authentication failed';
+      try {
+        const errorData = JSON.parse(text);
+        errorMsg = errorData.message || errorMsg;
+      } catch (e) {
+        errorMsg = text || errorMsg;
+      }
       return NextResponse.json(
-        { message: errorData.message || 'Authentication failed' },
+        { message: errorMsg.trim() },
         { status: response.status }
       );
     }

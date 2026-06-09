@@ -51,6 +51,7 @@ type Application = {
   user_id: string;
   github_url: string | null;
   linkedin_url: string | null;
+  resume_url: string | null;
   skills: string;
   team_preference: string;
   approval_status: string;
@@ -388,6 +389,24 @@ export default function OrganizerDashboard({ params }: Props) {
   const [applications, setApplications] = useState<Application[]>([]);
   const [submissions, setSubmissions] = useState<TeamSubmission[]>([]);
   const [stats, setStats] = useState({ pending: 0, accepted: 0, teams: 0, submissions: 0 });
+
+  // Profile modal states
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<any | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+
+  const viewProfile = async (userId: string) => {
+    setSelectedUserId(userId);
+    setLoadingProfile(true);
+    try {
+      const res = await fetchApi<any>(`/users/${userId}/profile`);
+      setSelectedProfile(res);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
 
   // Action states
   const [staffEmail, setStaffEmail] = useState("");
@@ -1320,7 +1339,7 @@ export default function OrganizerDashboard({ params }: Props) {
                     <thead>
                       <tr className="bg-slate-100/50 dark:bg-white/5 border-b border-slate-200/60 dark:border-white/10 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest font-mono">
                         <th className="py-4 px-5">Name</th>
-                        <th className="py-4 px-5">GitHub / LinkedIn</th>
+                        <th className="py-4 px-5">Links</th>
                         <th className="py-4 px-5">Skills</th>
                         <th className="py-4 px-5">Track Preference</th>
                         <th className="py-4 px-5">Status</th>
@@ -1337,7 +1356,12 @@ export default function OrganizerDashboard({ params }: Props) {
                           return (
                             <tr key={app.id} className="hover:bg-slate-50/50 dark:hover:bg-white/2 transition-colors">
                               <td className="py-4.5 px-5">
-                                <span className="font-extrabold text-slate-900 dark:text-white block text-sm">{app.user_name}</span>
+                                <span 
+                                  className="font-extrabold text-slate-900 dark:text-white block text-sm hover:text-blue-500 cursor-pointer transition-colors"
+                                  onClick={() => viewProfile(app.user_id)}
+                                >
+                                  {app.user_name}
+                                </span>
                                 <span className="text-[10px] text-slate-500 font-mono mt-0.5 block">{app.user_email}</span>
                               </td>
                               <td className="py-4.5 px-5 space-y-1">
@@ -1354,6 +1378,13 @@ export default function OrganizerDashboard({ params }: Props) {
                                   </a>
                                 ) : (
                                   <span className="text-[9px] text-slate-400 dark:text-slate-500 font-mono">No LinkedIn</span>
+                                )}
+                                {app.resume_url ? (
+                                  <a href={app.resume_url} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 dark:text-blue-400 hover:underline flex items-center gap-1 font-mono">
+                                    Resume ↗
+                                  </a>
+                                ) : (
+                                  <span className="text-[9px] text-slate-400 dark:text-slate-500 font-mono">No Resume</span>
                                 )}
                               </td>
                               <td className="py-4.5 px-5">
@@ -1510,6 +1541,131 @@ export default function OrganizerDashboard({ params }: Props) {
             )}
 
           </motion.div>
+        </AnimatePresence>
+
+        {/* Public Profile Modal */}
+        <AnimatePresence>
+          {selectedUserId && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                onClick={() => setSelectedUserId(null)}
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+                className="relative w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+              >
+                <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">Applicant Profile</h2>
+                  <button onClick={() => setSelectedUserId(null)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500 transition-colors">
+                    <XCircle className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="p-6 overflow-y-auto">
+                  {loadingProfile ? (
+                    <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin text-blue-500" /></div>
+                  ) : selectedProfile ? (
+                    <div className="space-y-6">
+                      {/* Links */}
+                      <div className="flex flex-wrap gap-4">
+                        {selectedProfile.github_url && (
+                          <a href={selectedProfile.github_url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                            <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"></path></svg>
+                            GitHub
+                          </a>
+                        )}
+                        {selectedProfile.linkedin_url && (
+                          <a href={selectedProfile.linkedin_url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                            <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current" aria-hidden="true"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"></path></svg>
+                            LinkedIn
+                          </a>
+                        )}
+                        {selectedProfile.resume_url && (
+                          <a href={selectedProfile.resume_url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                            <svg viewBox="0 0 24 24" className="w-5 h-5 fill-none stroke-current stroke-[2]" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                            Resume
+                          </a>
+                        )}
+                      </div>
+
+                      {/* Bio / Readme */}
+                      {selectedProfile.readme_md ? (
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-2">Readme</h3>
+                          <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap font-mono overflow-x-auto max-h-64 overflow-y-auto">
+                            {selectedProfile.readme_md}
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-2">Bio</h3>
+                          <p className="text-slate-600 dark:text-slate-400 text-sm whitespace-pre-wrap">{selectedProfile.bio || "No bio or readme provided."}</p>
+                        </div>
+                      )}
+
+                      {/* Tech Stack */}
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-2">Tech Stack</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {(() => {
+                            let skillsArr: string[] = [];
+                            try {
+                              if (selectedProfile.skills) {
+                                skillsArr = typeof selectedProfile.skills === 'string' ? JSON.parse(selectedProfile.skills) : selectedProfile.skills;
+                              }
+                            } catch (e) {
+                              if (typeof selectedProfile.skills === 'string' && selectedProfile.skills.includes(',')) {
+                                skillsArr = selectedProfile.skills.split(',').map(s => s.trim());
+                              } else if (selectedProfile.skills) {
+                                skillsArr = [selectedProfile.skills];
+                              }
+                            }
+                            if (!Array.isArray(skillsArr) || skillsArr.length === 0) return <p className="text-sm text-slate-500">Not specified</p>;
+                            return skillsArr.map((skill, i) => (
+                              <span key={i} className="px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-xs font-semibold rounded-full border border-blue-100 dark:border-blue-800/30">
+                                {skill}
+                              </span>
+                            ));
+                          })()}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Education</h3>
+                          <p className="text-sm text-slate-800 dark:text-slate-200">{selectedProfile.institution || "Not specified"}</p>
+                          <p className="text-xs text-slate-500">{selectedProfile.degree_type} {selectedProfile.field_of_study}</p>
+                        </div>
+                        <div>
+                          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Location</h3>
+                          <p className="text-sm text-slate-800 dark:text-slate-200">{selectedProfile.city || "Not specified"}</p>
+                        </div>
+                        <div>
+                          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Gender</h3>
+                          <p className="text-sm text-slate-800 dark:text-slate-200">{selectedProfile.gender || "Not specified"}</p>
+                        </div>
+                        <div>
+                          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">T-Shirt Size</h3>
+                          <p className="text-sm text-slate-800 dark:text-slate-200">{selectedProfile.t_shirt_size || "Not specified"}</p>
+                        </div>
+                        <div>
+                          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Contact Details</h3>
+                          <p className="text-sm text-slate-800 dark:text-slate-200">{selectedProfile.phone_number || "No phone number"}</p>
+                        </div>
+                        <div>
+                          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Dietary & Allergies</h3>
+                          <p className="text-sm text-slate-800 dark:text-slate-200">{selectedProfile.dietary_preference || "None"}</p>
+                          <p className="text-xs text-slate-500">{selectedProfile.allergies || "No allergies"}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-center text-slate-500">Failed to load profile.</p>
+                  )}
+                </div>
+              </motion.div>
+            </div>
+          )}
         </AnimatePresence>
       </div>
     </div>

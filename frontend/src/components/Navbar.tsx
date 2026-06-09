@@ -33,6 +33,7 @@ export default function Navbar() {
 	const [theme, setTheme] = useState<"light" | "dark">("dark");
 	const [hackathonId, setHackathonId] = useState<string | null>(null);
 	const [preference, setPreference] = useState<string | null>(null);
+	const [mounted, setMounted] = useState(false);
 
 	const pathname = usePathname();
 	const router = useRouter();
@@ -47,6 +48,7 @@ export default function Navbar() {
 
 	// 2. Manage Theme
 	useEffect(() => {
+		setMounted(true);
 		const savedTheme = localStorage.getItem("theme") as "light" | "dark" | null;
 		if (savedTheme) {
 			setTheme(savedTheme);
@@ -108,9 +110,12 @@ export default function Navbar() {
 		router.refresh();
 	};
 
+
+
 	const DASHBOARD_ROUTES = ["/workspace", "/organizer", "/mentor", "/judge", "/profile", "/super-admin", "/admin", "/dashboard", "/explore", "/host"];
 	const isDashboardRoute = DASHBOARD_ROUTES.some(r => pathname.startsWith(r));
 
+	if (!mounted) return null;
 	if (AUTH_PAGES.includes(pathname) || isDashboardRoute) return null;
 
 	// Build navigation items

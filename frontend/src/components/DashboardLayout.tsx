@@ -19,11 +19,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [hackathonId, setHackathonId] = useState<string | null>(null);
   const [preference, setPreference] = useState<string | null>(null);
   const [theme, setTheme] = useState<"light" | "dark">("dark");
+  const [mounted, setMounted] = useState(false);
+
 
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
+    setMounted(true);
     const savedTheme = localStorage.getItem("theme") as "light" | "dark" | null;
     if (savedTheme) {
       setTheme(savedTheme);
@@ -56,12 +59,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       .catch(() => setUser(null));
   }, [pathname]);
 
-  // Role-based route protection guards (decouples SuperAdmin & Admin from hackers)
+  // Role-based route protection guards
   useEffect(() => {
-    if (user) {
-      if (user.role === "SuperAdmin" && !pathname.startsWith("/super-admin")) {
+    if (user === null) {
+      // Session expired or not logged in -> Redirect to login
+      router.push("/login");
+    } else if (user) {
+      if (user.role === "SuperAdmin" && pathname === "/dashboard") {
         router.push("/super-admin/metrics");
-      } else if (user.role === "Admin" && !pathname.startsWith("/admin")) {
+      } else if (user.role === "Admin" && pathname === "/dashboard") {
         router.push("/admin");
       }
     }
@@ -71,8 +77,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const match = pathname.match(/^\/(workspace|organizer|mentor|judge)\/([a-f0-9-]+)/i);
     if (match) {
       const hid = match[2];
+      const spaceType = match[1];
       setHackathonId(hid);
-      if (match[1] === "workspace") {
+
+      // Check if user is staff for this hackathon
+      fetch(`/api/hackathons/${hid}/staff-role`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data && data.role === "Mentor" && spaceType === "workspace") {
+            // Mentor shouldn't be in workspace, push them to mentor dashboard
+            router.push(`/mentor/${hid}`);
+          }
+        })
+        .catch(() => {});
+
+      if (spaceType === "workspace") {
         fetch(`/api/hackathons/${hid}/my-registration`)
           .then((res) => (res.ok ? res.json() : null))
           .then((reg) => {
@@ -86,7 +105,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setHackathonId(null);
       setPreference(null);
     }
-  }, [pathname]);
+  }, [pathname, router]);
 
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -101,6 +120,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     navItems.push({ name: "Platform Metrics", href: "/super-admin/metrics", icon: Activity });
     navItems.push({ name: "Tenant Verification", href: "/super-admin/organizers", icon: Layers });
     navItems.push({ name: "Global Moderation", href: "/super-admin/moderation", icon: ShieldAlert });
+    navItems.push({ name: "All Hackathons", href: "/super-admin/hackathons", icon: FolderGit2 });
   } else if (user?.role === "Admin") {
     navItems.push({ name: "Admin Console", href: "/admin", icon: ShieldAlert });
   } else {
@@ -120,9 +140,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         navItems.push({ name: "Hosting", href: "/host", icon: CalendarPlus });
         navItems.push({ name: "Profile", href: "/profile", icon: UserCircle2 });
       } else if (pathname.startsWith("/organizer/")) {
-        navItems.push({ name: "Overview", href: `/organizer/${hackathonId}`, icon: LayoutDashboard });
-        navItems.push({ name: "Applications", href: `/organizer/${hackathonId}/applications`, icon: Users });
-        navItems.push({ name: "Broadcasts", href: `/organizer/${hackathonId}/broadcasts`, icon: Activity });
+        navItems.push({ name: "Organizer Console", href: `/organizer/${hackathonId}`, icon: LayoutDashboard });
       } else if (pathname.startsWith("/mentor/")) {
         navItems.push({ name: "Live Queue", href: `/mentor/${hackathonId}`, icon: HelpCircle });
       } else if (pathname.startsWith("/judge/")) {
@@ -134,6 +152,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       navItems.push({ name: "Hosting", href: "/host", icon: CalendarPlus });
       navItems.push({ name: "Profile", href: "/profile", icon: UserCircle2 });
     }
+  }
+
+
+
+  if (!mounted) {
+    return <div className="flex h-screen overflow-hidden bg-background"></div>;
   }
 
   return (

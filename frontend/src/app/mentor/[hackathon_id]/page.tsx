@@ -34,7 +34,8 @@ export default function MentorTerminal({ params }: Props) {
       const u = await fetch("/api/auth/me").then((r) => r.ok ? r.json() : null);
       setUser(u);
 
-      const list = await fetch(`/api/hackathons/${hackathon_id}/tickets`).then((r) => r.ok ? r.json() : []);
+      const listData = await fetch(`/api/hackathons/${hackathon_id}/tickets`).then((r) => r.ok ? r.json() : []);
+      const list = listData || [];
       
       // Fetch team names for each ticket to show beautiful details
       const ticketsWithTeams = await Promise.all(

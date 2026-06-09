@@ -17,6 +17,7 @@ go.work.sum
 .vscode/
 .idea/
 *.iml
+.env
 
 # Logs
 *.log

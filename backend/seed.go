@@ -242,7 +242,10 @@ func main() {
 	}
 
 	// Create some Hackers
-	hackerEmails := []string{"hacker1@matrix.com", "hacker2@matrix.com", "hacker3@matrix.com"}
+	var hackerEmails []string
+	for i := 1; i <= 12; i++ {
+		hackerEmails = append(hackerEmails, fmt.Sprintf("hacker%d@matrix.com", i))
+	}
 	for i, email := range hackerEmails {
 		var hackerID string
 		err = dbpool.QueryRow(ctx, `
@@ -254,11 +257,12 @@ func main() {
 			log.Fatalf("Error creating hacker %s: %v", email, err)
 		}
 
-		// Register them to the hackathon
+		// Register them to all hackathons
 		_, err = dbpool.Exec(ctx, `
 			INSERT INTO registrations (user_id, hackathon_id, github_url, skills, team_preference, approval_status)
-			VALUES ($1, $2, 'https://github.com/hacker', '["React", "Go"]', 'Looking for Team', 'Accepted')
-			ON CONFLICT (user_id, hackathon_id) DO NOTHING`, hackerID, firstHackathonID)
+			SELECT $1, id, 'https://github.com/hacker', '["React", "Go"]', 'Looking for Team', 'Accepted'
+			FROM hackathons
+			ON CONFLICT (user_id, hackathon_id) DO NOTHING`, hackerID)
 		if err != nil {
 			log.Fatalf("Error registering hacker %s: %v", email, err)
 		}

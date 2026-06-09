@@ -143,3 +143,166 @@ func (h *TeamHandler) ListSubmissions(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(list)
 }
+
+func (h *TeamHandler) MarkWinner(w http.ResponseWriter, r *http.Request) {
+	hackathonID := chi.URLParam(r, "id")
+	teamID := chi.URLParam(r, "team_id")
+	if hackathonID == "" || teamID == "" {
+		http.Error(w, "hackathon id and team id are required", http.StatusBadRequest)
+		return
+	}
+
+	var req struct {
+		IsWinner bool `json:"is_winner"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.teamService.ToggleTeamWinner(r.Context(), teamID, req.IsWinner); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
+
+func (h *TeamHandler) RemoveMember(w http.ResponseWriter, r *http.Request) {
+	teamID := chi.URLParam(r, "team_id")
+	memberID := chi.URLParam(r, "member_id")
+	claims := middleware.GetUserClaims(r.Context())
+
+	if err := h.teamService.RemoveMember(r.Context(), teamID, memberID, claims.UserID); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
+
+func (h *TeamHandler) GetPublicTeams(w http.ResponseWriter, r *http.Request) {
+	hackathonID := chi.URLParam(r, "id")
+	teams, err := h.teamService.GetPublicTeamsByHackathon(r.Context(), hackathonID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(teams)
+}
+
+func (h *TeamHandler) RequestToJoin(w http.ResponseWriter, r *http.Request) {
+	teamID := chi.URLParam(r, "team_id")
+	claims := middleware.GetUserClaims(r.Context())
+
+	if err := h.teamService.CreateJoinRequest(r.Context(), teamID, claims.UserID); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
+
+func (h *TeamHandler) WithdrawRequest(w http.ResponseWriter, r *http.Request) {
+	reqID := chi.URLParam(r, "req_id")
+	claims := middleware.GetUserClaims(r.Context())
+
+	if err := h.teamService.WithdrawJoinRequest(r.Context(), reqID, claims.UserID); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
+
+func (h *TeamHandler) ManageRequest(w http.ResponseWriter, r *http.Request) {
+	reqID := chi.URLParam(r, "req_id")
+	claims := middleware.GetUserClaims(r.Context())
+
+	var req models.UpdateJoinRequestStatus
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.teamService.ManageJoinRequest(r.Context(), reqID, req.Status, claims.UserID); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
+
+func (h *TeamHandler) GetTeamRequests(w http.ResponseWriter, r *http.Request) {
+	teamID := chi.URLParam(r, "team_id")
+	reqs, err := h.teamService.GetJoinRequestsForTeam(r.Context(), teamID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(reqs)
+}
+
+func (h *TeamHandler) GetMyRequests(w http.ResponseWriter, r *http.Request) {
+	hackathonID := chi.URLParam(r, "id")
+	claims := middleware.GetUserClaims(r.Context())
+	reqs, err := h.teamService.GetMyJoinRequests(r.Context(), hackathonID, claims.UserID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(reqs)
+}
+
+func (h *TeamHandler) InviteUser(w http.ResponseWriter, r *http.Request) {
+	teamID := chi.URLParam(r, "team_id")
+	claims := middleware.GetUserClaims(r.Context())
+
+	var req models.InviteUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.teamService.CreateInvitation(r.Context(), teamID, req.Email, claims.UserID); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
+
+func (h *TeamHandler) ManageInvitation(w http.ResponseWriter, r *http.Request) {
+	invID := chi.URLParam(r, "inv_id")
+	claims := middleware.GetUserClaims(r.Context())
+
+	var req models.UpdateInvitationStatus
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.teamService.ManageInvitation(r.Context(), invID, req.Status, claims.UserID); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
+
+func (h *TeamHandler) GetMyInvitations(w http.ResponseWriter, r *http.Request) {
+	hackathonID := chi.URLParam(r, "id")
+	claims := middleware.GetUserClaims(r.Context())
+	invs, err := h.teamService.GetMyInvitations(r.Context(), hackathonID, claims.UserID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(invs)
+}

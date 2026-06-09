@@ -74,6 +74,7 @@ func NewRouter(
 		
 		r.Post("/api/auth/logout", authHandler.Logout)
 		r.Get("/api/auth/me", userHandler.GetMe)
+		r.Get("/api/auth/me/staff-hackathons", staffHandler.GetMyStaffHackathons)
 
 		// Create a hackathon (accessible to all authenticated users)
 		r.Post("/api/hackathons", hackathonHandler.Create)
@@ -83,6 +84,7 @@ func NewRouter(
 		// Hacker Profile (Global Profile)
 		r.Get("/api/profile/me", profileHandler.GetMyProfile)
 		r.Post("/api/profile/me", profileHandler.UpdateMyProfile)
+		r.Get("/api/users/{id}/profile", profileHandler.GetPublicProfile)
 
 		// For backward compatibility (legacy routes)
 		r.Post("/api/registrations", regHandler.CreateRegistration)
@@ -97,12 +99,27 @@ func NewRouter(
 			r.Post("/api/hackathons/{id}/apply", regHandler.Apply)
 			// Get application details
 			r.Get("/api/hackathons/{id}/my-registration", regHandler.GetMyRegistration)
+			r.Get("/api/hackathons/{id}/staff-role", staffHandler.GetMyRole)
 			
-			// Teams
+			// Teams & Team Management
 			r.Post("/api/hackathons/{id}/teams", teamHandler.Create)
 			r.Post("/api/hackathons/{id}/teams/join", teamHandler.Join)
 			r.Get("/api/hackathons/{id}/my-team", teamHandler.GetMyTeam)
 			r.Put("/api/hackathons/{id}/teams/submit", teamHandler.SubmitProject)
+			r.Delete("/api/hackathons/{id}/teams/{team_id}/members/{member_id}", teamHandler.RemoveMember)
+			r.Get("/api/hackathons/{id}/teams/public", teamHandler.GetPublicTeams)
+
+			// Team Join Requests
+			r.Post("/api/hackathons/{id}/teams/{team_id}/request", teamHandler.RequestToJoin)
+			r.Delete("/api/hackathons/{id}/requests/{req_id}", teamHandler.WithdrawRequest)
+			r.Put("/api/hackathons/{id}/requests/{req_id}", teamHandler.ManageRequest)
+			r.Get("/api/hackathons/{id}/teams/{team_id}/requests", teamHandler.GetTeamRequests)
+			r.Get("/api/hackathons/{id}/my-requests", teamHandler.GetMyRequests)
+
+			// Team Invitations
+			r.Post("/api/hackathons/{id}/teams/{team_id}/invite", teamHandler.InviteUser)
+			r.Put("/api/hackathons/{id}/invitations/{inv_id}", teamHandler.ManageInvitation)
+			r.Get("/api/hackathons/{id}/my-invitations", teamHandler.GetMyInvitations)
 			
 			// Tickets
 			r.Post("/api/hackathons/{id}/tickets", ticketHandler.CreateTicket)
@@ -126,12 +143,16 @@ func NewRouter(
 			
 			// Staffing
 			r.Post("/api/hackathons/{id}/staff", staffHandler.Assign)
+			r.Get("/api/hackathons/{id}/staff", staffHandler.GetStaffList)
 			
 			// Broadcast announcements
 			r.Post("/api/hackathons/{id}/broadcasts", announcementHandler.Create)
 			
 			// Submissions list
 			r.Get("/api/hackathons/{id}/submissions", teamHandler.ListSubmissions)
+			
+			// Mark winner
+			r.Put("/api/hackathons/{id}/teams/{team_id}/winner", teamHandler.MarkWinner)
 		})
 
 		// ------------------------------------------
@@ -165,6 +186,7 @@ func NewRouter(
 			r.Get("/api/admin/metrics", superAdminHandler.GetMetrics)
 			r.Get("/api/admin/moderation/logs", superAdminHandler.GetModerationLogs)
 			r.Put("/api/admin/users/{id}/status", superAdminHandler.BanUser)
+			r.Delete("/api/admin/hackathons/{id}", hackathonHandler.DeleteHackathon)
 			
 			// Legacy user fetch
 			r.Get("/api/users", userHandler.GetUsers)

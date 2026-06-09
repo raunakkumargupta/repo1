@@ -14,7 +14,7 @@ func (r *PostgresRepo) GetHackerProfile(ctx context.Context, userID string) (*mo
 		SELECT user_id, gender, tshirt_size, city, phone_number, emergency_contact_name, emergency_contact_number, bio, readme_md,
 		       has_formal_education, degree_type, institution, field_of_study, grad_year, grad_month,
 		       dietary_preference, allergies, github_url, linkedin_url, resume_url, skills, default_team_preference,
-		       created_at, updated_at
+		       industry, years_of_experience, mentor_expertise, created_at, updated_at
 		FROM hacker_profiles
 		WHERE user_id = $1
 	`
@@ -24,7 +24,7 @@ func (r *PostgresRepo) GetHackerProfile(ctx context.Context, userID string) (*mo
 		&p.UserID, &p.Gender, &p.TShirtSize, &p.City, &p.PhoneNumber, &p.EmergencyContactName, &p.EmergencyContactNumber, &p.Bio, &p.ReadmeMd,
 		&p.HasFormalEducation, &p.DegreeType, &p.Institution, &p.FieldOfStudy, &p.GradYear, &p.GradMonth,
 		&p.DietaryPreference, &p.Allergies, &p.GithubURL, &p.LinkedinURL, &p.ResumeURL, &p.Skills, &p.DefaultTeamPreference,
-		&p.CreatedAt, &p.UpdatedAt,
+		&p.Industry, &p.YearsOfExperience, &p.MentorExpertise, &p.CreatedAt, &p.UpdatedAt,
 	)
 
 	if err != nil {
@@ -42,9 +42,10 @@ func (r *PostgresRepo) UpsertHackerProfile(ctx context.Context, p *models.Hacker
 		INSERT INTO hacker_profiles (
 			user_id, gender, tshirt_size, city, phone_number, emergency_contact_name, emergency_contact_number, bio, readme_md,
 			has_formal_education, degree_type, institution, field_of_study, grad_year, grad_month,
-			dietary_preference, allergies, github_url, linkedin_url, resume_url, skills, default_team_preference, updated_at
+			dietary_preference, allergies, github_url, linkedin_url, resume_url, skills, default_team_preference,
+			industry, years_of_experience, mentor_expertise, updated_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26
 		)
 		ON CONFLICT (user_id) DO UPDATE SET
 			gender = EXCLUDED.gender,
@@ -68,6 +69,9 @@ func (r *PostgresRepo) UpsertHackerProfile(ctx context.Context, p *models.Hacker
 			resume_url = EXCLUDED.resume_url,
 			skills = EXCLUDED.skills,
 			default_team_preference = EXCLUDED.default_team_preference,
+			industry = EXCLUDED.industry,
+			years_of_experience = EXCLUDED.years_of_experience,
+			mentor_expertise = EXCLUDED.mentor_expertise,
 			updated_at = EXCLUDED.updated_at
 	`
 
@@ -75,7 +79,7 @@ func (r *PostgresRepo) UpsertHackerProfile(ctx context.Context, p *models.Hacker
 		p.UserID, p.Gender, p.TShirtSize, p.City, p.PhoneNumber, p.EmergencyContactName, p.EmergencyContactNumber, p.Bio, p.ReadmeMd,
 		p.HasFormalEducation, p.DegreeType, p.Institution, p.FieldOfStudy, p.GradYear, p.GradMonth,
 		p.DietaryPreference, p.Allergies, p.GithubURL, p.LinkedinURL, p.ResumeURL, p.Skills, p.DefaultTeamPreference,
-		time.Now(),
+		p.Industry, p.YearsOfExperience, p.MentorExpertise, time.Now(),
 	)
 
 	if err != nil {

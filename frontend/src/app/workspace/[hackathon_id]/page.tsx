@@ -4,6 +4,7 @@ import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import TeamManagement from "./TeamManagement";
 
 type ScheduleItem = {
   time: string;
@@ -329,7 +330,21 @@ function parsePrizes(text: string): PrizeEntry[] {
   if (!text) return [];
   if (text.trim().startsWith("[")) {
     try {
-      return JSON.parse(text);
+      const parsed = JSON.parse(text);
+      return parsed.map((p: any) => {
+        let amt = p.amount || "";
+        let det = p.detail || "";
+        if (!det && amt.includes("—")) {
+          const parts = amt.split("—");
+          amt = parts[0].trim();
+          det = parts.slice(1).join("—").trim();
+        } else if (!det && amt.includes("-")) {
+          const parts = amt.split("-");
+          amt = parts[0].trim();
+          det = parts.slice(1).join("-").trim();
+        }
+        return { ...p, amount: amt, detail: det };
+      });
     } catch (e) {}
   }
   const lines = text.split(/\n|\|/).map((l) => l.trim()).filter(Boolean);
@@ -337,12 +352,10 @@ function parsePrizes(text: string): PrizeEntry[] {
 
   for (const line of lines) {
     const t = line.trim();
-    // Match patterns like: 1st Place: $5000, or 🥇 First Place — $10,000 USD
     const rankMatch = t.match(/^((?:🥇|🥈|🥉|1st|2nd|3rd|First|Second|Third|Runner[- ]?[Uu]p|Special|Best|Grand)[\w\s]*?)[\s:-]+(.+)$/i);
     if (rankMatch) {
       const label = rankMatch[1].trim();
       const rest = rankMatch[2].trim();
-      // Attempt to parse amount vs detail
       const amountMatch = rest.match(/^(\$[\d,]+(?:\s*(?:USD|INR|EUR|GBP))?)\s*[-–]?\s*(.*)$/);
       if (amountMatch) {
         prizes.push({ rank: label, label, amount: amountMatch[1], detail: amountMatch[2] });
@@ -350,7 +363,6 @@ function parsePrizes(text: string): PrizeEntry[] {
         prizes.push({ rank: label, label, amount: rest, detail: "" });
       }
     } else {
-      // Append to the last parsed prize as a detail
       if (prizes.length > 0) {
         const cleaned = t.replace(/^[-•\s]+/, "").trim();
         if (cleaned) {
@@ -360,7 +372,6 @@ function parsePrizes(text: string): PrizeEntry[] {
     }
   }
 
-  // Fallback: no structured parsing possible, show as one raw entry
   if (prizes.length === 0) {
     prizes.push({ rank: "Prize Pool", label: "Prize Pool", amount: text.substring(0, 80), detail: "" });
   }
@@ -419,38 +430,45 @@ function PrizesDisplay({ prizesText }: { prizesText: string }) {
       variants={containerVariants}
       initial="hidden"
       animate="show"
-      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
     >
       {prizes.map((prize, i) => {
         const style = getPrizeStyle(prize.rank);
+        const hideLabel = !prize.label || /^[🥇🥈🥉🏆⭐️⭐]$/.test(prize.label.trim());
+        
         return (
           <motion.div
             key={i}
             variants={cardVariants}
-            whileHover={{ scale: 1.03, y: -3 }}
-            className={`relative p-5 rounded-2xl border ${style.bg} ${style.border} shadow-sm transition-all duration-300 cursor-default overflow-hidden`}
+            whileHover={{ scale: 1.03, y: -4 }}
+            className={`relative p-8 rounded-[2rem] border ${style.bg} ${style.border} shadow-lg transition-all duration-300 cursor-default overflow-hidden flex flex-col items-center text-center`}
           >
-            {/* Glow shimmer in top-right */}
-            <div className="absolute top-0 right-0 w-24 h-24 rounded-full bg-white/5 dark:bg-white/3 blur-2xl pointer-events-none" />
+            {/* Glow shimmer */}
+            <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/10 dark:bg-white/5 blur-3xl pointer-events-none" />
 
-            <div className="flex items-start gap-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${style.badge} shrink-0 shadow-inner`}>
-                {style.icon}
-              </div>
-              <div className="space-y-1 min-w-0">
-                <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border ${style.badge} inline-block`}>
-                  {prize.label}
-                </span>
-                <p className="text-base font-black text-slate-900 dark:text-white leading-tight break-words">
-                  {prize.amount}
-                </p>
-                {prize.detail && (
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
-                    {prize.detail}
-                  </p>
-                )}
-              </div>
+            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center border ${style.badge} mb-5 shadow-inner bg-white/5`}>
+              {style.icon}
             </div>
+
+            {!hideLabel && (
+              <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border ${style.badge} mb-3 inline-block shadow-sm`}>
+                {prize.label}
+              </span>
+            )}
+
+            <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-tight mb-3">
+              {prize.amount.replace(/^(🥇|🥈|🥉|🏆|⭐|⭐️)\s*/, '')}
+            </h3>
+            
+            {prize.detail && (
+              <div className="w-full h-px bg-slate-200/50 dark:bg-white/10 my-3" />
+            )}
+
+            {prize.detail && (
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium px-2">
+                {prize.detail}
+              </p>
+            )}
           </motion.div>
         );
       })}
@@ -606,6 +624,7 @@ export default function WorkspacePage({ params }: Props) {
   const [event, setEvent] = useState<HackathonDetails | null>(null);
   const [registration, setRegistration] = useState<any>(null);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [activeTab, setActiveTab] = useState<"dashboard" | "team">("dashboard");
 
   // Apply Form State
   const [github, setGithub] = useState("");
@@ -619,6 +638,7 @@ export default function WorkspacePage({ params }: Props) {
   const [ticketDesc, setTicketDesc] = useState("");
   const [ticketMsg, setTicketMsg] = useState("");
   const [ticketSubmitting, setTicketSubmitting] = useState(false);
+  const [fullProfile, setFullProfile] = useState<any>(null);
 
   useEffect(() => {
     // 1. Fetch Event details
@@ -646,6 +666,7 @@ export default function WorkspacePage({ params }: Props) {
     fetchApi<any>("/profile/me")
       .then((profile) => {
         if (profile && profile.user_id) {
+          setFullProfile(profile);
           setGithub(profile.github_url || "");
           setLinkedin(profile.linkedin_url || "");
           setResume(profile.resume_url || "");
@@ -662,10 +683,39 @@ export default function WorkspacePage({ params }: Props) {
     setError("");
 
     try {
+      if (!fullProfile) {
+        throw new Error("Please complete your global profile at /profile before applying.");
+      }
+
+      const requiredFields = [
+        "gender", "tshirt_size", "city", "phone_number", 
+        "emergency_contact_name", "emergency_contact_number"
+      ];
+      
+      const missing = requiredFields.filter(f => !fullProfile[f]);
+      
+      if (!fullProfile.bio && !fullProfile.readme_md) {
+        missing.push("bio or readme");
+      }
+      
+      if (missing.length > 0) {
+        throw new Error(`Your profile is missing required fields: ${missing.join(', ')}. Please complete your global profile at /profile.`);
+      }
+      
+      if (fullProfile.has_formal_education) {
+        if (!fullProfile.institution || !fullProfile.degree_type || !fullProfile.field_of_study || !fullProfile.grad_year) {
+          throw new Error("Your profile is missing education details. Please complete them at /profile.");
+        }
+      }
+
       const skillsArray = skills
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
+
+      if (!github || !linkedin || skillsArray.length === 0 || !resume) {
+        throw new Error("Please complete all your profile details (GitHub, LinkedIn, Skills, Resume) to apply.");
+      }
 
       const res = await fetch(`/api/hackathons/${hackathon_id}/apply`, {
         method: "POST",
@@ -703,14 +753,17 @@ export default function WorkspacePage({ params }: Props) {
     try {
       // Fetch user's team ID
       const teamData = await fetchApi<any>(`/hackathons/${hackathon_id}/my-team`);
-      let teamID = "00000000-0000-0000-0000-000000000000"; // fallback
+      let teamID = "";
       if (teamData && teamData.team) {
         teamID = teamData.team.id;
       }
 
-      await fetch(`/api/hackathons/${hackathon_id}/tickets`, {
+      if (!teamID) {
+        throw new Error("You must create or join a team first to request mentor support.");
+      }
+
+      await fetchApi(`/hackathons/${hackathon_id}/tickets`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           team_id: teamID,
           description: ticketDesc,
@@ -994,6 +1047,13 @@ export default function WorkspacePage({ params }: Props) {
                     </div>
                   </div>
 
+                  {preference === "Has Team" && (
+                    <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold leading-relaxed flex items-start gap-2">
+                      <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" />
+                      <span>Note: All team members must apply individually and be approved before forming a team.</span>
+                    </div>
+                  )}
+
                   <motion.button
                     type="submit"
                     disabled={submitting}
@@ -1071,22 +1131,35 @@ export default function WorkspacePage({ params }: Props) {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {registration.team_preference === "Looking for Team" ? (
-              <Link href={`/workspace/${hackathon_id}/find-team`} className="px-4.5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-xs transition-all shadow-[0_0_10px_rgba(59,130,246,0.15)] flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5" />
-                Find Teammates
-              </Link>
-            ) : (
-              <Link href={`/workspace/${hackathon_id}/project`} className="px-4.5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-xs transition-all shadow-[0_0_10px_rgba(59,130,246,0.15)] flex items-center gap-1.5">
-                <Award className="w-3.5 h-3.5" />
-                My Project Submission
-              </Link>
-            )}
+            <button
+              onClick={() => setActiveTab("dashboard")}
+              className={`px-4.5 py-2.5 font-semibold rounded-xl text-xs transition-all flex items-center gap-1.5 ${
+                activeTab === "dashboard" ? "bg-blue-600 text-white shadow-[0_0_10px_rgba(59,130,246,0.15)]" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+              }`}
+            >
+              <Award className="w-3.5 h-3.5" />
+              Dashboard
+            </button>
+            <button
+              onClick={() => setActiveTab("team")}
+              className={`px-4.5 py-2.5 font-semibold rounded-xl text-xs transition-all flex items-center gap-1.5 ${
+                activeTab === "team" ? "bg-blue-600 text-white shadow-[0_0_10px_rgba(59,130,246,0.15)]" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              Team Management
+            </button>
+            <Link href={`/workspace/${hackathon_id}/project`} className="px-4.5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-xs transition-all shadow-[0_0_10px_rgba(79,70,229,0.15)] flex items-center gap-1.5">
+              <Award className="w-3.5 h-3.5" />
+              My Project Submission
+            </Link>
           </div>
         </header>
 
-        {/* Workspace Layout */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {activeTab === "team" ? (
+          <TeamManagement hackathon_id={hackathon_id} user_id={registration?.user_id || fullProfile?.user_id || ""} event={event} />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           
           {/* Main workspace info */}
           <div className="col-span-1 md:col-span-2 space-y-6">
@@ -1131,6 +1204,24 @@ export default function WorkspacePage({ params }: Props) {
                     {tr}
                   </span>
                 ))}
+              </div>
+            </div>
+
+            <div className="bg-blue-500/10 dark:bg-blue-500/5 border border-blue-500/20 rounded-2xl p-6">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0 mt-1">
+                  <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Before you apply</h3>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 leading-relaxed">
+                    Make sure your <strong>Global Profile</strong> (accessed from the sidebar) is completely filled out. 
+                    Organizers review your skills, GitHub, and LinkedIn. 
+                  </p>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-2 font-semibold">
+                    Important: If you are participating as a team, <strong>each team member must apply individually</strong> and complete their own profile!
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -1184,6 +1275,7 @@ export default function WorkspacePage({ params }: Props) {
           </div>
 
         </div>
+        )}
       </div>
     </div>
   );

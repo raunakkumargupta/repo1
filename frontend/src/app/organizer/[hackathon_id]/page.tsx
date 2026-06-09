@@ -13,7 +13,10 @@ import {
   CheckCircle, 
   XCircle,
   Mail,
-  UserPlus
+  UserPlus,
+  Trophy,
+  Megaphone,
+  X
 } from "lucide-react";
 import { fetchApi } from "@/lib/api";
 
@@ -26,6 +29,7 @@ type Application = {
   user_id: string;
   github_url: string | null;
   linkedin_url: string | null;
+  resume_url: string | null;
   skills: string;
   team_preference: string;
   approval_status: string;
@@ -38,6 +42,7 @@ type TeamSubmission = {
   team_name: string;
   repository_url: string;
   is_submitted: boolean;
+  is_winner: boolean;
 };
 
 export default function OrganizerDashboard({ params }: Props) {
@@ -58,6 +63,8 @@ export default function OrganizerDashboard({ params }: Props) {
   });
 
   // Action states
+  const [staffList, setStaffList] = useState<any[]>([]);
+  const [staffName, setStaffName] = useState("");
   const [staffEmail, setStaffEmail] = useState("");
   const [staffRole, setStaffRole] = useState("Mentor");
   const [staffMsg, setStaffMsg] = useState("");
@@ -66,6 +73,7 @@ export default function OrganizerDashboard({ params }: Props) {
   const [sendPush, setSendPush] = useState(true);
   const [confirmBroadcastOpen, setConfirmBroadcastOpen] = useState(false);
   const [broadcastStatus, setBroadcastStatus] = useState("");
+  const [selectedApplicant, setSelectedApplicant] = useState<any>(null);
 
   const fetchData = async () => {
     try {
@@ -74,11 +82,13 @@ export default function OrganizerDashboard({ params }: Props) {
       if (ev) setEventTitle(ev.title);
 
       // 2. Fetch applications
-      const apps = await fetch(`/api/hackathons/${hackathon_id}/applications`).then((r) => r.ok ? r.json() : []);
+      const appsData = await fetch(`/api/hackathons/${hackathon_id}/applications`).then((r) => r.ok ? r.json() : []);
+      const apps = appsData || [];
       setApplications(apps);
 
       // 3. Fetch submissions
-      const subs = await fetch(`/api/hackathons/${hackathon_id}/submissions`).then((r) => r.ok ? r.json() : []);
+      const subsData = await fetch(`/api/hackathons/${hackathon_id}/submissions`).then((r) => r.ok ? r.json() : []);
+      const subs = subsData || [];
       setSubmissions(subs);
 
       // 4. Calculate local stats
@@ -91,6 +101,10 @@ export default function OrganizerDashboard({ params }: Props) {
         teams: subs.length, // total registered teams
         submissions: subs.filter((s: any) => s.is_submitted).length
       });
+
+      // 5. Fetch assigned staff
+      const staffData = await fetch(`/api/hackathons/${hackathon_id}/staff`).then((r) => r.ok ? r.json() : []);
+      setStaffList(staffData || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -101,6 +115,16 @@ export default function OrganizerDashboard({ params }: Props) {
   useEffect(() => {
     fetchData();
   }, [hackathon_id]);
+
+  useEffect(() => {
+    if (activeTab === "broadcasts") {
+      const msg = localStorage.getItem("prefilled_broadcast");
+      if (msg) {
+        setBroadcastMsg(msg);
+        localStorage.removeItem("prefilled_broadcast");
+      }
+    }
+  }, [activeTab]);
 
   const handleUpdateStatus = async (regID: string, status: "Accepted" | "Rejected") => {
     try {
@@ -114,6 +138,30 @@ export default function OrganizerDashboard({ params }: Props) {
     }
   };
 
+  const handleToggleWinner = async (teamId: string, currentStatus: boolean) => {
+    try {
+      await fetchApi(`/hackathons/${hackathon_id}/teams/${teamId}/winner`, {
+        method: "PUT",
+        body: JSON.stringify({ is_winner: !currentStatus }),
+      });
+      await fetchData();
+    } catch (err: any) {
+      alert(`Error updating winner status: ${err.message}`);
+    }
+  };
+
+  const handleAnnounceWinners = () => {
+    const winners = submissions.filter(t => t.is_winner);
+    if (winners.length === 0) {
+      alert("Please mark at least one team as a winner before announcing.");
+      return;
+    }
+    const winnerNames = winners.map(w => w.team_name).join(", ");
+    
+    localStorage.setItem("prefilled_broadcast", `🏆 Congratulations to our winners!\n\nWe are thrilled to announce that the following teams have won:\n\n**${winnerNames}**\n\nAmazing work everyone!`);
+    setActiveTab("broadcasts");
+  };
+
   const handleInviteStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!staffEmail.trim()) return;
@@ -123,10 +171,12 @@ export default function OrganizerDashboard({ params }: Props) {
       await fetch(`/api/hackathons/${hackathon_id}/staff`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: staffEmail.trim(), role: staffRole }),
+        body: JSON.stringify({ name: staffName.trim(), email: staffEmail.trim(), role: staffRole }),
       });
       setStaffMsg("Staff assigned successfully!");
+      setStaffName("");
       setStaffEmail("");
+      await fetchData(); // Refresh staff list
     } catch (err: any) {
       setStaffMsg(`Error: ${err.message || "Failed to invite staff"}`);
     }
@@ -256,7 +306,7 @@ export default function OrganizerDashboard({ params }: Props) {
                 <thead>
                   <tr className="bg-slate-100/50 dark:bg-white/5 border-b border-slate-200 dark:border-white/5 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                     <th className="py-3.5 px-5">Name</th>
-                    <th className="py-3.5 px-5">GitHub / LinkedIn</th>
+                    <th className="py-3.5 px-5">Links</th>
                     <th className="py-3.5 px-5">Skills</th>
                     <th className="py-3.5 px-5">Track Preference</th>
                     <th className="py-3.5 px-5">Status</th>
@@ -284,6 +334,7 @@ export default function OrganizerDashboard({ params }: Props) {
                           <td className="py-4 px-5 space-y-1">
                             {app.github_url && <a href={app.github_url} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 hover:underline block">GitHub ↗</a>}
                             {app.linkedin_url && <a href={app.linkedin_url} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 hover:underline block">LinkedIn ↗</a>}
+                            {app.resume_url && <a href={app.resume_url} target="_blank" rel="noreferrer" className="text-[10px] text-blue-500 hover:underline block">Resume ↗</a>}
                           </td>
                           <td className="py-4 px-5">
                             <div className="flex flex-wrap gap-1">
@@ -306,26 +357,32 @@ export default function OrganizerDashboard({ params }: Props) {
                             </span>
                           </td>
                           <td className="py-4 px-5 text-right">
-                            {app.approval_status === "Pending" ? (
-                              <div className="inline-flex gap-2">
-                                <button
-                                  onClick={() => handleUpdateStatus(app.id, "Accepted")}
-                                  className="p-1 text-green-600 hover:bg-green-500/10 rounded-lg cursor-pointer"
-                                  title="Accept"
-                                >
-                                  <CheckCircle className="w-5 h-5" />
-                                </button>
-                                <button
-                                  onClick={() => handleUpdateStatus(app.id, "Rejected")}
-                                  className="p-1 text-red-600 hover:bg-red-500/10 rounded-lg cursor-pointer"
-                                  title="Reject"
-                                >
-                                  <XCircle className="w-5 h-5" />
-                                </button>
-                              </div>
-                            ) : (
-                              <span className="text-slate-400 font-medium">-</span>
-                            )}
+                            <div className="inline-flex items-center gap-2">
+                              <button
+                                onClick={() => setSelectedApplicant(app)}
+                                className="px-3 py-1.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 rounded-lg text-[10px] font-bold"
+                              >
+                                View Profile
+                              </button>
+                              {app.approval_status === "Pending" ? (
+                                <>
+                                  <button
+                                    onClick={() => handleUpdateStatus(app.id, "Accepted")}
+                                    className="px-3 py-1.5 bg-green-500/10 text-green-600 hover:bg-green-500/20 rounded-lg text-[10px] font-bold"
+                                  >
+                                    Accept
+                                  </button>
+                                  <button
+                                    onClick={() => handleUpdateStatus(app.id, "Rejected")}
+                                    className="px-3 py-1.5 bg-red-500/10 text-red-600 hover:bg-red-500/20 rounded-lg text-[10px] font-bold"
+                                  >
+                                    Reject
+                                  </button>
+                                </>
+                              ) : (
+                                <span className="text-[10px] text-slate-400">Resolved</span>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -334,6 +391,78 @@ export default function OrganizerDashboard({ params }: Props) {
                 </tbody>
               </table>
             </div>
+
+            <AnimatePresence>
+              {selectedApplicant && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/45 backdrop-blur-sm">
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    className="max-w-2xl w-full max-h-[85vh] overflow-y-auto glass p-6 rounded-2xl border border-slate-200 dark:border-white/10 space-y-6"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h2 className="text-xl font-bold text-slate-900 dark:text-white">{selectedApplicant.user_name}</h2>
+                        <p className="text-xs text-slate-500">{selectedApplicant.user_email}</p>
+                      </div>
+                      <button onClick={() => setSelectedApplicant(null)} className="p-2 bg-slate-100 dark:bg-white/5 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-4">
+                        <div>
+                          <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Links</h3>
+                          <div className="flex flex-col gap-2">
+                            {selectedApplicant.github_url && <a href={selectedApplicant.github_url} target="_blank" rel="noreferrer" className="text-xs text-blue-500 hover:underline">GitHub Profile ↗</a>}
+                            {selectedApplicant.linkedin_url && <a href={selectedApplicant.linkedin_url} target="_blank" rel="noreferrer" className="text-xs text-blue-500 hover:underline">LinkedIn Profile ↗</a>}
+                            {selectedApplicant.resume_url && <a href={selectedApplicant.resume_url} target="_blank" rel="noreferrer" className="text-xs text-blue-500 hover:underline">Resume ↗</a>}
+                          </div>
+                        </div>
+
+                        <div>
+                          <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Skills</h3>
+                          <div className="flex flex-wrap gap-1.5">
+                            {(() => {
+                              try {
+                                const arr = JSON.parse(selectedApplicant.skills) || [];
+                                return arr.map((s: string) => (
+                                  <span key={s} className="px-2 py-1 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-md text-[10px]">{s}</span>
+                                ));
+                              } catch(e) { return null; }
+                            })()}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div>
+                          <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Bio / Details</h3>
+                          {selectedApplicant.bio ? (
+                            <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-200 dark:border-white/5">
+                              {selectedApplicant.bio}
+                            </p>
+                          ) : (
+                            <span className="text-xs text-slate-400 italic">No bio provided.</span>
+                          )}
+                        </div>
+
+                        {selectedApplicant.readme_md && (
+                          <div>
+                            <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Readme.md</h3>
+                            <pre className="text-[10px] text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-200 dark:border-white/5 whitespace-pre-wrap overflow-x-auto font-mono max-h-48 overflow-y-auto">
+                              {selectedApplicant.readme_md}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                </div>
+              )}
+            </AnimatePresence>
           </div>
         )}
 
@@ -348,6 +477,17 @@ export default function OrganizerDashboard({ params }: Props) {
               <div className="flex items-center gap-2 mb-2">
                 <Mail className="w-4 h-4 text-blue-500" />
                 <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Add Staff Member</h2>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-500">Staff Name (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="Jane Doe"
+                  value={staffName}
+                  onChange={(e) => setStaffName(e.target.value)}
+                  className="input-base w-full"
+                />
               </div>
 
               <div className="space-y-1">
@@ -398,6 +538,27 @@ export default function OrganizerDashboard({ params }: Props) {
                 Assign Staff Member
               </button>
             </form>
+
+            <div className="glass border border-slate-200/60 dark:border-white/10 rounded-2xl p-6">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Currently Assigned Staff</h2>
+              {staffList.length === 0 ? (
+                <div className="text-center py-6 text-slate-500 text-xs">No staff assigned yet.</div>
+              ) : (
+                <div className="divide-y divide-slate-200/40 dark:divide-white/5">
+                  {staffList.map((staff) => (
+                    <div key={staff.user_id} className="flex justify-between items-center py-3">
+                      <div>
+                        <div className="text-sm font-bold text-slate-900 dark:text-white">{staff.name || "Unknown"}</div>
+                        <div className="text-[10px] text-slate-500">{staff.email}</div>
+                      </div>
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${staff.role === 'Mentor' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400' : 'bg-blue-500/10 text-blue-600 dark:text-blue-400'}`}>
+                        {staff.role}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -482,9 +643,18 @@ export default function OrganizerDashboard({ params }: Props) {
 
         {activeTab === "submissions" && (
           <div className="space-y-6">
-            <header>
-              <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">Submitted Projects</h1>
-              <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">Review repository submissions and finalize the event judging portal.</p>
+            <header className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6">
+              <div>
+                <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">Submitted Projects</h1>
+                <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">Review repository submissions and finalize the event judging portal.</p>
+              </div>
+              <button 
+                onClick={handleAnnounceWinners}
+                className="flex items-center justify-center gap-2 bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg shadow-amber-500/20 transition-all"
+              >
+                <Megaphone className="w-4 h-4" />
+                Announce Winners
+              </button>
             </header>
 
             <div className="glass border border-slate-200/60 dark:border-white/10 rounded-2xl overflow-hidden overflow-x-auto">
@@ -494,17 +664,23 @@ export default function OrganizerDashboard({ params }: Props) {
                     <th className="py-3.5 px-5">Team Name</th>
                     <th className="py-3.5 px-5">GitHub Repository</th>
                     <th className="py-3.5 px-5">Status</th>
+                    <th className="py-3.5 px-5 text-right">Results</th>
                   </tr>
                 </thead>
                 <tbody className="text-xs divide-y divide-slate-200/40 dark:divide-white/5">
                   {submissions.length === 0 ? (
                     <tr>
-                      <td colSpan={3} className="py-8 text-center text-slate-500">No project submissions yet.</td>
+                      <td colSpan={4} className="py-8 text-center text-slate-500">No project submissions yet.</td>
                     </tr>
                   ) : (
                     submissions.map((sub) => (
-                      <tr key={sub.id} className="hover:bg-slate-50/50 dark:hover:bg-white/2 transition-colors">
-                        <td className="py-4 px-5 font-bold text-slate-800 dark:text-slate-200">{sub.team_name}</td>
+                      <tr key={sub.id} className={`hover:bg-slate-50/50 dark:hover:bg-white/2 transition-colors ${sub.is_winner ? 'bg-yellow-500/5 dark:bg-yellow-500/10' : ''}`}>
+                        <td className="py-4 px-5">
+                          <div className="flex items-center gap-2">
+                            {sub.is_winner && <Trophy className="w-4 h-4 text-yellow-500" />}
+                            <span className="font-bold text-slate-800 dark:text-slate-200">{sub.team_name}</span>
+                          </div>
+                        </td>
                         <td className="py-4 px-5">
                           {sub.repository_url ? (
                             <a href={sub.repository_url} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">
@@ -520,6 +696,19 @@ export default function OrganizerDashboard({ params }: Props) {
                           }`}>
                             {sub.is_submitted ? "Submitted" : "Draft"}
                           </span>
+                        </td>
+                        <td className="py-4 px-5 text-right">
+                          <button
+                            onClick={() => handleToggleWinner(sub.id, sub.is_winner)}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                              sub.is_winner
+                                ? 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-500/30'
+                                : 'bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-white/20'
+                            }`}
+                          >
+                            <Trophy className="w-3.5 h-3.5" />
+                            {sub.is_winner ? 'Winner' : 'Mark as Winner'}
+                          </button>
                         </td>
                       </tr>
                     ))

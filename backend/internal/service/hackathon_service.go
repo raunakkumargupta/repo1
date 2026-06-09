@@ -63,3 +63,7 @@ func (s *HackathonService) UpdateHackathonDetails(ctx context.Context, id string
 	return s.pgRepo.UpdateHackathonDetails(ctx, id, req)
 }
 
+func (s *HackathonService) DeleteHackathon(ctx context.Context, id string) error {
+	return s.pgRepo.DeleteHackathon(ctx, id)
+}
+

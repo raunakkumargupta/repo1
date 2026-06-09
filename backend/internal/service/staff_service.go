@@ -18,6 +18,10 @@ func NewStaffService(pgRepo *repository.PostgresRepo) *StaffService {
 	return &StaffService{pgRepo: pgRepo}
 }
 
+func (s *StaffService) GetStaffRole(ctx context.Context, hackathonID, userID string) (string, error) {
+	return s.pgRepo.GetStaffRole(ctx, hackathonID, userID)
+}
+
 func (s *StaffService) AssignStaff(ctx context.Context, hackathonID string, req models.StaffAssignmentRequest) error {
 	if req.Email == "" || req.Role == "" {
 		return errors.New("email and role are required")
@@ -40,8 +44,28 @@ func (s *StaffService) AssignStaff(ctx context.Context, hackathonID string, req 
 			return fmt.Errorf("failed to hash password: %w", err)
 		}
 
+		name := req.Name
+		if name == "" {
+			// fallback to email prefix
+			importStrings := true // just a note
+			_ = importStrings
+			// Instead of importing strings, just find the @
+			atIndex := 0
+			for i, c := range req.Email {
+				if c == '@' {
+					atIndex = i
+					break
+				}
+			}
+			if atIndex > 0 {
+				name = req.Email[:atIndex]
+			} else {
+				name = "Staff Member" // Fallback
+			}
+		}
+
 		placeholderUser := &models.User{
-			Name:         "Staff Placeholder",
+			Name:         name,
 			Email:        req.Email,
 			PasswordHash: string(hashedPassword),
 			Role:         req.Role, // assign role globally as well
@@ -61,4 +85,12 @@ func (s *StaffService) AssignStaff(ctx context.Context, hackathonID string, req 
 
 	// 3. Map user to hackathon staff
 	return s.pgRepo.AddStaff(ctx, hackathonID, userID, req.Role)
+}
+
+func (s *StaffService) GetStaffHackathons(ctx context.Context, userID string) ([]models.Hackathon, error) {
+	return s.pgRepo.GetStaffHackathons(ctx, userID)
+}
+
+func (s *StaffService) GetHackathonStaffList(ctx context.Context, hackathonID string) ([]models.HackathonStaffResponse, error) {
+	return s.pgRepo.GetHackathonStaffList(ctx, hackathonID)
 }

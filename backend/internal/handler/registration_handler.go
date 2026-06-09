@@ -58,8 +58,8 @@ func (h *RegistrationHandler) GetMyRegistration(w http.ResponseWriter, r *http.R
 	}
 	if reg == nil {
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(map[string]string{"message": "not found"})
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{})
 		return
 	}
 

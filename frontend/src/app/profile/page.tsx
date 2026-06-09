@@ -41,10 +41,12 @@ export default function ProfilePage() {
   const [error, setError] = useState("");
   const [previewMode, setPreviewMode] = useState(false);
   const [showResumeModal, setShowResumeModal] = useState(false);
+  const [activeProfileTab, setActiveProfileTab] = useState("hacker"); // "hacker" | "mentor"
 
   // Account
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [userRole, setUserRole] = useState("");
 
   // Profile Fields
   const [gender, setGender] = useState("");
@@ -68,6 +70,11 @@ export default function ProfilePage() {
   const [resume, setResume] = useState("");
   const [skills, setSkills] = useState("");
   const [teamPreference, setTeamPreference] = useState("Solo");
+  
+  // Mentor Fields
+  const [industry, setIndustry] = useState("");
+  const [yearsOfExperience, setYearsOfExperience] = useState("");
+  const [mentorExpertise, setMentorExpertise] = useState("");
 
   useEffect(() => {
     // Fetch Basic User Info
@@ -77,6 +84,7 @@ export default function ProfilePage() {
         if (user) {
           setName(user.name || "Hacker");
           setEmail(user.email || "");
+          setUserRole(user.role || "");
         }
       })
       .catch(console.error);
@@ -106,6 +114,9 @@ export default function ProfilePage() {
           setResume(data.resume_url || "");
           setSkills(data.skills || "");
           setTeamPreference(data.default_team_preference || "Solo");
+          setIndustry(data.industry || "");
+          setYearsOfExperience(data.years_of_experience ? data.years_of_experience.toString() : "");
+          setMentorExpertise(data.mentor_expertise || "");
         }
       })
       .catch((err) => console.log("No profile set yet.", err))
@@ -143,6 +154,9 @@ export default function ProfilePage() {
           resume_url: resume,
           skills,
           default_team_preference: teamPreference,
+          industry,
+          years_of_experience: yearsOfExperience ? parseInt(yearsOfExperience, 10) : 0,
+          mentor_expertise: mentorExpertise,
         }),
       });
 
@@ -463,6 +477,27 @@ export default function ProfilePage() {
         </motion.div>
       )}
 
+      <div className="flex justify-center mb-8">
+        <div className="flex bg-slate-100 dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-200/60 dark:border-white/5 shadow-inner">
+          <button
+            type="button"
+            onClick={() => setActiveProfileTab("hacker")}
+            className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${activeProfileTab === "hacker" ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-md" : "text-slate-500 hover:text-slate-900 dark:hover:text-white"}`}
+          >
+            Hacker Details
+          </button>
+          {(userRole === "Mentor" || userRole === "Judge") && (
+            <button
+              type="button"
+              onClick={() => setActiveProfileTab("mentor")}
+              className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${activeProfileTab === "mentor" ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-md" : "text-slate-500 hover:text-slate-900 dark:hover:text-white"}`}
+            >
+              Mentor Details
+            </button>
+          )}
+        </div>
+      </div>
+
       <form onSubmit={handleSave} className="space-y-8">
         
         {/* Basic Info */}
@@ -501,7 +536,9 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Contact & Emergency */}
+        {activeProfileTab === "hacker" && (
+          <div className="space-y-8">
+            {/* Contact & Emergency */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="glass border border-slate-200/60 dark:border-white/10 rounded-3xl p-6 sm:p-8">
             <SectionTitle icon={Phone} title="How Can We Reach You?" desc="For updates and communication." />
@@ -605,6 +642,28 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+        </div>
+        )}
+
+        {activeProfileTab === "mentor" && (
+          <div className="glass border border-slate-200/60 dark:border-white/10 rounded-3xl p-6 sm:p-8 border-t-4 border-t-blue-500/50">
+            <SectionTitle icon={GraduationCap} title="Professional Background" desc="Share your industry expertise and experience." />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 ml-0 md:ml-10">
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Industry</label>
+                <input type="text" placeholder="e.g. Fintech, E-commerce, EdTech" value={industry} onChange={e => setIndustry(e.target.value)} className="input-base w-full" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Years of Experience</label>
+                <input type="number" placeholder="e.g. 5" value={yearsOfExperience} onChange={e => setYearsOfExperience(e.target.value)} className="input-base w-full" />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Expertise / Mentorship Areas</label>
+                <textarea placeholder="e.g. System Architecture, React Performance, Pitching" value={mentorExpertise} onChange={e => setMentorExpertise(e.target.value)} className="input-base w-full min-h-[100px] resize-y" />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tell Your Story */}
         <div className="glass border border-slate-200/60 dark:border-white/10 rounded-3xl p-6 sm:p-8">
@@ -658,7 +717,7 @@ export default function ProfilePage() {
                 Saving Profile...
               </>
             ) : (
-              "Save Hacker Profile"
+              "Save Global Profile"
             )}
           </motion.button>
         </motion.div>

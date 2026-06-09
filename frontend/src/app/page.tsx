@@ -388,7 +388,7 @@ export default function LandingPage() {
                     </div>
 
                     <div className="mt-8 pt-5 border-t border-slate-200/50 dark:border-white/5 flex items-center justify-between">
-                      <span className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400">
+                      <span suppressHydrationWarning className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400">
                         <Calendar className="w-4 h-4 text-slate-400" />
                         {new Date(hack.start_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                       </span>
