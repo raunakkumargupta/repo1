@@ -1,0 +1,36 @@
+# Android / Gradle
+**/local.properties
+**/.gradle/
+**/build/
+**/captures/
+**/externalNativeBuild/
+**/cxx/
+**/gradle-wrapper.jar
+*.keystore
+*.jks
+*.jar
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# iOS / Xcode
+**/build/
+*.xcworkspace
+xcuserdata/
+*.xcuserdatad/
+*.moved-aside
+*.xcuserstate
+*.xccheckout
+**/Pods/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/
+
+# macOS
+.DS_Store

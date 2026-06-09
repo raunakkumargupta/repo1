@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_name">Matrix Command</string>
+    <string name="login_title">Matrix Command</string>
+    <string name="login_tagline">Launch your hackathon mission with speed and style</string>
+    <string name="login_hint_email">Email</string>
+    <string name="login_hint_password">Password</string>
+    <string name="login_button">Sign In</string>
+    <string name="login_subtitle">Sign in to continue to your event control center</string>
+    <string name="dashboard_title">Matrix Command</string>
+    <string name="dashboard_subtitle">Hackathon mission control</string>
+    <string name="dashboard_summary_title">Ready to launch</string>
+    <string name="dashboard_summary_text">Your team is set, your tasks are queued, and mentors are on standby.</string>
+    <string name="mentor_queue_title">Mentor queue</string>
+    <string name="mentor_queue_text">You have 2 high-priority mentor requests awaiting support.</string>
+    <string name="refresh_status">Refresh status</string>
+    <string name="request_mentor">Request Mentor</string>
+    <string name="live_status">Live status</string>
+</resources>

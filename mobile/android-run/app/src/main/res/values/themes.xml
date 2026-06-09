@@ -1,0 +1,19 @@
+<resources>
+    <style name="Theme.MatrixApp" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/primaryAccent</item>
+        <item name="colorPrimaryVariant">@color/primaryAccentDark</item>
+        <item name="colorOnPrimary">@color/onPrimary</item>
+        <item name="colorSecondary">@color/accentSecondary</item>
+        <item name="colorOnSecondary">@color/onPrimary</item>
+        <item name="android:statusBarColor">@color/background</item>
+        <item name="android:navigationBarColor">@color/background</item>
+        <item name="android:windowBackground">@color/background</item>
+        <item name="materialCardViewStyle">@style/Widget.MatrixApp.CardView</item>
+    </style>
+
+    <style name="Widget.MatrixApp.CardView" parent="Widget.MaterialComponents.CardView">
+        <item name="cardCornerRadius">24dp</item>
+        <item name="cardElevation">8dp</item>
+        <item name="cardBackgroundColor">@color/surface</item>
+    </style>
+</resources>
