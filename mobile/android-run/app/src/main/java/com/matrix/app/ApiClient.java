@@ -11,8 +11,8 @@ import retrofit2.converter.gson.GsonConverterFactory;
 import java.io.IOException;
 
 public class ApiClient {
-    // 10.0.2.2 maps to the host machine's localhost on Android Emulator
-    private static final String BASE_URL = "http://10.0.2.2:8080/api/";
+    // 192.168.29.115 is the host machine's LAN IP reachable by the physical device
+    private static final String BASE_URL = "http://192.168.29.115:8080/api/";
     private static Retrofit retrofit = null;
 
     public static Retrofit getClient(SecurityManager securityManager) {

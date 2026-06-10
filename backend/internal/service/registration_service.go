@@ -18,6 +18,12 @@ func NewRegistrationService(pgRepo *repository.PostgresRepo) *RegistrationServic
 }
 
 func (s *RegistrationService) Apply(ctx context.Context, userID, hackathonID string, req models.ApplyHackathonRequest) (*models.Registration, error) {
+	// Check if the user is already staff (Mentor/Judge) for this hackathon
+	role, err := s.pgRepo.GetStaffRole(ctx, hackathonID, userID)
+	if err == nil && (role == "Mentor" || role == "Judge") {
+		return nil, errors.New("you are already assigned as staff for this hackathon and cannot participate as a hacker")
+	}
+
 	skillsJSON, err := json.Marshal(req.Skills)
 	if err != nil {
 		return nil, err

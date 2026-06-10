@@ -93,6 +93,18 @@ func (r *PostgresRepo) UpdateUserStatus(ctx context.Context, userID, status stri
 	return err
 }
 
+func (r *PostgresRepo) UpsertFcmToken(ctx context.Context, userID, token, platform string) error {
+	var query string
+	if platform == "ios" {
+		query = `UPDATE users SET apns_token = $1 WHERE id = $2`
+	} else {
+		// Default to Android FCM token
+		query = `UPDATE users SET fcm_token = $1 WHERE id = $2`
+	}
+	_, err := r.pool.Exec(ctx, query, token, userID)
+	return err
+}
+
 // ==========================================
 // Hackathons Logic
 // ==========================================

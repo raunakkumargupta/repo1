@@ -74,3 +74,31 @@ func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(user)
 }
+
+// RegisterFcmToken stores the mobile device's Firebase Cloud Messaging token
+// so the backend can send targeted push notifications to this device.
+func (h *UserHandler) RegisterFcmToken(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.GetUserClaims(r.Context())
+	if claims == nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		Token    string `json:"token"`
+		Platform string `json:"platform"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Token == "" {
+		http.Error(w, "token is required", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.userService.SaveFcmToken(r.Context(), claims.UserID, req.Token, req.Platform); err != nil {
+		http.Error(w, "failed to save FCM token", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "FCM token registered"})
+}

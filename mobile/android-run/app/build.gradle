@@ -1,15 +1,16 @@
 plugins {
     id 'com.android.application'
+    id 'com.google.gms.google-services'
 }
 
 android {
     namespace 'com.matrix.app'
-    compileSdk 36
+    compileSdk 35
 
     defaultConfig {
         applicationId 'com.matrix.app'
         minSdk 24
-        targetSdk 36
+        targetSdk 35
         versionCode 1
         versionName '1.0'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
@@ -31,4 +32,10 @@ dependencies {
     implementation 'com.squareup.okhttp3:logging-interceptor:4.11.0'
     implementation 'androidx.security:security-crypto:1.1.0-alpha06'
     implementation 'com.google.code.gson:gson:2.10.1'
+
+    // Firebase BoM - manages all Firebase library versions
+    implementation platform('com.google.firebase:firebase-bom:33.1.0')
+    // Firebase Cloud Messaging
+    implementation 'com.google.firebase:firebase-messaging'
 }
+

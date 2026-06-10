@@ -26,3 +26,7 @@ func (s *UserService) UpdateUserRole(ctx context.Context, userID, role string) e
 func (s *UserService) GetUserByID(ctx context.Context, id string) (*models.User, error) {
 	return s.pgRepo.GetUserByID(ctx, id)
 }
+
+func (s *UserService) SaveFcmToken(ctx context.Context, userID, token, platform string) error {
+	return s.pgRepo.UpsertFcmToken(ctx, userID, token, platform)
+}

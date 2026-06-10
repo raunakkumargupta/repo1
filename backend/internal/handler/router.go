@@ -75,6 +75,8 @@ func NewRouter(
 		r.Post("/api/auth/logout", authHandler.Logout)
 		r.Get("/api/auth/me", userHandler.GetMe)
 		r.Get("/api/auth/me/staff-hackathons", staffHandler.GetMyStaffHackathons)
+		// Mobile FCM token registration
+		r.Post("/api/users/fcm-token", userHandler.RegisterFcmToken)
 
 		// Create a hackathon (accessible to all authenticated users)
 		r.Post("/api/hackathons", hackathonHandler.Create)

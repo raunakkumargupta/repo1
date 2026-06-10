@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- Light Mode Nordic Slate -->
-    <color name="background">#FFFFFF</color>
-    <color name="surface">#F1F5F9</color>
-    <color name="textPrimary">#0F172A</color>
-    <color name="primaryAccent">#1E3A8A</color>
-    <color name="destructive">#DC2626</color>
-</resources>

@@ -2,6 +2,7 @@ package com.matrix.app;
 
 import com.matrix.app.models.ApplyHackathonRequest;
 import com.matrix.app.models.CreateTicketRequest;
+import com.matrix.app.models.FcmTokenRequest;
 import com.matrix.app.models.Hackathon;
 import com.matrix.app.models.LoginRequest;
 import com.matrix.app.models.LoginResponse;
@@ -34,4 +35,7 @@ public interface MatrixApi {
 
     @POST("tickets")
     Call<Void> requestMentor(@Body CreateTicketRequest body);
+
+    @POST("users/fcm-token")
+    Call<Void> registerFcmToken(@Body FcmTokenRequest body);
 }

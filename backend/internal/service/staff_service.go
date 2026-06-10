@@ -77,6 +77,13 @@ func (s *StaffService) AssignStaff(ctx context.Context, hackathonID string, req 
 		userID = placeholderUser.ID
 	} else {
 		userID = user.ID
+
+		// Check if they are already registered as a Hacker for this hackathon
+		reg, err := s.pgRepo.GetRegistrationByUserAndHackathon(ctx, userID, hackathonID)
+		if err == nil && reg != nil && reg.ApprovalStatus != "Rejected" {
+			return errors.New("this user is already participating in this hackathon as a hacker and cannot be assigned as staff")
+		}
+
 		// Sync their user role if it's currently Hacker or default
 		if user.Role == "Hacker" || user.Role == "User" {
 			_ = s.pgRepo.UpdateUserRole(ctx, user.ID, req.Role)

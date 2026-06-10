@@ -13,9 +13,9 @@
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:orientation="vertical"
-            android:gravity="center_horizontal">
+            android:gravity="center">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -25,7 +25,7 @@
                 android:textSize="32sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.08"
-                android:layout_marginTop="24dp" />
+                android:layout_marginBottom="8dp" />
 
             <TextView
                 android:layout_width="match_parent"
@@ -40,6 +40,7 @@
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
                 app:cardCornerRadius="28dp"
                 app:cardElevation="8dp"
                 app:cardBackgroundColor="@color/surface">
@@ -66,15 +67,6 @@
                         android:textSize="14sp"
                         android:layout_marginTop="8dp"
                         android:layout_marginBottom="20dp" />
-
-                    <com.google.android.material.chip.Chip
-                        style="@style/Widget.MaterialComponents.Chip.Entry"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Secure Access"
-                        android:textColor="@color/onPrimary"
-                        app:chipBackgroundColor="@color/primaryAccent"
-                        android:layout_marginBottom="16dp" />
 
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
@@ -126,11 +118,10 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Secure access powered by Matrix AI security"
-                        android:textColor="@color/textSecondary"
-                        android:textSize="12sp"
+                        android:layout_marginTop="12dp"
                         android:gravity="center"
-                        android:layout_marginTop="18dp" />
+                        android:text="Forgot Password"
+                        android:textColor="@color/textSecondary" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
