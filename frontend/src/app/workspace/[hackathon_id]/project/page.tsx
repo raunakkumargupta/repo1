@@ -47,7 +47,7 @@ export default function ProjectPage({ params }: Props) {
       const reg = await fetchApi<any>(`/hackathons/${hackathon_id}/my-registration`);
       setPreference(reg.team_preference);
 
-      if (reg.team_preference === "Has Team") {
+      if (reg.team_preference === "Has Team" || reg.team_preference === "Looking for Team" || reg.team_preference === "Solo") {
         const team = await fetchApi<TeamDetails | null>(`/hackathons/${hackathon_id}/my-team`);
         setTeamDetails(team);
         if (team && team.team) {
@@ -264,7 +264,7 @@ export default function ProjectPage({ params }: Props) {
           </form>
         )}
 
-        {preference === "Has Team" && !teamDetails?.team && (
+        {(preference === "Has Team" || preference === "Looking for Team") && !teamDetails?.team && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Create Team Card */}
             <form onSubmit={handleCreateTeam} className="glass border border-slate-200/60 dark:border-white/10 rounded-2xl p-6 space-y-6">
@@ -324,7 +324,7 @@ export default function ProjectPage({ params }: Props) {
           </div>
         )}
 
-        {preference === "Has Team" && teamDetails?.team && (
+        {(preference === "Has Team" || preference === "Looking for Team") && teamDetails?.team && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             
             {/* Team details & submit repo */}

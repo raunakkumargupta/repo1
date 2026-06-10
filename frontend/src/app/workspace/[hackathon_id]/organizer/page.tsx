@@ -1616,7 +1616,7 @@ export default function OrganizerDashboard({ params }: Props) {
                               }
                             } catch (e) {
                               if (typeof selectedProfile.skills === 'string' && selectedProfile.skills.includes(',')) {
-                                skillsArr = selectedProfile.skills.split(',').map(s => s.trim());
+                                skillsArr = selectedProfile.skills.split(',').map((s: string) => s.trim());
                               } else if (selectedProfile.skills) {
                                 skillsArr = [selectedProfile.skills];
                               }

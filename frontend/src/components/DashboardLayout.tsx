@@ -169,8 +169,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       >
         <div className="flex items-center justify-between h-16 px-4 border-b border-slate-200/60 dark:border-slate-800/40">
           <Link href="/" className="flex items-center gap-2.5 group overflow-hidden">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow-[0_0_12px_rgba(59,130,246,0.3)] min-w-[32px]">
-              <Terminal className="h-4 w-4 text-white" />
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-[0_0_12px_rgba(59,130,246,0.3)] min-w-[32px] overflow-hidden">
+              <img src="/logo.png" alt="Matrix Logo" className="w-full h-full object-cover" />
             </div>
             {!isDesktopCollapsed && (
               <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-lg font-extrabold tracking-tighter text-slate-900 dark:text-white whitespace-nowrap">
@@ -237,8 +237,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Mobile Top Header */}
       <div className="md:hidden fixed top-0 left-0 w-full h-16 bg-white/60 dark:bg-slate-950/60 backdrop-blur-xl border-b border-slate-200/60 dark:border-slate-800/40 z-30 flex items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
-            <Terminal className="h-4 w-4 text-white" />
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden">
+            <img src="/logo.png" alt="Matrix Logo" className="w-full h-full object-cover" />
           </div>
           <span className="text-lg font-extrabold tracking-tighter text-slate-900 dark:text-white">
             MATRIX

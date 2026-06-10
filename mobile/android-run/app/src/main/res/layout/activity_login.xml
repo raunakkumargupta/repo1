@@ -116,9 +116,18 @@
                         app:cornerRadius="16dp" />
 
                     <TextView
+                        android:id="@+id/tv_create_account"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
+                        android:gravity="center"
+                        android:text="Create Account"
+                        android:textColor="@color/primaryAccent" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
                         android:gravity="center"
                         android:text="Forgot Password"
                         android:textColor="@color/textSecondary" />

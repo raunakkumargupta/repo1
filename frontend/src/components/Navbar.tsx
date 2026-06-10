@@ -164,8 +164,8 @@ export default function Navbar() {
 			<div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
 				{/* Logo */}
 				<Link href="/" className="flex items-center gap-2.5 group flex-shrink-0">
-					<div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow-[0_0_12px_rgba(59,130,246,0.3)] group-hover:scale-105 transition-transform">
-						<Terminal className="h-4 w-4 text-white" />
+					<div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-[0_0_12px_rgba(59,130,246,0.3)] group-hover:scale-105 transition-transform overflow-hidden">
+						<img src="/logo.png" alt="Matrix Logo" className="w-full h-full object-cover" />
 					</div>
 					<span className="text-lg font-extrabold tracking-tighter text-slate-900 dark:text-white">
 						MATRIX

@@ -1,257 +1,284 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout
+<LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_gradient">
+    android:orientation="vertical"
+    android:background="@color/background">
 
-    <com.google.android.material.appbar.AppBarLayout
+    <!-- TOP BAR -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:fitsSystemWindows="true"
-        app:elevation="0dp">
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="48dp"
+        android:paddingBottom="14dp"
+        android:gravity="center_vertical">
 
-        <com.google.android.material.appbar.MaterialToolbar
-            android:id="@+id/toolbar"
-            android:layout_width="match_parent"
-            android:layout_height="72dp"
-            android:paddingStart="20dp"
-            android:paddingEnd="20dp"
-            android:title="Matrix Command"
-            android:titleTextColor="@color/onPrimary"
-            android:subtitle="Hackathon mission control"
-            android:subtitleTextColor="@color/textSecondary"
-            app:titleTextAppearance="@style/TextAppearance.MaterialComponents.Headline6"
-            app:subtitleTextAppearance="@style/TextAppearance.MaterialComponents.Body2"
-            app:popupTheme="@style/ThemeOverlay.MaterialComponents.Light" />
-    </com.google.android.material.appbar.AppBarLayout>
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
 
+            <TextView
+                android:id="@+id/tv_welcome_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Welcome back 👋"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="@color/onPrimary"/>
+
+            <TextView
+                android:id="@+id/tv_welcome_subtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Your hacker workspace"
+                android:textSize="13sp"
+                android:textColor="@color/textSecondary"
+                android:layout_marginTop="2dp"/>
+        </LinearLayout>
+
+        <!-- Avatar / profile shortcut -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/btn_avatar"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            app:cardCornerRadius="22dp"
+            app:cardBackgroundColor="@color/primaryAccent"
+            app:cardElevation="4dp">
+
+            <TextView
+                android:id="@+id/tv_avatar_initials"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:text="?"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@color/onPrimary"/>
+        </com.google.android.material.card.MaterialCardView>
+    </LinearLayout>
+
+    <!-- SCROLLABLE CONTENT -->
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior"
-        android:padding="20dp">
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="false">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="16dp">
 
-            <com.google.android.material.card.MaterialCardView
+            <!-- QUICK STATS ROW -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardCornerRadius="24dp"
-                app:cardElevation="8dp"
-                app:cardBackgroundColor="@color/surface"
+                android:orientation="horizontal"
                 android:layout_marginBottom="20dp">
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="20dp">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Ready to launch"
-                        android:textColor="@color/onPrimary"
-                        android:textSize="20sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Your team is set, your tasks are queued, and mentors are on standby."
-                        android:textColor="@color/textSecondary"
-                        android:textSize="14sp"
-                        android:layout_marginTop="8dp" />
+                <!-- Applications -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card_stat_applications"
+                    android:layout_width="0dp"
+                    android:layout_height="90dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="8dp"
+                    app:cardBackgroundColor="@color/surface"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="4dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:layout_marginTop="18dp">
+                        android:layout_height="match_parent"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="12dp">
 
                         <TextView
-                            android:layout_width="0dp"
-                            android:layout_weight="1"
+                            android:id="@+id/tv_applications_count"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Team"
-                            android:textColor="@color/textSecondary"
-                            android:textSize="12sp" />
+                            android:text="—"
+                            android:textSize="28sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/primaryAccent"/>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="5 members"
-                            android:textColor="@color/onPrimary"
-                            android:textStyle="bold" />
+                            android:text="Applications"
+                            android:textSize="11sp"
+                            android:textColor="@color/textSecondary"
+                            android:layout_marginTop="2dp"/>
                     </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Accepted -->
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="0dp"
+                    android:layout_height="90dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="8dp"
+                    app:cardBackgroundColor="@color/surface"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="4dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:layout_marginTop="12dp">
+                        android:layout_height="match_parent"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="12dp">
 
                         <TextView
-                            android:layout_width="0dp"
-                            android:layout_weight="1"
+                            android:id="@+id/tv_team_count"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Active tickets"
-                            android:textColor="@color/textSecondary"
-                            android:textSize="12sp" />
+                            android:text="—"
+                            android:textSize="28sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/accentSecondary"/>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="3 open"
-                            android:textColor="@color/primaryAccent"
-                            android:textStyle="bold" />
+                            android:text="Accepted"
+                            android:textSize="11sp"
+                            android:textColor="@color/textSecondary"
+                            android:layout_marginTop="2dp"/>
                     </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
 
-                    <TextView
+                <!-- Pending -->
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="0dp"
+                    android:layout_height="90dp"
+                    android:layout_weight="1"
+                    app:cardBackgroundColor="@color/surface"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="4dp">
+
+                    <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Hackathon progress"
-                        android:textColor="@color/textSecondary"
-                        android:textSize="12sp"
-                        android:layout_marginTop="18dp" />
+                        android:layout_height="match_parent"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="12dp">
 
-                    <com.google.android.material.progressindicator.LinearProgressIndicator
-                        android:layout_width="match_parent"
-                        android:layout_height="8dp"
-                        android:layout_marginTop="8dp"
-                        android:indeterminate="false"
-                        android:progress="72"
-                        app:trackColor="#182955"
-                        app:indicatorColor="@color/primaryAccent" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+                        <TextView
+                            android:id="@+id/tv_mentor_count"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="—"
+                            android:textSize="28sp"
+                            android:textStyle="bold"
+                            android:textColor="#F59E0B"/>
 
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Pending"
+                            android:textSize="11sp"
+                            android:textColor="@color/textSecondary"
+                            android:layout_marginTop="2dp"/>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+            </LinearLayout>
+
+            <!-- QUICK ACTIONS -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Live status"
-                android:textColor="@color/onPrimary"
-                android:textSize="18sp"
+                android:text="Quick Actions"
+                android:textSize="16sp"
                 android:textStyle="bold"
-                android:layout_marginBottom="12dp" />
+                android:textColor="@color/onPrimary"
+                android:layout_marginBottom="10dp"/>
 
-            <com.google.android.material.chip.ChipGroup
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:chipSpacing="10dp"
-                android:singleLine="true">
+                android:orientation="horizontal"
+                android:layout_marginBottom="20dp">
 
-                <com.google.android.material.chip.Chip
-                    style="@style/Widget.MaterialComponents.Chip.Entry"
-                    android:text="Deploy Ready"
-                    android:textColor="@color/onPrimary"
-                    app:chipBackgroundColor="@color/primaryAccent" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_explore"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="8dp"
+                    android:text="🔍 Explore"
+                    android:textAllCaps="false"
+                    android:backgroundTint="@color/primaryAccent"
+                    app:cornerRadius="12dp"/>
 
-                <com.google.android.material.chip.Chip
-                    style="@style/Widget.MaterialComponents.Chip.Entry"
-                    android:text="Network Stable"
-                    android:textColor="@color/onPrimary"
-                    app:chipBackgroundColor="@color/accentSecondary" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_my_apps"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:text="📋 My Apps"
+                    android:textAllCaps="false"
+                    android:backgroundTint="@color/surface"
+                    app:strokeColor="@color/primaryAccent"
+                    app:strokeWidth="1dp"
+                    app:cornerRadius="12dp"/>
+            </LinearLayout>
 
-                <com.google.android.material.chip.Chip
-                    style="@style/Widget.MaterialComponents.Chip.Entry"
-                    android:text="Feedback 92%"
-                    android:textColor="@color/onPrimary"
-                    app:chipBackgroundColor="@color/surfaceVariant" />
-            </com.google.android.material.chip.ChipGroup>
-
-            <com.google.android.material.card.MaterialCardView
+            <!-- MY HACKATHONS -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardCornerRadius="24dp"
-                app:cardElevation="6dp"
-                app:cardBackgroundColor="@color/surface"
-                android:layout_marginTop="20dp">
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="10dp">
 
-                <LinearLayout
-                    android:layout_width="match_parent"
+                <TextView
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="20dp">
+                    android:layout_weight="1"
+                    android:text="My Hackathons"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/onPrimary"/>
 
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Mentor queue"
-                        android:textColor="@color/onPrimary"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/btn_see_all"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="See all →"
+                    android:textColor="@color/primaryAccent"
+                    android:textSize="13sp"/>
+            </LinearLayout>
 
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="You have 2 high-priority mentor requests awaiting support."
-                        android:textColor="@color/textSecondary"
-                        android:textSize="14sp"
-                        android:layout_marginTop="8dp" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_refresh"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:text="Refresh status"
-                        android:layout_marginTop="18dp"
-                        android:textAllCaps="false"
-                        app:strokeColor="@color/primaryAccent"
-                        app:strokeWidth="1dp"
-                        android:textColor="@color/primaryAccent" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <com.google.android.material.card.MaterialCardView
+            <LinearLayout
+                android:id="@+id/registrations_container"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardCornerRadius="24dp"
-                app:cardElevation="6dp"
-                app:cardBackgroundColor="@color/surface"
-                android:layout_marginTop="20dp"
-                android:layout_marginBottom="80dp">
+                android:orientation="vertical"/>
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="20dp">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Upcoming milestone"
-                        android:textColor="@color/onPrimary"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Draft proposal due in 2 hours. Check your team tasks and submit before the final review."
-                        android:textColor="@color/textSecondary"
-                        android:textSize="14sp"
-                        android:layout_marginTop="8dp" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fab_request_mentor"
-        android:layout_width="wrap_content"
+    <!-- BOTTOM NAVIGATION -->
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottom_nav"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="24dp"
-        android:contentDescription="Request Mentor"
-        app:backgroundTint="@color/primaryAccent"
-        app:tint="@color/onPrimary"
-        android:src="@android:drawable/ic_input_add" />
-</androidx.coordinatorlayout.widget.CoordinatorLayout>
+        android:background="@color/surface"
+        app:itemIconTint="@color/textSecondary"
+        app:itemTextColor="@color/textSecondary"
+        app:menu="@menu/bottom_nav_menu"/>
+
+</LinearLayout>
+

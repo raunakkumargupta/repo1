@@ -4,12 +4,20 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	conn, err := pgx.Connect(context.Background(), "postgres://postgres:postgres@localhost:5433/hackathon?sslmode=disable")
+	_ = godotenv.Load()
+	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		dbURL = "postgres://postgres:postgres@localhost:5433/hackathon?sslmode=disable"
+	}
+
+	conn, err := pgx.Connect(context.Background(), dbURL)
 	if err != nil {
 		log.Fatalf("Unable to connect to database: %v\n", err)
 	}

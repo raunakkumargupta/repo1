@@ -4,12 +4,20 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	pool, err := pgxpool.New(context.Background(), "postgres://postgres:postgres@localhost:5433/hackathon?sslmode=disable")
+	_ = godotenv.Load()
+	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		dbURL = "postgres://postgres:postgres@localhost:5433/hackathon?sslmode=disable"
+	}
+
+	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
 		log.Fatal(err)
 	}

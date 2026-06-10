@@ -5,14 +5,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
 	"golang.org/x/crypto/bcrypt"
 )
 
 // dbURL should match your .env configuration
-const dbURL = "postgres://postgres:postgres@localhost:5433/hackathon?sslmode=disable"
+var dbURL = "postgres://postgres:postgres@localhost:5433/hackathon?sslmode=disable"
 
 func hashPassword(password string) string {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
@@ -23,6 +25,11 @@ func hashPassword(password string) string {
 }
 
 func main() {
+	_ = godotenv.Load()
+	if envURL := os.Getenv("DB_URL"); envURL != "" {
+		dbURL = envURL
+	}
+
 	ctx := context.Background()
 	dbpool, err := pgxpool.New(ctx, dbURL)
 	if err != nil {

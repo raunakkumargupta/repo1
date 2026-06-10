@@ -15,4 +15,15 @@
     <string name="refresh_status">Refresh status</string>
     <string name="request_mentor">Request Mentor</string>
     <string name="live_status">Live status</string>
+    <string name="dashboard_welcome">Welcome back to Matrix Command</string>
+    <string name="dashboard_welcome_subtitle">Monitor your applications, upcoming events, and hacker workspace in one place.</string>
+    <string name="explore_hackathons">Explore Hackathons</string>
+    <string name="host_hackathon">Host a Hackathon</string>
+    <string name="dashboard_applications">Applications</string>
+    <string name="dashboard_team">Team</string>
+    <string name="dashboard_mentor">Mentor</string>
+    <string name="my_hackathons">My Hackathons</string>
+    <string name="upcoming_events">Upcoming Events</string>
+    <string name="dashboard_featured_text">Live opportunities from the Matrix Command event catalog.</string>
+    <string name="empty_dashboard_text">No registrations yet. Explore live hackathons to get started.</string>
 </resources>

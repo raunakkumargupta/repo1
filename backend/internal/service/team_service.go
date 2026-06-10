@@ -179,7 +179,7 @@ func (s *TeamService) CreateInvitation(ctx context.Context, teamID, inviteeEmail
 	}
 
 	// Check if they are already in a team for this hackathon
-	existingTeam, _ := s.pgRepo.GetTeamByUserID(ctx, user.ID, team.HackathonID)
+	existingTeam, _ := s.pgRepo.GetTeamByUserIDAndHackathon(ctx, user.ID, team.HackathonID)
 	if existingTeam != nil {
 		return errors.New("this user is already in a team for this hackathon")
 	}

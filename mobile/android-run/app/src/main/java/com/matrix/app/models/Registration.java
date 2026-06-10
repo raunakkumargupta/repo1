@@ -9,6 +9,7 @@ public class Registration {
     private String skills;
     private String team_preference;
     private String approval_status;
+    private String resume_url;
 
     public String getId() {
         return id;
@@ -40,5 +41,9 @@ public class Registration {
 
     public String getApprovalStatus() {
         return approval_status;
+    }
+
+    public String getResumeUrl() {
+        return resume_url;
     }
 }

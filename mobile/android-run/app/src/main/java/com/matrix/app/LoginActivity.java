@@ -57,6 +57,7 @@ public class LoginActivity extends AppCompatActivity {
         EditText etEmail = findViewById(R.id.et_email);
         EditText etPassword = findViewById(R.id.et_password);
         MaterialButton btnLogin = findViewById(R.id.btn_login);
+        findViewById(R.id.tv_create_account).setOnClickListener(v -> startActivity(new Intent(this, RegisterActivity.class)));
 
         btnLogin.setEnabled(false);
 
