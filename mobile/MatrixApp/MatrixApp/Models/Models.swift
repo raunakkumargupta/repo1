@@ -1,5 +1,11 @@
 import Foundation
 
+enum AuthScreen {
+    case login
+    case register
+    case forgot
+}
+
 // MARK: - Auth & Session Models
 struct LoginRequest: Codable {
     let email: String
