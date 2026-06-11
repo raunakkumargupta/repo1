@@ -363,7 +363,7 @@ struct HomeDashboardView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding()
                                 .background(vm.activeTheme.primaryAccent)
-                                .foregroundColor(.white)
+                                .foregroundColor(vm.activeTheme.onPrimary)
                                 .cornerRadius(12)
                             }
                             .buttonStyle(ScaleButtonStyle())
@@ -650,16 +650,17 @@ struct HackathonDetailView: View {
                     .padding()
                 }
                 
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Problem Statement")
-                        .font(.headline)
-                        .foregroundColor(vm.activeTheme.textPrimary)
-                    Text(hackathon.description)
-                        .font(.subheadline)
-                        .foregroundColor(vm.activeTheme.textSecondary)
-                        .lineSpacing(4)
+                HackathonDetailSection(title: "About", content: hackathon.description, theme: vm.activeTheme)
+                HackathonDetailSection(title: "Problem Statement", content: hackathon.problemStatement, theme: vm.activeTheme)
+                HackathonDetailSection(title: "Tracks & Categories", content: hackathon.tracks, theme: vm.activeTheme)
+                
+                if let minSize = hackathon.minTeamSize, let maxSize = hackathon.maxTeamSize {
+                    HackathonDetailSection(title: "Team Requirements", content: "Team Size: \(minSize) to \(maxSize) members", theme: vm.activeTheme)
                 }
-                .glassCardStyle(theme: vm.activeTheme)
+                
+                HackathonDetailSection(title: "Prizes & Rewards", content: hackathon.prizes, theme: vm.activeTheme)
+                HackathonDetailSection(title: "Event Schedule", content: hackathon.schedule, theme: vm.activeTheme)
+                HackathonDetailSection(title: "Sponsors & Partners", content: hackathon.sponsors, theme: vm.activeTheme)
                 
                 VStack(alignment: .leading, spacing: 14) {
                     Text("Event Registration")
@@ -685,7 +686,7 @@ struct HackathonDetailView: View {
                                     .padding(.horizontal, 16)
                                     .padding(.vertical, 10)
                                     .background(vm.activeTheme.primaryAccent)
-                                    .foregroundColor(.white)
+                                    .foregroundColor(vm.activeTheme.onPrimary)
                                     .cornerRadius(12)
                             }
                         }
@@ -746,16 +747,40 @@ struct HackathonDetailView: View {
         .sheet(isPresented: $showApplySheet) {
             HackathonApplicationView(hackathonId: hackathon.id)
                 .environmentObject(vm)
+                .preferredColorScheme(vm.activeTheme == .appleClean ? .light : .dark)
         }
         .sheet(isPresented: $showMentorTicketSheet) {
             SubmitTicketView(hackathonId: hackathon.id)
                 .environmentObject(vm)
+                .preferredColorScheme(vm.activeTheme == .appleClean ? .light : .dark)
         }
         .refreshable {
             await vm.loadSelectedHackathonDetails(id: hackathon.id)
         }
         .task {
             await vm.loadSelectedHackathonDetails(id: hackathon.id)
+        }
+    }
+}
+
+// MARK: - Hackathon Detail Section Component
+struct HackathonDetailSection: View {
+    let title: String
+    let content: String?
+    let theme: AppTheme
+    
+    var body: some View {
+        if let content = content, !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundColor(theme.textPrimary)
+                Text(content)
+                    .font(.subheadline)
+                    .foregroundColor(theme.textSecondary)
+                    .lineSpacing(4)
+            }
+            .glassCardStyle(theme: theme)
         }
     }
 }
@@ -1005,7 +1030,7 @@ struct HackathonTeamSectionView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding()
                                 .background(vm.activeTheme.primaryAccent)
-                                .foregroundColor(.white)
+                                .foregroundColor(vm.activeTheme.onPrimary)
                                 .cornerRadius(12)
                         }
                         
@@ -1176,14 +1201,17 @@ struct HackathonTeamSectionView: View {
         .sheet(isPresented: $showCreateTeam) {
             CreateTeamView(hackathonId: hackathonId)
                 .environmentObject(vm)
+                .preferredColorScheme(vm.activeTheme == .appleClean ? .light : .dark)
         }
         .sheet(isPresented: $showJoinTeam) {
             JoinTeamView(hackathonId: hackathonId)
                 .environmentObject(vm)
+                .preferredColorScheme(vm.activeTheme == .appleClean ? .light : .dark)
         }
         .sheet(isPresented: $showSubmission) {
             ProjectSubmissionView(hackathonId: hackathonId)
                 .environmentObject(vm)
+                .preferredColorScheme(vm.activeTheme == .appleClean ? .light : .dark)
         }
     }
 }
@@ -1196,49 +1224,74 @@ struct HackathonApplicationView: View {
     
     @State private var github = ""
     @State private var linkedin = ""
+    @State private var resume = ""
     @State private var skills = ""
     @State private var teamPreference = "JoinTeam"
     @State private var isSubmitting = false
     @State private var errorMessage: String?
+    
+    var isProfileComplete: Bool {
+        guard let p = vm.currentProfile else { return false }
+        let hasBio = !(p.bio ?? "").trimmingCharacters(in: .whitespaces).isEmpty
+        let hasGithub = !(p.githubUrl ?? "").trimmingCharacters(in: .whitespaces).isEmpty
+        let hasResume = !(p.resumeUrl ?? "").trimmingCharacters(in: .whitespaces).isEmpty
+        let hasSkills = !(p.skills ?? "").trimmingCharacters(in: .whitespaces).isEmpty
+        return hasBio && hasGithub && hasResume && hasSkills
+    }
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Developer Profiles") {
-                    TextField("GitHub Profile URL", text: $github)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.none)
-                    
-                    TextField("LinkedIn Profile URL", text: $linkedin)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.none)
-                }
-                .listRowBackground(vm.activeTheme.surface.opacity(0.4))
-                
-                Section("Core Skills") {
-                    TextField("Skills (comma-separated, e.g. iOS, Swift)", text: $skills)
-                        .autocorrectionDisabled()
-                }
-                .listRowBackground(vm.activeTheme.surface.opacity(0.4))
-                
-                Section("Team Formation Preference") {
-                    Picker("Preference", selection: $teamPreference) {
-                        Text("Looking for a Team").tag("JoinTeam")
-                        Text("Creating a Team").tag("CreateTeam")
-                        Text("Competing Solo").tag("Solo")
+            Group {
+                if !isProfileComplete {
+                    EmptyStateView(
+                        title: "Incomplete Profile",
+                        systemImage: "person.crop.circle.badge.exclamationmark",
+                        message: "Your profile is incomplete. Please ensure you have added your Bio, GitHub, Resume, and Skills before applying.",
+                        theme: vm.activeTheme
+                    )
+                } else {
+                    Form {
+                        Section("Developer Profiles") {
+                            TextField("GitHub Profile URL", text: $github)
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.none)
+                            
+                            TextField("LinkedIn Profile URL", text: $linkedin)
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.none)
+                                
+                            TextField("Resume URL", text: $resume)
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.none)
+                        }
+                        .listRowBackground(vm.activeTheme.surface.opacity(0.4))
+                        
+                        Section("Core Skills") {
+                            TextField("Skills (comma-separated)", text: $skills)
+                                .autocorrectionDisabled()
+                        }
+                        .listRowBackground(vm.activeTheme.surface.opacity(0.4))
+                        
+                        Section(header: Text("Team Formation Preference"), footer: Text("You can override your default team preference for this specific hackathon.")) {
+                            Picker("Preference", selection: $teamPreference) {
+                                Text("Looking for a Team").tag("JoinTeam")
+                                Text("Creating a Team").tag("CreateTeam")
+                                Text("Competing Solo").tag("Solo")
+                            }
+                        }
+                        .listRowBackground(vm.activeTheme.surface.opacity(0.4))
+                        
+                        if let errorMessage {
+                            Section {
+                                Text(errorMessage).foregroundColor(.red).bold()
+                            }
+                            .listRowBackground(vm.activeTheme.surface.opacity(0.4))
+                        }
                     }
-                }
-                .listRowBackground(vm.activeTheme.surface.opacity(0.4))
-                
-                if let errorMessage {
-                    Section {
-                        Text(errorMessage).foregroundColor(.red).bold()
-                    }
-                    .listRowBackground(vm.activeTheme.surface.opacity(0.4))
+                    .scrollContentBackground(.hidden)
+                    .background(vm.activeTheme.background.ignoresSafeArea())
                 }
             }
-            .scrollContentBackground(.hidden)
-            .background(vm.activeTheme.background.ignoresSafeArea())
             .navigationTitle("Hacker Application")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1247,12 +1300,23 @@ struct HackathonApplicationView: View {
                         .foregroundColor(vm.activeTheme.primaryAccent)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(isSubmitting ? "Submitting..." : "Apply") {
-                        Task { await submitApplication() }
+                    if isProfileComplete {
+                        Button(isSubmitting ? "Submitting..." : "Apply") {
+                            Task { await submitApplication() }
+                        }
+                        .foregroundColor(vm.activeTheme.accentSecondary)
+                        .fontWeight(.bold)
+                        .disabled(isSubmitting || github.isEmpty || resume.isEmpty)
                     }
-                    .foregroundColor(vm.activeTheme.accentSecondary)
-                    .fontWeight(.bold)
-                    .disabled(isSubmitting || github.isEmpty || linkedin.isEmpty)
+                }
+            }
+            .onAppear {
+                if let p = vm.currentProfile {
+                    github = p.githubUrl ?? ""
+                    linkedin = p.linkedinUrl ?? ""
+                    resume = p.resumeUrl ?? ""
+                    skills = p.skills ?? ""
+                    teamPreference = p.defaultTeamPreference ?? "JoinTeam"
                 }
             }
         }
@@ -1270,7 +1334,8 @@ struct HackathonApplicationView: View {
                     githubUrl: github,
                     linkedinUrl: linkedin,
                     skills: parsedSkills,
-                    teamPreference: teamPreference
+                    teamPreference: teamPreference,
+                    resumeUrl: resume
                 )
             )
             await vm.refreshSelectedHackathon()
@@ -1753,6 +1818,7 @@ struct ProfileView: View {
             .sheet(isPresented: $showEditSheet) {
                 EditProfileView()
                     .environmentObject(vm)
+                    .preferredColorScheme(vm.activeTheme == .appleClean ? .light : .dark)
             }
         }
     }
@@ -2012,15 +2078,16 @@ struct ProfileInfoRow: View {
     let label: String
     let value: String?
     var isLink: Bool = false
+    @EnvironmentObject var vm: AppViewModel
     
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .foregroundColor(.secondary)
+                .foregroundColor(vm.activeTheme.textSecondary)
                 .frame(width: 20)
             
             Text(label)
-                .foregroundColor(.secondary)
+                .foregroundColor(vm.activeTheme.textSecondary)
                 .font(.subheadline)
             
             Spacer()
@@ -2040,7 +2107,7 @@ struct ProfileInfoRow: View {
                 }
             } else {
                 Text(displayVal)
-                    .foregroundColor(.primary)
+                    .foregroundColor(vm.activeTheme.textPrimary)
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
                     .truncationMode(.tail)

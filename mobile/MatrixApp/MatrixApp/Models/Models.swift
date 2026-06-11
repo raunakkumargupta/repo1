@@ -66,6 +66,7 @@ struct HackathonApplicationRequest: Codable {
     let linkedinUrl: String
     let skills: [String]
     let teamPreference: String
+    let resumeUrl: String?
 }
 
 struct TeamMember: Codable, Identifiable {

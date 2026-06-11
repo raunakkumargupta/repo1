@@ -87,6 +87,17 @@ enum AppTheme: String, CaseIterable, Identifiable, Codable {
         }
     }
     
+    var onPrimary: Color {
+        switch self {
+        case .classicMatrix: return Color(hex: "030502") // dark text for high contrast on neon green
+        case .cyberpunkNeon: return Color(hex: "FFFFFF")
+        case .norseObsidian: return Color(hex: "FFFFFF")
+        case .deepOceanic: return Color(hex: "FFFFFF")
+        case .royalAmethyst: return Color(hex: "FFFFFF")
+        case .appleClean: return Color(hex: "FFFFFF")
+        }
+    }
+    
     var textSecondary: Color {
         switch self {
         case .norseObsidian: return Color(hex: "A5B8D5")
