@@ -2117,6 +2117,32 @@ struct ProfileInfoRow: View {
     }
 }
 
+
+// MARK: - Meta Info Cell
+struct MetaInfoCell: View {
+    let icon: String
+    let label: String
+    let value: String
+    let theme: AppTheme
+    
+    var body: some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 14))
+                .foregroundColor(theme.primaryAccent)
+            Text(value)
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundColor(theme.textPrimary)
+                .lineLimit(1)
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundColor(theme.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+// MARK: - Dashboard Metric Card
 struct DashboardMetricCard: View {
     let title: String
     let value: String
@@ -2150,6 +2176,53 @@ struct DashboardMetricCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassCardStyle(theme: theme)
+    }
+}
+
+// MARK: - Section Header
+struct SectionHeader: View {
+    let title: String
+    let icon: String
+    let theme: AppTheme
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.subheadline)
+                .foregroundColor(theme.primaryAccent)
+            Text(title)
+                .font(.system(.headline, design: .rounded).bold())
+                .foregroundColor(theme.textPrimary)
+        }
+    }
+}
+
+// MARK: - Rich Hackathon Section Component
+struct RichHackathonSection: View {
+    let title: String
+    let icon: String
+    let content: String?
+    let theme: AppTheme
+    
+    var body: some View {
+        if let content = content, !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionHeader(title: title, icon: icon, theme: theme)
+                Text(content)
+                    .font(.subheadline)
+                    .foregroundColor(theme.textSecondary)
+                    .lineSpacing(5)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(theme.surface.opacity(0.5))
+            .cornerRadius(18)
+            .overlay(
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(theme.primaryAccent.opacity(0.12), lineWidth: 1)
+            )
+        }
     }
 }
 
