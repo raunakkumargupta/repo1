@@ -277,21 +277,28 @@ struct HomeDashboardView: View {
                     HStack(spacing: 16) {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Profile Completion")
-                                .font(.headline)
+                                .font(.headline.bold())
                                 .foregroundColor(.white)
                             Text("Sync details to stand out to team organizers.")
                                 .font(.caption)
-                                .foregroundColor(.white.opacity(0.8))
+                                .foregroundColor(.white.opacity(0.85))
                         }
                         
                         Spacer()
                         
                         ZStack {
                             Circle()
-                                .stroke(Color.white.opacity(0.15), lineWidth: 6)
+                                .stroke(Color.white.opacity(0.2), lineWidth: 6)
                             Circle()
                                 .trim(from: 0, to: profileCompletion)
-                                .stroke(Color.white, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [Color.white, Color.white.opacity(0.6)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    style: StrokeStyle(lineWidth: 6, lineCap: .round)
+                                )
                                 .rotationEffect(.degrees(-90))
                             
                             Text("\(Int(profileCompletion * 100))%")
@@ -309,7 +316,7 @@ struct HomeDashboardView: View {
                         )
                     )
                     .cornerRadius(20)
-                    .shadow(color: vm.activeTheme.primaryAccent.opacity(0.25), radius: 8, x: 0, y: 4)
+                    .shadow(color: vm.activeTheme.primaryAccent.opacity(0.35), radius: 12, x: 0, y: 6)
 
                     // Quick Stats grid
                     let acceptedCount = vm.allRegistrations.filter { $0.approvalStatus.lowercased() == "accepted" }.count
@@ -332,14 +339,14 @@ struct HomeDashboardView: View {
                                 title: "Approved",
                                 value: "\(acceptedCount)",
                                 icon: "checkmark.circle.fill",
-                                color: vm.activeTheme.accentSecondary,
+                                color: Color(hex: "10B981"),
                                 theme: vm.activeTheme
                             )
                             DashboardMetricCard(
                                 title: "Pending",
                                 value: "\(pendingCount)",
                                 icon: "clock.fill",
-                                color: .orange,
+                                color: Color(hex: "F59E0B"),
                                 theme: vm.activeTheme
                             )
                         }
@@ -519,38 +526,94 @@ struct HomeDashboardView: View {
 // MARK: - Hackathons View
 struct HackathonsView: View {
     @EnvironmentObject var vm: AppViewModel
+    @State private var searchText = ""
+    
+    private var filtered: [Hackathon] {
+        guard !searchText.trimmingCharacters(in: .whitespaces).isEmpty else { return vm.hackathons }
+        return vm.hackathons.filter {
+            $0.title.localizedCaseInsensitiveContains(searchText) ||
+            $0.description.localizedCaseInsensitiveContains(searchText)
+        }
+    }
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                LazyVStack(spacing: 16) {
-                    if vm.isLoading && vm.hackathons.isEmpty {
-                        ProgressView().tint(.white).padding()
-                    } else if vm.hackathons.isEmpty {
-                        EmptyStateView(
-                            title: "No Events Online",
-                            systemImage: "trophy.slash",
-                            message: "Check back later for approved hackathon events.",
-                            theme: vm.activeTheme
-                        )
-                    } else {
-                        ForEach(vm.hackathons) { hack in
-                            NavigationLink(destination: HackathonDetailView(hackathon: hack).onAppear {
-                                vm.selectedHackathon = hack
-                            }) {
-                                HackathonRowCard(hackathon: hack)
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 20) {
+                    // Search Bar
+                    HStack(spacing: 12) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(vm.activeTheme.textSecondary)
+                        TextField("Search hackathons...", text: $searchText)
+                            .foregroundColor(vm.activeTheme.textPrimary)
+                            .tint(vm.activeTheme.primaryAccent)
+                        if !searchText.isEmpty {
+                            Button { searchText = "" } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(vm.activeTheme.textSecondary)
                             }
-                            .buttonStyle(PlainButtonStyle())
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(vm.activeTheme.surface.opacity(0.7))
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(16)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(vm.activeTheme.primaryAccent.opacity(0.15), lineWidth: 1)
+                    )
+                    .padding(.top, 4)
+                    
+                    if vm.isLoading && vm.hackathons.isEmpty {
+                        VStack(spacing: 16) {
+                            ForEach(0..<3, id: \.self) { _ in
+                                RoundedRectangle(cornerRadius: 24)
+                                    .fill(vm.activeTheme.surface.opacity(0.4))
+                                    .frame(height: 220)
+                                    .overlay(ProgressView().tint(vm.activeTheme.primaryAccent))
+                            }
+                        }
+                    } else if filtered.isEmpty {
+                        VStack(spacing: 20) {
+                            ZStack {
+                                Circle()
+                                    .fill(vm.activeTheme.primaryAccent.opacity(0.1))
+                                    .frame(width: 90, height: 90)
+                                Image(systemName: searchText.isEmpty ? "trophy.slash" : "magnifyingglass")
+                                    .font(.system(size: 36))
+                                    .foregroundColor(vm.activeTheme.primaryAccent)
+                            }
+                            Text(searchText.isEmpty ? "No Events Available" : "No Results")
+                                .font(.title3.bold())
+                                .foregroundColor(vm.activeTheme.textPrimary)
+                            Text(searchText.isEmpty
+                                 ? "Check back later for upcoming hackathons."
+                                 : "Try a different search term.")
+                                .font(.subheadline)
+                                .foregroundColor(vm.activeTheme.textSecondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(40)
+                    } else {
+                        LazyVStack(spacing: 20) {
+                            ForEach(filtered) { hack in
+                                NavigationLink(destination: HackathonDetailView(hackathon: hack).onAppear {
+                                    vm.selectedHackathon = hack
+                                }) {
+                                    HackathonRowCard(hackathon: hack)
+                                }
+                                .buttonStyle(ScaleButtonStyle())
+                            }
                         }
                     }
                 }
-                .padding()
+                .padding(.horizontal, 16)
+                .padding(.bottom, 24)
             }
             .matrixBackground(theme: vm.activeTheme)
             .navigationTitle("Discover Events")
-            .refreshable {
-                await vm.loadHackathons()
-            }
+            .refreshable { await vm.loadHackathons() }
         }
     }
 }
@@ -559,181 +622,424 @@ struct HackathonRowCard: View {
     let hackathon: Hackathon
     @EnvironmentObject var vm: AppViewModel
     
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            ZStack(alignment: .bottomLeading) {
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(
-                        LinearGradient(
-                            gradient: Gradient(colors: [vm.activeTheme.surfaceVariant, vm.activeTheme.surface]),
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .frame(height: 120)
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("ACTIVE ROUND")
-                        .font(.system(size: 10).weight(.black))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(vm.activeTheme.primaryAccent)
-                        .cornerRadius(6)
-                    
-                    Text(hackathon.title)
-                        .font(.system(.title3, design: .rounded).weight(.black))
-                        .lineLimit(1)
-                }
-                .foregroundColor(.white)
-                .padding()
-            }
-            
-            Text(hackathon.description)
-                .font(.subheadline)
-                .foregroundColor(vm.activeTheme.textSecondary)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
-            
-            HStack {
-                if let tracksStr = hackathon.tracks {
-                    Text(tracksStr)
-                        .font(.system(size: 11).bold())
-                        .foregroundColor(vm.activeTheme.primaryAccent)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .foregroundColor(vm.activeTheme.textSecondary)
-            }
+    private var cardAccentPair: (Color, Color) {
+        let pairs: [(Color, Color)] = [
+            (vm.activeTheme.primaryAccent, vm.activeTheme.accentSecondary),
+            (vm.activeTheme.accentSecondary, vm.activeTheme.primaryAccent),
+            (vm.activeTheme.primaryAccent, vm.activeTheme.primaryAccent.opacity(0.5)),
+        ]
+        return pairs[abs(hackathon.id.hashValue) % pairs.count]
+    }
+    
+    private func shortDate(_ s: String?) -> String {
+        guard let s else { return "TBD" }
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = iso.date(from: s) {
+            let f = DateFormatter(); f.dateFormat = "MMM d"
+            return f.string(from: d)
         }
-        .glassCardStyle(theme: vm.activeTheme)
+        return String(s.prefix(10))
+    }
+    
+    private var isApplied: Bool {
+        vm.allRegistrations.contains(where: { $0.hackathonId == hackathon.id })
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            
+            // Hero Banner
+            ZStack(alignment: .bottomLeading) {
+                LinearGradient(
+                    gradient: Gradient(stops: [
+                        .init(color: cardAccentPair.0.opacity(0.88), location: 0),
+                        .init(color: cardAccentPair.1.opacity(0.6), location: 0.65),
+                        .init(color: vm.activeTheme.surface.opacity(0.2), location: 1),
+                    ]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .frame(height: 148)
+                
+                // Decorative orbs
+                Circle()
+                    .fill(Color.white.opacity(0.07))
+                    .frame(width: 130, height: 130)
+                    .offset(x: 210, y: -30)
+                Circle()
+                    .fill(Color.white.opacity(0.04))
+                    .frame(width: 80, height: 80)
+                    .offset(x: 150, y: 30)
+                
+                // Bottom scrim for readability
+                LinearGradient(
+                    colors: [.clear, Color.black.opacity(0.5)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 148)
+                
+                HStack(alignment: .bottom) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 5) {
+                            Circle()
+                                .fill(isApplied ? Color.green : Color.white.opacity(0.8))
+                                .frame(width: 5, height: 5)
+                            Text(isApplied ? "APPLIED" : "OPEN")
+                                .font(.system(size: 9, weight: .black))
+                                .foregroundColor(.white)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.black.opacity(0.3))
+                        .cornerRadius(20)
+                        
+                        Text(hackathon.title)
+                            .font(.system(.title3, design: .rounded).weight(.black))
+                            .foregroundColor(.white)
+                            .lineLimit(2)
+                            .shadow(color: .black.opacity(0.4), radius: 3)
+                    }
+                    
+                    Spacer()
+                    
+                    ZStack {
+                        Circle()
+                            .fill(Color.white.opacity(0.2))
+                            .frame(width: 36, height: 36)
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                }
+                .padding(14)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .clipped()
+            
+            // Body
+            VStack(alignment: .leading, spacing: 12) {
+                Text(hackathon.description)
+                    .font(.subheadline)
+                    .foregroundColor(vm.activeTheme.textSecondary)
+                    .lineLimit(2)
+                    .lineSpacing(3)
+                
+                // Meta chips
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        if hackathon.startDate != nil || hackathon.endDate != nil {
+                            MetaChip(
+                                icon: "calendar",
+                                text: "\(shortDate(hackathon.startDate)) → \(shortDate(hackathon.endDate))",
+                                theme: vm.activeTheme
+                            )
+                        }
+                        if let mn = hackathon.minTeamSize, let mx = hackathon.maxTeamSize {
+                            MetaChip(icon: "person.2.fill", text: "\(mn)\u2013\(mx) members", theme: vm.activeTheme)
+                        }
+                        let feeText = (hackathon.registrationFee?.isEmpty ?? true) ? "Free Entry" : hackathon.registrationFee!
+                        let feeIcon = (hackathon.registrationFee?.isEmpty ?? true) ? "gift.fill" : "creditcard.fill"
+                        MetaChip(icon: feeIcon, text: feeText, theme: vm.activeTheme)
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(vm.activeTheme.surface.opacity(vm.activeTheme.isLight ? 0.9 : 0.5))
+        }
+        .background(vm.activeTheme.surface.opacity(vm.activeTheme.isLight ? 0.9 : 0.5))
+        .cornerRadius(24)
+        .overlay(
+            RoundedRectangle(cornerRadius: 24)
+                .stroke(
+                    vm.activeTheme.isLight
+                        ? vm.activeTheme.primaryAccent.opacity(0.15)
+                        : Color.white.opacity(0.07),
+                    lineWidth: 1
+                )
+        )
+        .shadow(
+            color: vm.activeTheme.primaryAccent.opacity(vm.activeTheme.isLight ? 0.12 : 0.18),
+            radius: 16, x: 0, y: 8
+        )
     }
 }
 
-// MARK: - Hackathon Detail View
+// MARK: - Meta Chip
+struct MetaChip: View {
+    let icon: String
+    let text: String
+    let theme: AppTheme
+    
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(theme.primaryAccent)
+            Text(text)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(theme.textSecondary)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(theme.primaryAccent.opacity(0.1))
+        .cornerRadius(20)
+        .overlay(Capsule().stroke(theme.primaryAccent.opacity(0.2), lineWidth: 1))
+    }
+}
+
+// MARK: - Hackathon Detail View (Premium)
 struct HackathonDetailView: View {
     let hackathon: Hackathon
     @EnvironmentObject var vm: AppViewModel
     @State private var showApplySheet = false
     @State private var showMentorTicketSheet = false
     
+    private var registrationStatus: String {
+        vm.selectedRegistration?.approvalStatus ?? "Not Applied"
+    }
+    
+    private var isApproved: Bool {
+        vm.selectedRegistration?.approvalStatus.lowercased() == "accepted"
+    }
+    
+    private func formattedDate(_ dateStr: String?) -> String {
+        guard let dateStr = dateStr else { return "TBD" }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: dateStr) {
+            let display = DateFormatter()
+            display.dateStyle = .medium
+            return display.string(from: date)
+        }
+        return String(dateStr.prefix(10))
+    }
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                ZStack(alignment: .bottomLeading) {
-                    RoundedRectangle(cornerRadius: 24)
-                        .fill(
-                            LinearGradient(
-                                gradient: Gradient(colors: [vm.activeTheme.primaryAccent.opacity(0.7), vm.activeTheme.surfaceVariant]),
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(height: 160)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 24)
-                                .stroke(Color.white.opacity(0.15), lineWidth: 1)
-                        )
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 0) {
+                
+                // ── HERO HEADER ─────────────────────────────────────
+                ZStack(alignment: .bottom) {
+                    LinearGradient(
+                        gradient: Gradient(stops: [
+                            .init(color: vm.activeTheme.primaryAccent.opacity(0.92), location: 0),
+                            .init(color: vm.activeTheme.accentSecondary.opacity(0.65), location: 0.55),
+                            .init(color: vm.activeTheme.background, location: 1)
+                        ]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .frame(height: 250)
                     
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("MISSION FOCUS")
-                            .font(.system(size: 10).weight(.black))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(Color.black.opacity(0.3))
-                            .cornerRadius(6)
+                    // Decorative orbs
+                    Circle()
+                        .fill(Color.white.opacity(0.06))
+                        .frame(width: 220, height: 220)
+                        .offset(x: 110, y: -70)
+                    Circle()
+                        .fill(Color.white.opacity(0.04))
+                        .frame(width: 130, height: 130)
+                        .offset(x: -90, y: -20)
+                    
+                    VStack(alignment: .leading, spacing: 12) {
+                        // Status pill
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(isApproved ? Color.green : (vm.selectedRegistration != nil ? Color.orange : Color.white.opacity(0.6)))
+                                .frame(width: 6, height: 6)
+                            Text(registrationStatus.uppercased())
+                                .font(.system(size: 10, weight: .black))
+                                .foregroundColor(.white)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.black.opacity(0.25))
+                        .cornerRadius(20)
                         
                         Text(hackathon.title)
-                            .font(.system(.title2, design: .rounded).bold())
+                            .font(.system(.title, design: .rounded).weight(.black))
                             .foregroundColor(.white)
-                    }
-                    .padding()
-                }
-                
-                HackathonDetailSection(title: "About", content: hackathon.description, theme: vm.activeTheme)
-                HackathonDetailSection(title: "Problem Statement", content: hackathon.problemStatement, theme: vm.activeTheme)
-                HackathonDetailSection(title: "Tracks & Categories", content: hackathon.tracks, theme: vm.activeTheme)
-                
-                if let minSize = hackathon.minTeamSize, let maxSize = hackathon.maxTeamSize {
-                    HackathonDetailSection(title: "Team Requirements", content: "Team Size: \(minSize) to \(maxSize) members", theme: vm.activeTheme)
-                }
-                
-                HackathonDetailSection(title: "Prizes & Rewards", content: hackathon.prizes, theme: vm.activeTheme)
-                HackathonDetailSection(title: "Event Schedule", content: hackathon.schedule, theme: vm.activeTheme)
-                HackathonDetailSection(title: "Sponsors & Partners", content: hackathon.sponsors, theme: vm.activeTheme)
-                
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("Event Registration")
-                        .font(.headline)
-                        .foregroundColor(vm.activeTheme.textPrimary)
-                    
-                    HStack {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Approval Status")
-                                .font(.subheadline)
-                                .foregroundColor(vm.activeTheme.textSecondary)
-                            StatusBadge(status: vm.selectedRegistration?.approvalStatus)
-                        }
+                            .lineLimit(3)
+                            .shadow(color: .black.opacity(0.3), radius: 4)
                         
-                        Spacer()
-                        
-                        if vm.selectedRegistration == nil {
-                            Button {
-                                showApplySheet = true
-                            } label: {
-                                Text("Apply Now")
-                                    .fontWeight(.bold)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 10)
-                                    .background(vm.activeTheme.primaryAccent)
-                                    .foregroundColor(vm.activeTheme.onPrimary)
-                                    .cornerRadius(12)
+                        // Date range
+                        if hackathon.startDate != nil || hackathon.endDate != nil {
+                            HStack(spacing: 8) {
+                                Label(formattedDate(hackathon.startDate), systemImage: "calendar")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.white.opacity(0.9))
+                                Text("→")
+                                    .foregroundColor(.white.opacity(0.6))
+                                Label(formattedDate(hackathon.endDate), systemImage: "flag.checkered")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.white.opacity(0.9))
                             }
                         }
                     }
-                    .padding()
-                    .background(vm.activeTheme.surfaceVariant.opacity(0.4))
-                    .cornerRadius(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 28)
                 }
                 
-                if !vm.selectedAnnouncements.isEmpty {
-                    VStack(alignment: .leading, spacing: 14) {
-                        Text("Broadcast Announcements")
-                            .font(.headline)
-                            .foregroundColor(vm.activeTheme.textPrimary)
-                        
-                        ForEach(vm.selectedAnnouncements) { broadcast in
-                            HStack(alignment: .top, spacing: 12) {
-                                Image(systemName: "megaphone.fill")
-                                    .foregroundColor(vm.activeTheme.primaryAccent)
-                                VStack(alignment: .leading, spacing: 4) {
+                // ── BODY ─────────────────────────────────────────────
+                VStack(alignment: .leading, spacing: 20) {
+                    
+                    // Meta info strip
+                    HStack(spacing: 0) {
+                        MetaInfoCell(
+                            icon: "person.2.fill",
+                            label: "Team Size",
+                            value: hackathon.minTeamSize != nil && hackathon.maxTeamSize != nil
+                                ? "\(hackathon.minTeamSize!)–\(hackathon.maxTeamSize!)"
+                                : "Open",
+                            theme: vm.activeTheme
+                        )
+                        Divider().frame(height: 36)
+                            .background(vm.activeTheme.surfaceVariant)
+                        MetaInfoCell(
+                            icon: "creditcard.fill",
+                            label: "Entry Fee",
+                            value: (hackathon.registrationFee?.isEmpty ?? true) ? "Free" : hackathon.registrationFee!,
+                            theme: vm.activeTheme
+                        )
+                        Divider().frame(height: 36)
+                            .background(vm.activeTheme.surfaceVariant)
+                        MetaInfoCell(
+                            icon: "square.grid.2x2.fill",
+                            label: "Tracks",
+                            value: (hackathon.tracks?.isEmpty ?? true) ? "—" : "Multiple",
+                            theme: vm.activeTheme
+                        )
+                    }
+                    .padding(.vertical, 12)
+                    .glassCardStyle(theme: vm.activeTheme)
+                    
+                    // Apply / Status CTA
+                    if vm.selectedRegistration == nil {
+                        Button { showApplySheet = true } label: {
+                            HStack(spacing: 14) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.white.opacity(0.2))
+                                        .frame(width: 46, height: 46)
+                                    Image(systemName: "arrow.right.circle.fill")
+                                        .font(.title2)
+                                        .foregroundColor(.white)
+                                }
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Apply Now")
+                                        .font(.headline.bold())
+                                        .foregroundColor(.white)
+                                    Text("Tap to submit your application")
+                                        .font(.caption)
+                                        .foregroundColor(.white.opacity(0.8))
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .foregroundColor(.white.opacity(0.7))
+                            }
+                            .padding()
+                            .background(
+                                LinearGradient(
+                                    colors: [vm.activeTheme.primaryAccent, vm.activeTheme.accentSecondary],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .cornerRadius(18)
+                            .shadow(color: vm.activeTheme.primaryAccent.opacity(0.4), radius: 14, x: 0, y: 7)
+                        }
+                        .buttonStyle(ScaleButtonStyle())
+                    } else {
+                        HStack(spacing: 14) {
+                            ZStack {
+                                Circle()
+                                    .fill(isApproved ? Color.green.opacity(0.15) : Color.orange.opacity(0.15))
+                                    .frame(width: 48, height: 48)
+                                Image(systemName: isApproved ? "checkmark.seal.fill" : "clock.badge.fill")
+                                    .font(.title2)
+                                    .foregroundColor(isApproved ? .green : .orange)
+                            }
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(isApproved ? "You're In! 🎉" : "Application Under Review")
+                                    .font(.headline.bold())
+                                    .foregroundColor(vm.activeTheme.textPrimary)
+                                Text(isApproved
+                                     ? "Congratulations — see team options below."
+                                     : "Status: \(registrationStatus)")
+                                    .font(.caption)
+                                    .foregroundColor(vm.activeTheme.textSecondary)
+                            }
+                            Spacer()
+                            StatusBadge(status: vm.selectedRegistration?.approvalStatus)
+                        }
+                        .padding()
+                        .glassCardStyle(theme: vm.activeTheme)
+                    }
+                    
+                    // Announcements
+                    if !vm.selectedAnnouncements.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            SectionHeader(title: "Announcements", icon: "megaphone.fill", theme: vm.activeTheme)
+                            ForEach(vm.selectedAnnouncements) { broadcast in
+                                HStack(alignment: .top, spacing: 12) {
+                                    Circle()
+                                        .fill(vm.activeTheme.primaryAccent.opacity(0.15))
+                                        .frame(width: 36, height: 36)
+                                        .overlay(
+                                            Image(systemName: "megaphone.fill")
+                                                .font(.caption.bold())
+                                                .foregroundColor(vm.activeTheme.primaryAccent)
+                                        )
                                     Text(broadcast.message)
                                         .font(.subheadline)
                                         .foregroundColor(vm.activeTheme.textPrimary)
+                                        .lineSpacing(3)
                                 }
+                                .padding()
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(vm.activeTheme.primaryAccent.opacity(0.07))
+                                .cornerRadius(14)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .stroke(vm.activeTheme.primaryAccent.opacity(0.15), lineWidth: 1)
+                                )
                             }
-                            .padding()
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(vm.activeTheme.surfaceVariant.opacity(0.3))
-                            .cornerRadius(12)
+                        }
+                    }
+                    
+                    // Rich detail sections (only shown when data exists)
+                    RichHackathonSection(title: "About", icon: "info.circle.fill", content: hackathon.description, theme: vm.activeTheme)
+                    RichHackathonSection(title: "Problem Statement", icon: "lightbulb.fill", content: hackathon.problemStatement, theme: vm.activeTheme)
+                    RichHackathonSection(title: "Tracks & Categories", icon: "square.grid.2x2.fill", content: hackathon.tracks, theme: vm.activeTheme)
+                    RichHackathonSection(title: "Prizes & Rewards", icon: "trophy.fill", content: hackathon.prizes, theme: vm.activeTheme)
+                    RichHackathonSection(title: "Event Schedule", icon: "calendar.badge.clock", content: hackathon.schedule, theme: vm.activeTheme)
+                    RichHackathonSection(title: "Rounds", icon: "arrow.triangle.2.circlepath.circle.fill", content: hackathon.rounds, theme: vm.activeTheme)
+                    RichHackathonSection(title: "Sponsors & Partners", icon: "star.circle.fill", content: hackathon.sponsors, theme: vm.activeTheme)
+                    
+                    // Team workspace (approved only)
+                    if isApproved {
+                        VStack(alignment: .leading, spacing: 12) {
+                            SectionHeader(title: "Team Workspace", icon: "person.3.fill", theme: vm.activeTheme)
+                            HackathonTeamSectionView(hackathonId: hackathon.id)
                         }
                     }
                 }
-                
-                if vm.selectedRegistration?.approvalStatus == "Accepted" {
-                    HackathonTeamSectionView(hackathonId: hackathon.id)
-                }
+                .padding(.horizontal, 16)
+                .padding(.top, 20)
+                .padding(.bottom, 48)
             }
-            .padding()
         }
+        .ignoresSafeArea(edges: .top)
         .matrixBackground(theme: vm.activeTheme)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if vm.selectedRegistration?.approvalStatus == "Accepted" {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showMentorTicketSheet = true
-                    } label: {
+            ToolbarItem(placement: .topBarTrailing) {
+                if isApproved {
+                    Button { showMentorTicketSheet = true } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "lifepreserver.fill")
                             Text("Support")
@@ -747,12 +1053,12 @@ struct HackathonDetailView: View {
         .sheet(isPresented: $showApplySheet) {
             HackathonApplicationView(hackathonId: hackathon.id)
                 .environmentObject(vm)
-                .preferredColorScheme(vm.activeTheme == .appleClean ? .light : .dark)
+                .preferredColorScheme(vm.activeTheme.isLight ? .light : .dark)
         }
         .sheet(isPresented: $showMentorTicketSheet) {
             SubmitTicketView(hackathonId: hackathon.id)
                 .environmentObject(vm)
-                .preferredColorScheme(vm.activeTheme == .appleClean ? .light : .dark)
+                .preferredColorScheme(vm.activeTheme.isLight ? .light : .dark)
         }
         .refreshable {
             await vm.loadSelectedHackathonDetails(id: hackathon.id)
@@ -1182,7 +1488,7 @@ struct HackathonTeamSectionView: View {
                                 } label: {
                                     Text(isRequested ? "Requested" : "Join Request")
                                         .font(.caption.bold())
-                                        .foregroundColor(.white)
+                                        .foregroundColor(isRequested ? Color.white : vm.activeTheme.onPrimary)
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
@@ -1201,17 +1507,17 @@ struct HackathonTeamSectionView: View {
         .sheet(isPresented: $showCreateTeam) {
             CreateTeamView(hackathonId: hackathonId)
                 .environmentObject(vm)
-                .preferredColorScheme(vm.activeTheme == .appleClean ? .light : .dark)
+                .preferredColorScheme(vm.activeTheme.isLight ? .light : .dark)
         }
         .sheet(isPresented: $showJoinTeam) {
             JoinTeamView(hackathonId: hackathonId)
                 .environmentObject(vm)
-                .preferredColorScheme(vm.activeTheme == .appleClean ? .light : .dark)
+                .preferredColorScheme(vm.activeTheme.isLight ? .light : .dark)
         }
         .sheet(isPresented: $showSubmission) {
             ProjectSubmissionView(hackathonId: hackathonId)
                 .environmentObject(vm)
-                .preferredColorScheme(vm.activeTheme == .appleClean ? .light : .dark)
+                .preferredColorScheme(vm.activeTheme.isLight ? .light : .dark)
         }
     }
 }
@@ -1764,7 +2070,6 @@ struct ProfileView: View {
                         ProfileInfoSection(title: "Preferences & Dietary", theme: vm.activeTheme) {
                             ProfileInfoRow(icon: "fork.knife", label: "Dietary Pref", value: vm.currentProfile?.dietaryPreference)
                             ProfileInfoRow(icon: "medical.tape", label: "Allergies", value: vm.currentProfile?.allergies)
-                            ProfileInfoRow(icon: "person.3.fill", label: "Team Preference", value: vm.currentProfile?.defaultTeamPreference)
                         }
                         
                         ProfileInfoSection(title: "Portfolios & CV", theme: vm.activeTheme) {
@@ -1850,7 +2155,6 @@ struct EditProfileView: View {
     @State private var linkedinUrl = ""
     @State private var resumeUrl = ""
     @State private var skills = ""
-    @State private var defaultTeamPreference = "JoinTeam"
     
     @State private var isSaving = false
     @State private var errorMessage: String?
@@ -1916,12 +2220,6 @@ struct EditProfileView: View {
                     }
                     
                     TextField("Allergies / Restrictions", text: $allergies)
-                    
-                    Picker("Team Preference", selection: $defaultTeamPreference) {
-                        Text("Looking for a Team").tag("JoinTeam")
-                        Text("Creating a Team").tag("CreateTeam")
-                        Text("Competing Solo").tag("Solo")
-                    }
                 }
                 .listRowBackground(vm.activeTheme.surface.opacity(0.4))
                 
@@ -1994,7 +2292,6 @@ struct EditProfileView: View {
                     linkedinUrl = p.linkedinUrl ?? ""
                     resumeUrl = p.resumeUrl ?? ""
                     skills = p.skills ?? ""
-                    defaultTeamPreference = p.defaultTeamPreference ?? "JoinTeam"
                 }
             }
         }

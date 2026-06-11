@@ -6,10 +6,11 @@ enum AppTheme: String, CaseIterable, Identifiable, Codable {
     case classicMatrix = "Classic Matrix"
     case deepOceanic = "Deep Oceanic"
     case royalAmethyst = "Royal Amethyst"
-    case appleClean = "Apple Clean"
+    case appleClean = "Apple Vivid"
     
     var id: String { rawValue }
     
+    // MARK: - Background Colors
     var background: Color {
         switch self {
         case .norseObsidian: return Color(hex: "050B1A")
@@ -17,7 +18,7 @@ enum AppTheme: String, CaseIterable, Identifiable, Codable {
         case .classicMatrix: return Color(hex: "030502")
         case .deepOceanic: return Color(hex: "021526")
         case .royalAmethyst: return Color(hex: "0E0516")
-        case .appleClean: return Color(hex: "F2F2F7")
+        case .appleClean: return Color(hex: "F7F4FF")  // warm lavender white
         }
     }
     
@@ -28,10 +29,11 @@ enum AppTheme: String, CaseIterable, Identifiable, Codable {
         case .classicMatrix: return Color(hex: "0A1208")
         case .deepOceanic: return Color(hex: "092635")
         case .royalAmethyst: return Color(hex: "1F0F3D")
-        case .appleClean: return Color(hex: "FFFFFF")
+        case .appleClean: return Color(hex: "FFF0F3")  // warm rose tint
         }
     }
     
+    // MARK: - Surface Colors
     var surface: Color {
         switch self {
         case .norseObsidian: return Color(hex: "0F1A36")
@@ -50,10 +52,11 @@ enum AppTheme: String, CaseIterable, Identifiable, Codable {
         case .classicMatrix: return Color(hex: "142B10")
         case .deepOceanic: return Color(hex: "1B4D5C")
         case .royalAmethyst: return Color(hex: "341E5C")
-        case .appleClean: return Color(hex: "E5E5EA")
+        case .appleClean: return Color(hex: "EDE8FF")  // light violet tint
         }
     }
     
+    // MARK: - Accent Colors
     var primaryAccent: Color {
         switch self {
         case .norseObsidian: return Color(hex: "0EA5E9")
@@ -61,7 +64,7 @@ enum AppTheme: String, CaseIterable, Identifiable, Codable {
         case .classicMatrix: return Color(hex: "39FF14")
         case .deepOceanic: return Color(hex: "00ADB5")
         case .royalAmethyst: return Color(hex: "A855F7")
-        case .appleClean: return Color(hex: "007AFF")
+        case .appleClean: return Color(hex: "5E35B1")  // deep indigo/violet
         }
     }
     
@@ -72,10 +75,11 @@ enum AppTheme: String, CaseIterable, Identifiable, Codable {
         case .classicMatrix: return Color(hex: "00FF66")
         case .deepOceanic: return Color(hex: "38BDF8")
         case .royalAmethyst: return Color(hex: "F472B6")
-        case .appleClean: return Color(hex: "5856D6")
+        case .appleClean: return Color(hex: "F43F5E")  // vivid rose/coral
         }
     }
     
+    // MARK: - Text Colors
     var textPrimary: Color {
         switch self {
         case .norseObsidian: return Color(hex: "EAF2FF")
@@ -83,18 +87,15 @@ enum AppTheme: String, CaseIterable, Identifiable, Codable {
         case .classicMatrix: return Color(hex: "EEFFEE")
         case .deepOceanic: return Color(hex: "E0F4FF")
         case .royalAmethyst: return Color(hex: "F9F5FF")
-        case .appleClean: return Color(hex: "000000")
+        case .appleClean: return Color(hex: "1A1040")  // deep indigo near-black
         }
     }
     
+    /// Foreground colour to use on top of primaryAccent-filled backgrounds
     var onPrimary: Color {
         switch self {
-        case .classicMatrix: return Color(hex: "030502") // dark text for high contrast on neon green
-        case .cyberpunkNeon: return Color(hex: "FFFFFF")
-        case .norseObsidian: return Color(hex: "FFFFFF")
-        case .deepOceanic: return Color(hex: "FFFFFF")
-        case .royalAmethyst: return Color(hex: "FFFFFF")
-        case .appleClean: return Color(hex: "FFFFFF")
+        case .classicMatrix: return Color(hex: "030502") // dark text on bright green
+        default: return Color(hex: "FFFFFF")
         }
     }
     
@@ -105,11 +106,18 @@ enum AppTheme: String, CaseIterable, Identifiable, Codable {
         case .classicMatrix: return Color(hex: "88CC88")
         case .deepOceanic: return Color(hex: "A6C6D8")
         case .royalAmethyst: return Color(hex: "C2A5DB")
-        case .appleClean: return Color(hex: "8E8E93")
+        case .appleClean: return Color(hex: "6B5FA0")  // muted violet
         }
     }
+    
+    /// True when this is a light-mode (white/pastel) theme
+    var isLight: Bool { self == .appleClean }
+    
+    /// The preferred SwiftUI color scheme for sheets / forms
+    var preferredColorScheme: ColorScheme? { isLight ? .light : .dark }
 }
 
+// MARK: - Color Hex Extension
 extension Color {
     static let background = Color(hex: "050B1A")
     static let surface = Color(hex: "0F1A36")
@@ -131,60 +139,69 @@ extension Color {
     }
 }
 
+// MARK: - Glass Card Modifier
 struct GlassCard: ViewModifier {
     let theme: AppTheme
     
     func body(content: Content) -> some View {
         content
             .padding()
-            .background(theme.surface.opacity(0.6))
+            .background(theme.surface.opacity(theme.isLight ? 0.85 : 0.6))
             .background(.ultraThinMaterial)
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
-                    .stroke(theme.textPrimary.opacity(0.1), lineWidth: 1)
+                    .stroke(
+                        theme.isLight
+                            ? theme.primaryAccent.opacity(0.12)
+                            : theme.textPrimary.opacity(0.1),
+                        lineWidth: 1
+                    )
             )
             .clipShape(RoundedRectangle(cornerRadius: 20))
-            .shadow(color: Color.black.opacity(theme == .appleClean ? 0.05 : 0.2), radius: 10, x: 0, y: 5)
+            .shadow(
+                color: theme.isLight
+                    ? theme.primaryAccent.opacity(0.08)
+                    : Color.black.opacity(0.2),
+                radius: 12, x: 0, y: 5
+            )
     }
 }
 
+// MARK: - Matrix Background Modifier
 struct MatrixBackgroundModifier: ViewModifier {
     let theme: AppTheme
     
     func body(content: Content) -> some View {
         ZStack {
-            // Base linear gradient
             LinearGradient(
                 gradient: Gradient(colors: [theme.background, theme.backgroundEnd]),
-                startPoint: .top,
-                endPoint: .bottom
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
             
-            // Subtle, digital grid overlay
+            // Grid overlay (subtle for light, subtle for dark)
             GeometryReader { geo in
                 Path { path in
                     let step = 35.0
-                    // Draw vertical grid lines
                     for x in stride(from: 0.0, to: geo.size.width, by: step) {
                         path.move(to: CGPoint(x: x, y: 0))
                         path.addLine(to: CGPoint(x: x, y: geo.size.height))
                     }
-                    // Draw horizontal grid lines
                     for y in stride(from: 0.0, to: geo.size.height, by: step) {
                         path.move(to: CGPoint(x: 0, y: y))
                         path.addLine(to: CGPoint(x: geo.size.width, y: y))
                     }
                 }
-                .stroke(theme.primaryAccent.opacity(0.04), lineWidth: 1)
+                .stroke(theme.primaryAccent.opacity(theme.isLight ? 0.025 : 0.04), lineWidth: 1)
             }
             .ignoresSafeArea()
             
-            // Glowing neon ambient bubbles
+            // Ambient glowing bubbles
             VStack {
                 HStack {
                     Circle()
-                        .fill(theme.primaryAccent.opacity(0.08))
+                        .fill(theme.primaryAccent.opacity(theme.isLight ? 0.12 : 0.08))
                         .frame(width: 320, height: 320)
                         .blur(radius: 80)
                         .offset(x: -60, y: -60)
@@ -194,7 +211,7 @@ struct MatrixBackgroundModifier: ViewModifier {
                 HStack {
                     Spacer()
                     Circle()
-                        .fill(theme.accentSecondary.opacity(0.06))
+                        .fill(theme.accentSecondary.opacity(theme.isLight ? 0.10 : 0.06))
                         .frame(width: 280, height: 280)
                         .blur(radius: 70)
                         .offset(x: 60, y: 60)
@@ -207,6 +224,7 @@ struct MatrixBackgroundModifier: ViewModifier {
     }
 }
 
+// MARK: - Scale Button Style
 struct ScaleButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -215,6 +233,7 @@ struct ScaleButtonStyle: ButtonStyle {
     }
 }
 
+// MARK: - View Extensions
 extension View {
     func glassCardStyle(theme: AppTheme) -> some View {
         self.modifier(GlassCard(theme: theme))
