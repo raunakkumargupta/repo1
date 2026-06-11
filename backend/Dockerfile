@@ -18,11 +18,11 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o server ./cmd/server
 RUN CGO_ENABLED=0 GOOS=linux go build -o seed seed.go
 
 # Run stage
-FROM alpine:3.19
+FROM alpine:latest
 
 WORKDIR /app
 
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk update && apk upgrade --no-cache && apk add --no-cache ca-certificates tzdata
 
 # Copy binaries and migrations from builder
 COPY --from=builder /app/server .

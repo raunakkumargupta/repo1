@@ -1,5 +1,5 @@
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -21,7 +21,10 @@ ENV NEXT_PUBLIC_API_URL=/api
 RUN npm run build
 
 # Run stage
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
+
+# Patch OS vulnerabilities and upgrade global npm to fix tar/minimatch CVEs
+RUN apk update && apk upgrade --no-cache && npm install -g npm@latest
 
 WORKDIR /app
 
