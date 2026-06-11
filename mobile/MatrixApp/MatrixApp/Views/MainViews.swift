@@ -1066,7 +1066,7 @@ struct HackathonDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                if isApproved {
+                if isApproved, let teamId = vm.selectedTeam?.team.id {
                     Button { showMentorTicketSheet = true } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "lifepreserver.fill")
@@ -1084,9 +1084,11 @@ struct HackathonDetailView: View {
                 .preferredColorScheme(vm.activeTheme.isLight ? .light : .dark)
         }
         .sheet(isPresented: $showMentorTicketSheet) {
-            SubmitTicketView(hackathonId: hackathon.id)
-                .environmentObject(vm)
-                .preferredColorScheme(vm.activeTheme.isLight ? .light : .dark)
+            if let teamId = vm.selectedTeam?.team.id {
+                SubmitTicketView(hackathonId: hackathon.id, teamId: teamId)
+                    .environmentObject(vm)
+                    .preferredColorScheme(vm.activeTheme.isLight ? .light : .dark)
+            }
         }
         .refreshable {
             await vm.loadSelectedHackathonDetails(id: hackathon.id)
@@ -1863,6 +1865,7 @@ struct SubmitTicketView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var vm: AppViewModel
     let hackathonId: String
+    let teamId: String
     
     @State private var description = ""
     @State private var errorMessage: String?
@@ -1918,7 +1921,7 @@ struct SubmitTicketView: View {
         defer { isLoading = false }
         errorMessage = nil
         do {
-            try await NetworkManager.shared.submitSupportTicket(hackathonId: hackathonId, description: description)
+            try await NetworkManager.shared.submitSupportTicket(hackathonId: hackathonId, teamId: teamId, description: description)
             dismiss()
         } catch {
             errorMessage = error.localizedDescription

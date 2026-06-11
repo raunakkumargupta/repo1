@@ -110,7 +110,13 @@ struct Announcement: Codable, Identifiable {
 }
 
 struct SupportTicketRequest: Codable {
+    let teamId: String
     let description: String
+    
+    enum CodingKeys: String, CodingKey {
+        case teamId = "team_id"
+        case description
+    }
 }
 
 struct FcmTokenRequest: Codable {

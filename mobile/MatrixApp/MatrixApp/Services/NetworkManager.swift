@@ -225,10 +225,10 @@ final class NetworkManager {
         try checkResponse(response, data: data)
     }
     
-    func submitSupportTicket(hackathonId: String, description: String) async throws {
+    func submitSupportTicket(hackathonId: String, teamId: String, description: String) async throws {
         let url = URL(string: "\(baseURL)/hackathons/\(hackathonId)/tickets")!
         var request = authenticatedRequest(url: url, method: "POST")
-        request.httpBody = try encoder.encode(SupportTicketRequest(description: description))
+        request.httpBody = try encoder.encode(SupportTicketRequest(teamId: teamId, description: description))
         
         let (data, response) = try await URLSession.shared.data(for: request)
         try checkResponse(response, data: data)
