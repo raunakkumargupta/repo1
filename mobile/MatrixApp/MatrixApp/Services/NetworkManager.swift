@@ -46,6 +46,10 @@ final class NetworkManager {
     private func checkResponse(_ response: URLResponse, data: Data) throws {
         if let http = response as? HTTPURLResponse {
             if http.statusCode == 401 {
+                if let url = http.url?.absoluteString, url.contains("/login") {
+                    let message = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+                    throw APIError.server(message?.isEmpty == false ? message! : "Invalid email or password.")
+                }
                 throw APIError.unauthorized
             }
             if http.statusCode >= 400 {
