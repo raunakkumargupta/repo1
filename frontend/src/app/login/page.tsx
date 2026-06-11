@@ -32,7 +32,6 @@ export default function LoginPage() {
       else if (role === "Admin") router.push("/admin");
       else if (role === "Agent" || role === "Manager") router.push("/mentor-queue");
       else router.push("/dashboard");
-      router.refresh();
     } catch (err: any) {
       setError(err.message);
     } finally {

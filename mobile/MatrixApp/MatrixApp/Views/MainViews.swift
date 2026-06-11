@@ -1560,7 +1560,7 @@ struct HackathonApplicationView: View {
     @State private var linkedin = ""
     @State private var resume = ""
     @State private var skills = ""
-    @State private var teamPreference = "JoinTeam"
+    @State private var teamPreference = "Looking for Team"
     @State private var isSubmitting = false
     @State private var errorMessage: String?
     
@@ -1650,7 +1650,17 @@ struct HackathonApplicationView: View {
                     linkedin = p.linkedinUrl ?? ""
                     resume = p.resumeUrl ?? ""
                     skills = p.skills ?? ""
-                    teamPreference = p.defaultTeamPreference ?? "JoinTeam"
+                    let pref = p.defaultTeamPreference ?? ""
+                    let validTags = ["Looking for Team", "Has Team", "Solo"]
+                    if validTags.contains(pref) {
+                        teamPreference = pref
+                    } else if pref == "JoinTeam" || pref == "Looking for a Team" {
+                        teamPreference = "Looking for Team"
+                    } else if pref == "CreateTeam" || pref == "Creating a Team" {
+                        teamPreference = "Has Team"
+                    } else {
+                        teamPreference = "Looking for Team"
+                    }
                 }
             }
         }

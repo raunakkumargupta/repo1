@@ -35,9 +35,10 @@ export async function POST(request: Request) {
     // We don't send the raw token to the client. We send user info and set the cookie.
     const res = NextResponse.json({ user: data.user }, { status: 200 });
 
+    const isHttps = request.headers.get("x-forwarded-proto") === "https" || request.url.startsWith("https://");
     res.cookies.set('jwt', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isHttps,
       sameSite: 'lax',
       path: '/',
       maxAge: 60 * 60 * 24, // 1 day
