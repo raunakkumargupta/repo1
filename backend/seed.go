@@ -37,7 +37,7 @@ func main() {
 	}
 	defer dbpool.Close()
 
-	passwordHash := hashPassword("password123")
+	passwordHash := hashPassword("M@tr1x_P@ssw0rd!2026")
 
 	// Create a SuperAdmin
 	var superAdminID string
@@ -299,9 +299,9 @@ func main() {
 		VALUES ($1, $2, 'Judge') ON CONFLICT DO NOTHING`, firstHackathonID, judgeID)
 
 	fmt.Println("Successfully seeded the database with 22 hackathons! You can login with:")
-	fmt.Println("Admin: admin@matrix.com | password123")
-	fmt.Println("Organizer: organizer@matrix.com | password123")
-	fmt.Println("Hacker: hacker1@matrix.com | password123")
-	fmt.Println("Mentor: mentor@matrix.com | password123")
-	fmt.Println("Judge: judge@matrix.com | password123")
+	fmt.Println("Admin: admin@matrix.com | M@tr1x_P@ssw0rd!2026")
+	fmt.Println("Organizer: organizer@matrix.com | M@tr1x_P@ssw0rd!2026")
+	fmt.Println("Hacker: hacker1@matrix.com | M@tr1x_P@ssw0rd!2026")
+	fmt.Println("Mentor: mentor@matrix.com | M@tr1x_P@ssw0rd!2026")
+	fmt.Println("Judge: judge@matrix.com | M@tr1x_P@ssw0rd!2026")
 }
