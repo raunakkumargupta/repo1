@@ -45,8 +45,9 @@ export default function DashboardPage() {
       .then((r) => r.ok ? r.json() : [])
       .then(async (events: any[]) => {
         // Find registrations for these events
+        const safeEvents = events || [];
         const regs: RegisteredEvent[] = [];
-        for (const ev of events) {
+        for (const ev of safeEvents) {
           try {
             const reg = await fetchApi<any>(`/hackathons/${ev.id}/my-registration`);
             if (reg && reg.id) {

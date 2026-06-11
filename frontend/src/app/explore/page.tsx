@@ -81,7 +81,7 @@ export default function ExplorePage() {
   useEffect(() => {
     fetch("/api/hackathons")
       .then((res) => (res.ok ? res.json() : []))
-      .then((data) => setHackathons(data))
+      .then((data) => setHackathons(data || []))
       .catch((err) => console.error("Error fetching hackathons", err))
       .finally(() => setLoading(false));
   }, []);

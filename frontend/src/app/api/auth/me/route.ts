@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   const cookieHeader = request.headers.get('cookie') || '';
   const backendUrl = process.env.BACKEND_API_URL || "http://localhost:8080";
