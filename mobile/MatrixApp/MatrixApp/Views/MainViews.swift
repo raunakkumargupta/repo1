@@ -765,7 +765,7 @@ struct HackathonRowCard: View {
                             )
                         }
                         if let mn = hackathon.minTeamSize, let mx = hackathon.maxTeamSize {
-                            MetaChip(icon: "person.2.fill", text: "\(mn)\u2013\(mx) members", theme: vm.activeTheme)
+                            MetaChip(icon: "person.2.fill", text: "\(mn)-\(mx) members", theme: vm.activeTheme)
                         }
                         let feeText = (hackathon.registrationFee?.isEmpty ?? true) ? "Free Entry" : hackathon.registrationFee!
                         let feeIcon = (hackathon.registrationFee?.isEmpty ?? true) ? "gift.fill" : "creditcard.fill"
@@ -2354,7 +2354,7 @@ struct EditProfileView: View {
             linkedinUrl: linkedinUrl,
             resumeUrl: resumeUrl,
             skills: skills,
-            defaultTeamPreference: defaultTeamPreference,
+            defaultTeamPreference: vm.currentProfile?.defaultTeamPreference,
             industry: vm.currentProfile?.industry,
             yearsOfExperience: vm.currentProfile?.yearsOfExperience,
             mentorExpertise: vm.currentProfile?.mentorExpertise
