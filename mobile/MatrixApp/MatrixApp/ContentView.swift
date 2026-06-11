@@ -14,7 +14,7 @@ struct RootView: View {
                     .environmentObject(vm)
             }
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(vm.activeTheme == .appleClean ? .light : .dark)
         .task {
             vm.bootstrap()
         }
@@ -29,7 +29,7 @@ struct AuthContainerView: View {
         ZStack {
             // Persistent background gradient
             LinearGradient(
-                gradient: Gradient(colors: [Color.background, Color(hex: "070F22")]),
+                gradient: Gradient(colors: [vm.activeTheme.background, vm.activeTheme.backgroundEnd]),
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -39,7 +39,7 @@ struct AuthContainerView: View {
             VStack {
                 HStack {
                     Circle()
-                        .fill(Color.primaryAccent.opacity(0.12))
+                        .fill(vm.activeTheme.primaryAccent.opacity(0.12))
                         .frame(width: 250, height: 250)
                         .blur(radius: 50)
                         .offset(x: -50, y: -50)
@@ -49,7 +49,7 @@ struct AuthContainerView: View {
                 HStack {
                     Spacer()
                     Circle()
-                        .fill(Color.accentSecondary.opacity(0.08))
+                        .fill(vm.activeTheme.accentSecondary.opacity(0.08))
                         .frame(width: 200, height: 200)
                         .blur(radius: 50)
                         .offset(x: 50, y: 50)
@@ -82,25 +82,25 @@ struct LoginView: View {
             VStack(spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.primaryAccent.opacity(0.15))
+                        .fill(vm.activeTheme.primaryAccent.opacity(0.15))
                         .frame(width: 60, height: 60)
                         .overlay(
                             RoundedRectangle(cornerRadius: 16)
-                                .stroke(Color.primaryAccent.opacity(0.4), lineWidth: 1.5)
+                                .stroke(vm.activeTheme.primaryAccent.opacity(0.4), lineWidth: 1.5)
                         )
                     
                     Image(systemName: "terminal.fill")
                         .font(.title)
-                        .foregroundStyle(Color.primaryAccent)
+                        .foregroundStyle(vm.activeTheme.primaryAccent)
                 }
                 
                 Text("Matrix Command")
                     .font(.system(size: 28, weight: .black, design: .rounded))
-                    .foregroundStyle(Color.textPrimary)
+                    .foregroundStyle(vm.activeTheme.textPrimary)
                 
                 Text("Launch your hackathon events with speed.")
                     .font(.subheadline)
-                    .foregroundStyle(Color.textSecondary)
+                    .foregroundStyle(vm.activeTheme.textSecondary)
                     .multilineTextAlignment(.center)
             }
             .padding(.top, 20)
@@ -112,35 +112,35 @@ struct LoginView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Email Address")
                             .font(.caption.bold())
-                            .foregroundColor(Color.textSecondary)
+                            .foregroundColor(vm.activeTheme.textSecondary)
                         
                         HStack {
                             Image(systemName: "envelope.fill")
-                                .foregroundColor(Color.textSecondary)
+                                .foregroundColor(vm.activeTheme.textSecondary)
                             TextField("name@email.com", text: $email)
                                 .keyboardType(.emailAddress)
                                 .autocorrectionDisabled()
                                 .textInputAutocapitalization(.none)
-                                .foregroundStyle(Color.textPrimary)
+                                .foregroundStyle(vm.activeTheme.textPrimary)
                         }
                         .padding()
-                        .background(Color.surfaceVariant.opacity(0.5))
+                        .background(vm.activeTheme.surfaceVariant.opacity(0.5))
                         .cornerRadius(12)
                     }
                     
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Secure Password")
                             .font(.caption.bold())
-                            .foregroundColor(Color.textSecondary)
+                            .foregroundColor(vm.activeTheme.textSecondary)
                         
                         HStack {
                             Image(systemName: "lock.fill")
-                                .foregroundColor(Color.textSecondary)
+                                .foregroundColor(vm.activeTheme.textSecondary)
                             SecureField("••••••••", text: $password)
-                                .foregroundStyle(Color.textPrimary)
+                                .foregroundStyle(vm.activeTheme.textPrimary)
                         }
                         .padding()
-                        .background(Color.surfaceVariant.opacity(0.5))
+                        .background(vm.activeTheme.surfaceVariant.opacity(0.5))
                         .cornerRadius(12)
                     }
                 }
@@ -180,18 +180,18 @@ struct LoginView: View {
                     .padding()
                     .background(
                         LinearGradient(
-                            gradient: Gradient(colors: [Color.primaryAccent, Color(hex: "0284C7")]),
+                            gradient: Gradient(colors: [vm.activeTheme.primaryAccent, vm.activeTheme.accentSecondary]),
                             startPoint: .leading,
                             endPoint: .trailing
                         )
                     )
                     .foregroundColor(.white)
                     .cornerRadius(14)
-                    .shadow(color: Color.primaryAccent.opacity(0.3), radius: 8, x: 0, y: 4)
+                    .shadow(color: vm.activeTheme.primaryAccent.opacity(0.3), radius: 8, x: 0, y: 4)
                 }
                 .disabled(vm.isLoading)
             }
-            .glassCardStyle()
+            .glassCardStyle(theme: vm.activeTheme)
             
             // Footer Navigation Links
             VStack(spacing: 12) {
@@ -200,7 +200,7 @@ struct LoginView: View {
                 } label: {
                     Text("New here? Create Account")
                         .font(.footnote.weight(.semibold))
-                        .foregroundColor(Color.primaryAccent)
+                        .foregroundColor(vm.activeTheme.primaryAccent)
                 }
                 
                 Button {
@@ -208,7 +208,7 @@ struct LoginView: View {
                 } label: {
                     Text("Recover Password")
                         .font(.footnote)
-                        .foregroundColor(Color.textSecondary)
+                        .foregroundColor(vm.activeTheme.textSecondary)
                 }
             }
         }

@@ -6,7 +6,6 @@ enum AuthScreen {
     case forgot
 }
 
-// MARK: - Auth & Session Models
 struct LoginRequest: Codable {
     let email: String
     let password: String
@@ -31,7 +30,6 @@ struct User: Codable, Identifiable {
     let role: String?
 }
 
-// MARK: - Hackathon Models
 struct Hackathon: Codable, Identifiable {
     let id: String
     let title: String
@@ -51,7 +49,6 @@ struct Hackathon: Codable, Identifiable {
     let rounds: String?
 }
 
-// MARK: - Registration Models
 struct Registration: Codable, Identifiable {
     let id: String
     let userId: String
@@ -71,7 +68,6 @@ struct HackathonApplicationRequest: Codable {
     let teamPreference: String
 }
 
-// MARK: - Team Models
 struct TeamMember: Codable, Identifiable {
     let id: String
     let name: String
@@ -107,7 +103,6 @@ struct ProjectSubmissionRequest: Codable {
     let repositoryUrl: String
 }
 
-// MARK: - Support & Broadcast Models
 struct Announcement: Codable, Identifiable {
     let id: String
     let message: String
@@ -122,18 +117,56 @@ struct FcmTokenRequest: Codable {
     let platform: String
 }
 
-struct UserProfile: Codable {
-    var name: String?
-    var email: String?
+struct HackerProfile: Codable {
+    var userId: String?
+    var gender: String?
+    var tshirtSize: String?
+    var city: String?
+    var phoneNumber: String?
+    var emergencyContactName: String?
+    var emergencyContactNumber: String?
+    var bio: String?
+    var readmeMd: String?
+    var hasFormalEducation: Bool
+    var degreeType: String?
+    var institution: String?
+    var fieldOfStudy: String?
+    var gradYear: Int?
+    var gradMonth: String?
+    var dietaryPreference: String?
+    var allergies: String?
     var githubUrl: String?
     var linkedinUrl: String?
-    var bio: String?
-    var skills: [String]?
+    var resumeUrl: String?
+    var skills: String?
+    var defaultTeamPreference: String?
+    var industry: String?
+    var yearsOfExperience: Int?
+    var mentorExpertise: String?
 }
 
-struct HackerProfileRequest: Codable {
-    var bio: String
-    var githubUrl: String
-    var linkedinUrl: String
-    var skills: [String]
+struct TeamInvitation: Codable, Identifiable {
+    let id: String
+    let teamId: String
+    let inviteeId: String
+    let status: String
+    let teamName: String
+}
+
+struct TeamJoinRequest: Codable, Identifiable {
+    let id: String
+    let teamId: String
+    let userId: String
+    let status: String
+    let userName: String?
+    let userEmail: String?
+    let teamName: String?
+}
+
+struct InviteUserRequest: Codable {
+    let email: String
+}
+
+struct ManageRequestBody: Codable {
+    let status: String
 }

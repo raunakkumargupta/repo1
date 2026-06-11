@@ -192,17 +192,27 @@ final class NetworkManager {
         try checkResponse(response, data: data)
     }
 
-    func fetchMyProfile() async throws -> UserProfile {
+    func fetchCurrentUser() async throws -> User {
+        let url = URL(string: "\(baseURL)/auth/me")!
+        let request = authenticatedRequest(url: url, method: "GET")
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try checkResponse(response, data: data)
+        
+        return try decoder.decode(User.self, from: data)
+    }
+
+    func fetchMyProfile() async throws -> HackerProfile {
         let url = URL(string: "\(baseURL)/profile/me")!
         let request = authenticatedRequest(url: url, method: "GET")
         
         let (data, response) = try await URLSession.shared.data(for: request)
         try checkResponse(response, data: data)
         
-        return try decoder.decode(UserProfile.self, from: data)
+        return try decoder.decode(HackerProfile.self, from: data)
     }
 
-    func updateProfile(_ profile: HackerProfileRequest) async throws {
+    func updateProfile(_ profile: HackerProfile) async throws {
         let url = URL(string: "\(baseURL)/profile/me")!
         var request = authenticatedRequest(url: url, method: "POST")
         request.httpBody = try encoder.encode(profile)
@@ -228,4 +238,80 @@ final class NetworkManager {
         let (data, response) = try await URLSession.shared.data(for: request)
         try checkResponse(response, data: data)
     }
+
+    func fetchPublicTeams(for hackathonId: String) async throws -> [Team] {
+        let url = URL(string: "\(baseURL)/hackathons/\(hackathonId)/teams/public")!
+        let request = authenticatedRequest(url: url, method: "GET")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try checkResponse(response, data: data)
+        return try decoder.decode([Team].self, from: data)
+    }
+
+    func requestToJoinTeam(hackathonId: String, teamId: String) async throws {
+        let url = URL(string: "\(baseURL)/hackathons/\(hackathonId)/teams/\(teamId)/request")!
+        let request = authenticatedRequest(url: url, method: "POST")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try checkResponse(response, data: data)
+    }
+
+    func inviteUserToTeam(hackathonId: String, teamId: String, email: String) async throws {
+        let url = URL(string: "\(baseURL)/hackathons/\(hackathonId)/teams/\(teamId)/invite")!
+        var request = authenticatedRequest(url: url, method: "POST")
+        request.httpBody = try encoder.encode(InviteUserRequest(email: email))
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try checkResponse(response, data: data)
+    }
+
+    func removeTeamMember(hackathonId: String, teamId: String, memberId: String) async throws {
+        let url = URL(string: "\(baseURL)/hackathons/\(hackathonId)/teams/\(teamId)/members/\(memberId)")!
+        let request = authenticatedRequest(url: url, method: "DELETE")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try checkResponse(response, data: data)
+    }
+
+    func fetchTeamRequests(hackathonId: String, teamId: String) async throws -> [TeamJoinRequest] {
+        let url = URL(string: "\(baseURL)/hackathons/\(hackathonId)/teams/\(teamId)/requests")!
+        let request = authenticatedRequest(url: url, method: "GET")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try checkResponse(response, data: data)
+        return try decoder.decode([TeamJoinRequest].self, from: data)
+    }
+
+    func fetchMyRequests(hackathonId: String) async throws -> [TeamJoinRequest] {
+        let url = URL(string: "\(baseURL)/hackathons/\(hackathonId)/my-requests")!
+        let request = authenticatedRequest(url: url, method: "GET")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try checkResponse(response, data: data)
+        return try decoder.decode([TeamJoinRequest].self, from: data)
+    }
+
+    func manageTeamRequest(hackathonId: String, requestId: String, status: String) async throws {
+        let url = URL(string: "\(baseURL)/hackathons/\(hackathonId)/requests/\(requestId)")!
+        var request = authenticatedRequest(url: url, method: "PUT")
+        request.httpBody = try encoder.encode(ManageRequestBody(status: status))
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try checkResponse(response, data: data)
+    }
+
+    func fetchMyInvitations(hackathonId: String) async throws -> [TeamInvitation] {
+        let url = URL(string: "\(baseURL)/hackathons/\(hackathonId)/my-invitations")!
+        let request = authenticatedRequest(url: url, method: "GET")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        if let http = response as? HTTPURLResponse, http.statusCode == 404 {
+            return []
+        }
+        try checkResponse(response, data: data)
+        return try decoder.decode([TeamInvitation].self, from: data)
+    }
+
+    func manageInvitation(hackathonId: String, invitationId: String, status: String) async throws {
+        let url = URL(string: "\(baseURL)/hackathons/\(hackathonId)/invitations/\(invitationId)")!
+        var request = authenticatedRequest(url: url, method: "PUT")
+        request.httpBody = try encoder.encode(ManageRequestBody(status: status))
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try checkResponse(response, data: data)
+    }
 }
+
+}
+

@@ -12,13 +12,14 @@ struct NotificationCenterView: View {
                         EmptyStateView(
                             title: "No Notifications",
                             systemImage: "bell.slash.fill",
-                            message: "Official hackathon broadcasts and updates will appear here."
+                            message: "Official hackathon broadcasts and updates will appear here.",
+                            theme: vm.activeTheme
                         )
                     } else {
                         VStack(alignment: .leading, spacing: 14) {
                             Text("Official Announcements")
                                 .font(.headline)
-                                .foregroundColor(Color.textPrimary)
+                                .foregroundColor(vm.activeTheme.textPrimary)
                                 .padding(.horizontal)
                                 .padding(.top, 10)
                             
@@ -26,32 +27,32 @@ struct NotificationCenterView: View {
                                 HStack(alignment: .top, spacing: 14) {
                                     ZStack {
                                         Circle()
-                                            .fill(Color.primaryAccent.opacity(0.15))
+                                            .fill(vm.activeTheme.primaryAccent.opacity(0.15))
                                             .frame(width: 40, height: 40)
                                         Image(systemName: "megaphone.fill")
-                                            .foregroundColor(Color.primaryAccent)
+                                            .foregroundColor(vm.activeTheme.primaryAccent)
                                             .font(.footnote)
                                     }
                                     
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text("Event Update")
                                             .font(.subheadline.bold())
-                                            .foregroundColor(Color.textPrimary)
+                                            .foregroundColor(vm.activeTheme.textPrimary)
                                         Text(announcement.message)
                                             .font(.footnote)
-                                            .foregroundColor(Color.textSecondary)
+                                            .foregroundColor(vm.activeTheme.textSecondary)
                                             .lineSpacing(3)
                                     }
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .glassCardStyle()
+                                .glassCardStyle(theme: vm.activeTheme)
                             }
                         }
                         .padding()
                     }
                 }
             }
-            .matrixBackground()
+            .matrixBackground(theme: vm.activeTheme)
             .navigationTitle("Notifications")
             .navigationBarTitleDisplayMode(.inline)
             .refreshable {
@@ -64,7 +65,7 @@ struct NotificationCenterView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .foregroundColor(Color.primaryAccent)
+                    .foregroundColor(vm.activeTheme.primaryAccent)
                     .fontWeight(.bold)
                 }
             }

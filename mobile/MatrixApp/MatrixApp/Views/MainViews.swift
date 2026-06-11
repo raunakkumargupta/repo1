@@ -17,11 +17,11 @@ struct RegisterView: View {
             VStack(spacing: 8) {
                 Text("Join Matrix")
                     .font(.system(size: 28, weight: .black, design: .rounded))
-                    .foregroundStyle(Color.textPrimary)
+                    .foregroundStyle(vm.activeTheme.textPrimary)
                 
                 Text("Register your hacker portfolio and join events.")
                     .font(.subheadline)
-                    .foregroundColor(Color.textSecondary)
+                    .foregroundColor(vm.activeTheme.textSecondary)
                     .multilineTextAlignment(.center)
             }
             
@@ -29,16 +29,18 @@ struct RegisterView: View {
                 TextField("Full Name", text: $name)
                     .autocorrectionDisabled()
                     .padding()
-                    .background(Color.surfaceVariant.opacity(0.5))
+                    .background(vm.activeTheme.surfaceVariant.opacity(0.5))
                     .cornerRadius(12)
+                    .foregroundColor(vm.activeTheme.textPrimary)
                 
                 TextField("Email Address", text: $email)
                     .keyboardType(.emailAddress)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.none)
                     .padding()
-                    .background(Color.surfaceVariant.opacity(0.5))
+                    .background(vm.activeTheme.surfaceVariant.opacity(0.5))
                     .cornerRadius(12)
+                    .foregroundColor(vm.activeTheme.textPrimary)
                 
                 Group {
                     if showPassword {
@@ -50,13 +52,14 @@ struct RegisterView: View {
                     }
                 }
                 .padding()
-                .background(Color.surfaceVariant.opacity(0.5))
+                .background(vm.activeTheme.surfaceVariant.opacity(0.5))
                 .cornerRadius(12)
+                .foregroundColor(vm.activeTheme.textPrimary)
                 
                 Toggle("Show Passwords", isOn: $showPassword)
                     .font(.footnote)
-                    .foregroundColor(Color.textSecondary)
-                    .tint(Color.primaryAccent)
+                    .foregroundColor(vm.activeTheme.textSecondary)
+                    .tint(vm.activeTheme.primaryAccent)
                 
                 if let error = validationError ?? vm.authError {
                     Text(error)
@@ -90,20 +93,20 @@ struct RegisterView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.primaryAccent)
+                    .background(vm.activeTheme.primaryAccent)
                     .foregroundColor(.white)
                     .cornerRadius(14)
                 }
                 .disabled(vm.isLoading)
             }
-            .glassCardStyle()
+            .glassCardStyle(theme: vm.activeTheme)
             
             Button {
                 screen = .login
             } label: {
                 Text("Already registered? Sign In")
                     .font(.footnote.weight(.semibold))
-                    .foregroundColor(Color.primaryAccent)
+                    .foregroundColor(vm.activeTheme.primaryAccent)
             }
         }
         .padding(.horizontal, 24)
@@ -121,11 +124,11 @@ struct ForgotPasswordView: View {
             VStack(spacing: 8) {
                 Text("Recover Mission")
                     .font(.system(size: 28, weight: .black, design: .rounded))
-                    .foregroundStyle(Color.textPrimary)
+                    .foregroundStyle(vm.activeTheme.textPrimary)
                 
                 Text("Enter your email address and we'll send reset instructions.")
                     .font(.subheadline)
-                    .foregroundColor(Color.textSecondary)
+                    .foregroundColor(vm.activeTheme.textSecondary)
                     .multilineTextAlignment(.center)
             }
             
@@ -135,8 +138,9 @@ struct ForgotPasswordView: View {
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.none)
                     .padding()
-                    .background(Color.surfaceVariant.opacity(0.5))
+                    .background(vm.activeTheme.surfaceVariant.opacity(0.5))
                     .cornerRadius(12)
+                    .foregroundColor(vm.activeTheme.textPrimary)
                 
                 if let message = vm.authMessage {
                     Text(message)
@@ -177,19 +181,19 @@ struct ForgotPasswordView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.primaryAccent)
+                    .background(vm.activeTheme.primaryAccent)
                     .foregroundColor(.white)
                     .cornerRadius(14)
                 }
             }
-            .glassCardStyle()
+            .glassCardStyle(theme: vm.activeTheme)
             
             Button {
                 screen = .login
             } label: {
                 Text("Back to Sign In")
                     .font(.footnote.weight(.semibold))
-                    .foregroundColor(Color.primaryAccent)
+                    .foregroundColor(vm.activeTheme.primaryAccent)
             }
         }
         .padding(.horizontal, 24)
@@ -198,6 +202,8 @@ struct ForgotPasswordView: View {
 
 // MARK: - Main Dashboard
 struct DashboardView: View {
+    @EnvironmentObject var vm: AppViewModel
+    
     var body: some View {
         TabView {
             HomeDashboardView()
@@ -212,7 +218,7 @@ struct DashboardView: View {
             ProfileView()
                 .tabItem { Label("Profile", systemImage: "person.crop.circle.fill") }
         }
-        .tint(Color.primaryAccent)
+        .tint(vm.activeTheme.primaryAccent)
     }
 }
 
@@ -224,12 +230,12 @@ struct HomeDashboardView: View {
     private var profileCompletion: Double {
         var score = 0.0
         guard let profile = vm.currentProfile else { return 0 }
-        if !(profile.name ?? "").isEmpty { score += 1 }
-        if !(profile.email ?? "").isEmpty { score += 1 }
         if !(profile.bio ?? "").isEmpty { score += 1 }
         if !(profile.githubUrl ?? "").isEmpty { score += 1 }
         if !(profile.linkedinUrl ?? "").isEmpty { score += 1 }
-        if !(profile.skills?.isEmpty ?? true) { score += 1 }
+        if !(profile.resumeUrl ?? "").isEmpty { score += 1 }
+        if !(profile.phoneNumber ?? "").isEmpty { score += 1 }
+        if !(profile.city ?? "").isEmpty { score += 1 }
         return score / 6.0
     }
 
@@ -238,16 +244,33 @@ struct HomeDashboardView: View {
             ScrollView {
                 VStack(spacing: 20) {
                     // Header Area
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Welcome Back")
-                            .font(.system(.title2, design: .rounded).weight(.bold))
-                            .foregroundColor(Color.textSecondary)
+                    HStack(spacing: 16) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Welcome Back")
+                                .font(.system(.title2, design: .rounded).weight(.bold))
+                                .foregroundColor(vm.activeTheme.textSecondary)
+                            
+                            Text(vm.currentUser?.name ?? "Hacker")
+                                .font(.system(.largeTitle, design: .rounded).weight(.black))
+                                .foregroundColor(vm.activeTheme.textPrimary)
+                        }
                         
-                        Text(vm.currentProfile?.name ?? "Hacker")
-                            .font(.system(.largeTitle, design: .rounded).weight(.black))
-                            .foregroundColor(Color.textPrimary)
+                        Spacer()
+                        
+                        // Avatar Initials
+                        ZStack {
+                            Circle()
+                                .fill(vm.activeTheme.primaryAccent.opacity(0.15))
+                                .frame(width: 50, height: 50)
+                                .overlay(
+                                    Circle()
+                                        .stroke(vm.activeTheme.primaryAccent, lineWidth: 1.5)
+                                )
+                            Text(String(vm.currentUser?.name.prefix(2) ?? "HA").uppercased())
+                                .font(.system(.subheadline, design: .rounded).bold())
+                                .foregroundColor(vm.activeTheme.textPrimary)
+                        }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.top, 10)
                     
                     // Profile Completion Ring Card
@@ -280,50 +303,158 @@ struct HomeDashboardView: View {
                     .padding()
                     .background(
                         LinearGradient(
-                            gradient: Gradient(colors: [Color.primaryAccent, Color.accentSecondary]),
+                            gradient: Gradient(colors: [vm.activeTheme.primaryAccent, vm.activeTheme.accentSecondary]),
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
                     .cornerRadius(20)
-                    .shadow(color: Color.primaryAccent.opacity(0.25), radius: 8, x: 0, y: 4)
+                    .shadow(color: vm.activeTheme.primaryAccent.opacity(0.25), radius: 8, x: 0, y: 4)
 
                     // Quick Stats grid
-                    HStack(spacing: 12) {
-                        DashboardMetricCard(
-                            title: "Applications",
-                            value: vm.selectedRegistration != nil ? "1" : "0",
-                            icon: "doc.text.fill",
-                            color: Color.primaryAccent
-                        )
-                        DashboardMetricCard(
-                            title: "Total Events",
-                            value: "\(vm.hackathons.count)",
-                            icon: "trophy.fill",
-                            color: Color.accentSecondary
-                        )
+                    let acceptedCount = vm.allRegistrations.filter { $0.approvalStatus.lowercased() == "accepted" }.count
+                    let pendingCount = vm.allRegistrations.filter { $0.approvalStatus.lowercased() == "pending" }.count
+                    
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("My Statistics")
+                            .font(.system(.headline, design: .rounded).bold())
+                            .foregroundColor(vm.activeTheme.textPrimary)
+                        
+                        HStack(spacing: 12) {
+                            DashboardMetricCard(
+                                title: "Total Apps",
+                                value: "\(vm.allRegistrations.count)",
+                                icon: "doc.text.fill",
+                                color: vm.activeTheme.primaryAccent,
+                                theme: vm.activeTheme
+                            )
+                            DashboardMetricCard(
+                                title: "Approved",
+                                value: "\(acceptedCount)",
+                                icon: "checkmark.circle.fill",
+                                color: vm.activeTheme.accentSecondary,
+                                theme: vm.activeTheme
+                            )
+                            DashboardMetricCard(
+                                title: "Pending",
+                                value: "\(pendingCount)",
+                                icon: "clock.fill",
+                                color: .orange,
+                                theme: vm.activeTheme
+                            )
+                        }
                     }
                     
-                    // selected hackathon registration status card
-                    if let selected = vm.selectedHackathon {
-                        VStack(alignment: .leading, spacing: 14) {
-                            Text("Active Hackathon Context")
-                                .font(.system(.headline, design: .rounded).bold())
-                                .foregroundColor(Color.textPrimary)
-                            
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text(selected.title)
-                                    .font(.title3.bold())
-                                    .foregroundColor(Color.textPrimary)
-                                
+                    // Quick Actions
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Quick Actions")
+                            .font(.system(.headline, design: .rounded).bold())
+                            .foregroundColor(vm.activeTheme.textPrimary)
+                        
+                        HStack(spacing: 16) {
+                            Button {
+                                // Explore logic
+                            } label: {
                                 HStack {
-                                    Text("Status:")
-                                        .foregroundColor(Color.textSecondary)
-                                    Spacer()
-                                    StatusBadge(status: vm.selectedRegistration?.approvalStatus)
+                                    Image(systemName: "magnifyingglass")
+                                    Text("Explore")
+                                        .fontWeight(.bold)
                                 }
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(vm.activeTheme.primaryAccent)
+                                .foregroundColor(.white)
+                                .cornerRadius(12)
                             }
-                            .glassCardStyle()
+                            .buttonStyle(ScaleButtonStyle())
+                            
+                            Button {
+                                // My Apps logic
+                            } label: {
+                                HStack {
+                                    Image(systemName: "list.clipboard.fill")
+                                    Text("My Apps")
+                                        .fontWeight(.bold)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(vm.activeTheme.surfaceVariant)
+                                .foregroundColor(vm.activeTheme.primaryAccent)
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(vm.activeTheme.primaryAccent, lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(ScaleButtonStyle())
+                        }
+                    }
+                    
+                    // My Applications List
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack {
+                            Text("My Hackathons")
+                                .font(.system(.headline, design: .rounded).bold())
+                                .foregroundColor(vm.activeTheme.textPrimary)
+                            Spacer()
+                            Button {
+                                // See all logic
+                            } label: {
+                                Text("See all →")
+                                    .font(.subheadline.bold())
+                                    .foregroundColor(vm.activeTheme.primaryAccent)
+                            }
+                        }
+                        
+                        if vm.allRegistrations.isEmpty {
+                            VStack(spacing: 12) {
+                                Image(systemName: "doc.plaintext.fill")
+                                    .font(.system(size: 36))
+                                    .foregroundColor(vm.activeTheme.textSecondary)
+                                Text("No registrations found.")
+                                    .font(.subheadline.bold())
+                                    .foregroundColor(vm.activeTheme.textPrimary)
+                                Text("You haven't applied to any hackathons yet. Visit the Discover tab to get started.")
+                                    .font(.caption)
+                                    .foregroundColor(vm.activeTheme.textSecondary)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .glassCardStyle(theme: vm.activeTheme)
+                        } else {
+                            ForEach(vm.allRegistrations) { reg in
+                                let matchedHack = vm.hackathons.first(where: { $0.id == reg.hackathonId })
+                                NavigationLink(destination: HackathonDetailView(hackathon: matchedHack ?? Hackathon(id: reg.hackathonId, title: matchedHack?.title ?? "Hackathon Event", description: matchedHack?.description ?? "", coverImage: nil, tracks: nil, startDate: nil, endDate: nil, registrationStatus: nil, problemStatement: nil, prizes: nil, schedule: nil, sponsors: nil, minTeamSize: nil, maxTeamSize: nil, registrationFee: nil, rounds: nil)).onAppear {
+                                    if let h = matchedHack {
+                                        vm.selectedHackathon = h
+                                    }
+                                }) {
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 6) {
+                                            Text(matchedHack?.title ?? "Hackathon")
+                                                .font(.headline)
+                                                .foregroundColor(vm.activeTheme.textPrimary)
+                                                .multilineTextAlignment(.leading)
+                                            
+                                            Text("Preference: \(reg.teamPreference)")
+                                                .font(.caption)
+                                                .foregroundColor(vm.activeTheme.textSecondary)
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        StatusBadge(status: reg.approvalStatus)
+                                        
+                                        Image(systemName: "chevron.right")
+                                            .foregroundColor(vm.activeTheme.textSecondary)
+                                            .font(.footnote)
+                                    }
+                                    .padding(.vertical, 4)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                                .glassCardStyle(theme: vm.activeTheme)
+                            }
                         }
                     }
 
@@ -331,18 +462,18 @@ struct HomeDashboardView: View {
                     VStack(alignment: .leading, spacing: 14) {
                         Text("Matrix Launch Checklist")
                             .font(.system(.headline, design: .rounded).bold())
-                            .foregroundColor(Color.textPrimary)
+                            .foregroundColor(vm.activeTheme.textPrimary)
                         
                         VStack(spacing: 12) {
-                            ChecklistItem(title: "Complete Profile Data", isDone: profileCompletion > 0.8)
-                            ChecklistItem(title: "Choose Hackathon", isDone: vm.selectedHackathon != nil)
-                            ChecklistItem(title: "Assemble Hacker Team", isDone: vm.selectedTeam != nil)
+                            ChecklistItem(title: "Complete Profile Data", isDone: profileCompletion > 0.8, theme: vm.activeTheme)
+                            ChecklistItem(title: "Choose Hackathon", isDone: vm.selectedHackathon != nil, theme: vm.activeTheme)
+                            ChecklistItem(title: "Assemble Hacker Team", isDone: vm.selectedTeam != nil, theme: vm.activeTheme)
                         }
                     }
                 }
                 .padding()
             }
-            .matrixBackground()
+            .matrixBackground(theme: vm.activeTheme)
             .navigationTitle("Command Matrix")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -352,7 +483,7 @@ struct HomeDashboardView: View {
                         ZStack(alignment: .topTrailing) {
                             Image(systemName: "bell.fill")
                                 .font(.title3)
-                                .foregroundColor(Color.textPrimary)
+                                .foregroundColor(vm.activeTheme.textPrimary)
                             
                             if !vm.selectedAnnouncements.isEmpty {
                                 Circle()
@@ -365,7 +496,7 @@ struct HomeDashboardView: View {
                 }
             }
             .sheet(isPresented: $showNotifications) {
-                NotificationCenterView()
+                NotificationCenterView().environmentObject(vm)
             }
             .refreshable {
                 await vm.loadCurrentProfile()
@@ -396,7 +527,12 @@ struct HackathonsView: View {
                     if vm.isLoading && vm.hackathons.isEmpty {
                         ProgressView().tint(.white).padding()
                     } else if vm.hackathons.isEmpty {
-                        EmptyStateView(title: "No Events Online", systemImage: "trophy.slash", message: "Check back later for approved hackathon events.")
+                        EmptyStateView(
+                            title: "No Events Online",
+                            systemImage: "trophy.slash",
+                            message: "Check back later for approved hackathon events.",
+                            theme: vm.activeTheme
+                        )
                     } else {
                         ForEach(vm.hackathons) { hack in
                             NavigationLink(destination: HackathonDetailView(hackathon: hack).onAppear {
@@ -410,7 +546,7 @@ struct HackathonsView: View {
                 }
                 .padding()
             }
-            .matrixBackground()
+            .matrixBackground(theme: vm.activeTheme)
             .navigationTitle("Discover Events")
             .refreshable {
                 await vm.loadHackathons()
@@ -425,12 +561,11 @@ struct HackathonRowCard: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            // Cover Placeholder
             ZStack(alignment: .bottomLeading) {
                 RoundedRectangle(cornerRadius: 14)
                     .fill(
                         LinearGradient(
-                            gradient: Gradient(colors: [Color.surfaceVariant, Color.surface]),
+                            gradient: Gradient(colors: [vm.activeTheme.surfaceVariant, vm.activeTheme.surface]),
                             startPoint: .top,
                             endPoint: .bottom
                         )
@@ -442,7 +577,7 @@ struct HackathonRowCard: View {
                         .font(.system(size: 10).weight(.black))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 3)
-                        .background(Color.primaryAccent)
+                        .background(vm.activeTheme.primaryAccent)
                         .cornerRadius(6)
                     
                     Text(hackathon.title)
@@ -455,7 +590,7 @@ struct HackathonRowCard: View {
             
             Text(hackathon.description)
                 .font(.subheadline)
-                .foregroundColor(Color.textSecondary)
+                .foregroundColor(vm.activeTheme.textSecondary)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
             
@@ -463,14 +598,14 @@ struct HackathonRowCard: View {
                 if let tracksStr = hackathon.tracks {
                     Text(tracksStr)
                         .font(.system(size: 11).bold())
-                        .foregroundColor(Color.primaryAccent)
+                        .foregroundColor(vm.activeTheme.primaryAccent)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .foregroundColor(Color.textSecondary)
+                    .foregroundColor(vm.activeTheme.textSecondary)
             }
         }
-        .glassCardStyle()
+        .glassCardStyle(theme: vm.activeTheme)
     }
 }
 
@@ -484,12 +619,11 @@ struct HackathonDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                // hero overview
                 ZStack(alignment: .bottomLeading) {
                     RoundedRectangle(cornerRadius: 24)
                         .fill(
                             LinearGradient(
-                                gradient: Gradient(colors: [Color.primaryAccent.opacity(0.7), Color.surfaceVariant]),
+                                gradient: Gradient(colors: [vm.activeTheme.primaryAccent.opacity(0.7), vm.activeTheme.surfaceVariant]),
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
@@ -516,29 +650,27 @@ struct HackathonDetailView: View {
                     .padding()
                 }
                 
-                // Description card
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Problem Statement")
                         .font(.headline)
-                        .foregroundColor(Color.textPrimary)
+                        .foregroundColor(vm.activeTheme.textPrimary)
                     Text(hackathon.description)
                         .font(.subheadline)
-                        .foregroundColor(Color.textSecondary)
+                        .foregroundColor(vm.activeTheme.textSecondary)
                         .lineSpacing(4)
                 }
-                .glassCardStyle()
+                .glassCardStyle(theme: vm.activeTheme)
                 
-                // Apply Section
                 VStack(alignment: .leading, spacing: 14) {
                     Text("Event Registration")
                         .font(.headline)
-                        .foregroundColor(Color.textPrimary)
+                        .foregroundColor(vm.activeTheme.textPrimary)
                     
                     HStack {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Approval Status")
                                 .font(.subheadline)
-                                .foregroundColor(Color.textSecondary)
+                                .foregroundColor(vm.activeTheme.textSecondary)
                             StatusBadge(status: vm.selectedRegistration?.approvalStatus)
                         }
                         
@@ -552,50 +684,48 @@ struct HackathonDetailView: View {
                                     .fontWeight(.bold)
                                     .padding(.horizontal, 16)
                                     .padding(.vertical, 10)
-                                    .background(Color.primaryAccent)
+                                    .background(vm.activeTheme.primaryAccent)
                                     .foregroundColor(.white)
                                     .cornerRadius(12)
                             }
                         }
                     }
                     .padding()
-                    .background(Color.surfaceVariant.opacity(0.4))
+                    .background(vm.activeTheme.surfaceVariant.opacity(0.4))
                     .cornerRadius(16)
                 }
                 
-                // Announcements panel
                 if !vm.selectedAnnouncements.isEmpty {
                     VStack(alignment: .leading, spacing: 14) {
                         Text("Broadcast Announcements")
                             .font(.headline)
-                            .foregroundColor(Color.textPrimary)
+                            .foregroundColor(vm.activeTheme.textPrimary)
                         
                         ForEach(vm.selectedAnnouncements) { broadcast in
                             HStack(alignment: .top, spacing: 12) {
                                 Image(systemName: "megaphone.fill")
-                                    .foregroundColor(Color.primaryAccent)
+                                    .foregroundColor(vm.activeTheme.primaryAccent)
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(broadcast.message)
                                         .font(.subheadline)
-                                        .foregroundColor(Color.textPrimary)
+                                        .foregroundColor(vm.activeTheme.textPrimary)
                                 }
                             }
                             .padding()
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.surfaceVariant.opacity(0.3))
+                            .background(vm.activeTheme.surfaceVariant.opacity(0.3))
                             .cornerRadius(12)
                         }
                     }
                 }
                 
-                // Contextual Team Actions inside detail sheet if approved
                 if vm.selectedRegistration?.approvalStatus == "Accepted" {
                     HackathonTeamSectionView(hackathonId: hackathon.id)
                 }
             }
             .padding()
         }
-        .matrixBackground()
+        .matrixBackground(theme: vm.activeTheme)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if vm.selectedRegistration?.approvalStatus == "Accepted" {
@@ -608,7 +738,7 @@ struct HackathonDetailView: View {
                             Text("Support")
                                 .font(.footnote.bold())
                         }
-                        .foregroundColor(Color.accentSecondary)
+                        .foregroundColor(vm.activeTheme.accentSecondary)
                     }
                 }
             }
@@ -624,6 +754,9 @@ struct HackathonDetailView: View {
         .refreshable {
             await vm.loadSelectedHackathonDetails(id: hackathon.id)
         }
+        .task {
+            await vm.loadSelectedHackathonDetails(id: hackathon.id)
+        }
     }
 }
 
@@ -635,62 +768,210 @@ struct HackathonTeamSectionView: View {
     @State private var showCreateTeam = false
     @State private var showJoinTeam = false
     @State private var showSubmission = false
+    
+    // Leader state
+    @State private var inviteEmail = ""
+    @State private var isInviting = false
+    @State private var inviteError: String?
+    
+    // Non-leader state
+    @State private var teamSearchText = ""
+    @State private var requestedTeamIds: Set<String> = []
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 18) {
             Text("Hacker Team Control")
                 .font(.headline)
-                .foregroundColor(Color.textPrimary)
+                .foregroundColor(vm.activeTheme.textPrimary)
             
             if let activeTeam = vm.selectedTeam {
-                // Team is active
-                VStack(alignment: .leading, spacing: 12) {
+                // USER IS IN A TEAM
+                let isLeader = vm.currentUser?.id != nil && vm.currentUser?.id == activeTeam.team.leaderId
+                
+                VStack(alignment: .leading, spacing: 14) {
                     HStack {
                         Image(systemName: "person.3.fill")
-                            .foregroundColor(Color.accentSecondary)
+                            .foregroundColor(vm.activeTheme.accentSecondary)
                         Text(activeTeam.team.teamName)
                             .font(.title3.bold())
-                            .foregroundColor(Color.textPrimary)
+                            .foregroundColor(vm.activeTheme.textPrimary)
                     }
                     
                     Text("Invite Code: \(activeTeam.team.inviteCode)")
                         .font(.caption.bold())
-                        .foregroundColor(Color.primaryAccent)
+                        .foregroundColor(vm.activeTheme.primaryAccent)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
-                        .background(Color.primaryAccent.opacity(0.12))
+                        .background(vm.activeTheme.primaryAccent.opacity(0.12))
                         .cornerRadius(6)
                     
-                    VStack(alignment: .leading, spacing: 8) {
+                    // Team Members
+                    VStack(alignment: .leading, spacing: 10) {
                         Text("Team Members:")
                             .font(.subheadline.bold())
-                            .foregroundColor(Color.textSecondary)
+                            .foregroundColor(vm.activeTheme.textSecondary)
                         
                         ForEach(activeTeam.members) { member in
                             HStack {
                                 Image(systemName: "person.crop.circle.fill")
-                                    .foregroundColor(Color.textSecondary)
-                                Text(member.name)
-                                    .font(.subheadline)
-                                    .foregroundColor(Color.textPrimary)
+                                    .foregroundColor(vm.activeTheme.textSecondary)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(member.name)
+                                        .font(.subheadline.bold())
+                                        .foregroundColor(vm.activeTheme.textPrimary)
+                                    Text(member.email)
+                                        .font(.caption)
+                                        .foregroundColor(vm.activeTheme.textSecondary)
+                                }
                                 Spacer()
-                                if member.role != nil {
-                                    Text(member.role ?? "")
+                                
+                                if member.id == activeTeam.team.leaderId {
+                                    Text("Leader ★")
                                         .font(.caption.bold())
-                                        .foregroundColor(Color.textSecondary)
+                                        .foregroundColor(vm.activeTheme.accentSecondary)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 3)
+                                        .background(vm.activeTheme.accentSecondary.opacity(0.15))
+                                        .cornerRadius(4)
+                                } else if isLeader {
+                                    Button(role: .destructive) {
+                                        Task {
+                                            await vm.removeMember(memberId: member.id)
+                                        }
+                                    } label: {
+                                        Text("Remove")
+                                            .font(.caption.bold())
+                                            .foregroundColor(.red)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .background(Color.red.opacity(0.1))
+                                            .cornerRadius(6)
+                                    }
                                 }
                             }
+                            .padding(.vertical, 4)
                         }
                     }
-                    .padding(.top, 6)
                     
                     Divider().background(Color.white.opacity(0.1))
                     
-                    // Submission Status
+                    // Leader Invite Form
+                    if isLeader {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Invite New Member")
+                                .font(.subheadline.bold())
+                                .foregroundColor(vm.activeTheme.textSecondary)
+                            
+                            HStack {
+                                TextField("hacker@email.com", text: $inviteEmail)
+                                    .keyboardType(.emailAddress)
+                                    .autocorrectionDisabled()
+                                    .textInputAutocapitalization(.none)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 10)
+                                    .background(vm.activeTheme.surfaceVariant.opacity(0.5))
+                                    .cornerRadius(8)
+                                    .foregroundColor(vm.activeTheme.textPrimary)
+                                
+                                Button {
+                                    Task {
+                                        isInviting = true
+                                        inviteError = nil
+                                        do {
+                                            try await vm.inviteUser(email: inviteEmail)
+                                            inviteEmail = ""
+                                        } catch {
+                                            inviteError = error.localizedDescription
+                                        }
+                                        isInviting = false
+                                    }
+                                } label: {
+                                    if isInviting {
+                                        ProgressView().tint(.white)
+                                    } else {
+                                        Text("Invite")
+                                            .fontWeight(.bold)
+                                    }
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 10)
+                                .background(vm.activeTheme.primaryAccent)
+                                .foregroundColor(.white)
+                                .cornerRadius(8)
+                                .disabled(inviteEmail.isEmpty || isInviting)
+                            }
+                            
+                            if let inviteError {
+                                Text(inviteError)
+                                    .font(.caption)
+                                    .foregroundColor(.red)
+                            }
+                        }
+                        
+                        Divider().background(Color.white.opacity(0.1))
+                        
+                        // Leader Incoming Join Requests
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Incoming Join Requests")
+                                .font(.subheadline.bold())
+                                .foregroundColor(vm.activeTheme.textSecondary)
+                            
+                            if vm.incomingTeamRequests.isEmpty {
+                                Text("No pending join requests.")
+                                    .font(.caption)
+                                    .foregroundColor(vm.activeTheme.textSecondary)
+                            } else {
+                                ForEach(vm.incomingTeamRequests) { req in
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(req.userName ?? "Hacker")
+                                                .font(.subheadline.bold())
+                                                .foregroundColor(vm.activeTheme.textPrimary)
+                                            Text(req.userEmail ?? "")
+                                                .font(.caption)
+                                                .foregroundColor(vm.activeTheme.textSecondary)
+                                        }
+                                        Spacer()
+                                        
+                                        HStack(spacing: 8) {
+                                            Button("Accept") {
+                                                Task {
+                                                    await vm.respondToRequest(requestId: req.id, accept: true)
+                                                }
+                                            }
+                                            .font(.caption.bold())
+                                            .foregroundColor(.white)
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 6)
+                                            .background(vm.activeTheme.accentSecondary)
+                                            .cornerRadius(6)
+                                            
+                                            Button("Decline") {
+                                                Task {
+                                                    await vm.respondToRequest(requestId: req.id, accept: false)
+                                                }
+                                            }
+                                            .font(.caption.bold())
+                                            .foregroundColor(.red)
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 6)
+                                            .background(Color.red.opacity(0.1))
+                                            .cornerRadius(6)
+                                        }
+                                    }
+                                    .padding(.vertical, 4)
+                                }
+                            }
+                        }
+                        
+                        Divider().background(Color.white.opacity(0.1))
+                    }
+                    
+                    // Project Submission Status
                     HStack {
                         if activeTeam.team.isSubmitted {
                             Label("Project Submitted", systemImage: "checkmark.circle.fill")
-                                .foregroundColor(Color.accentSecondary)
+                                .foregroundColor(vm.activeTheme.accentSecondary)
                                 .font(.subheadline.bold())
                         } else {
                             Label("Submission Pending", systemImage: "clock.fill")
@@ -701,17 +982,18 @@ struct HackathonTeamSectionView: View {
                                 showSubmission = true
                             }
                             .buttonStyle(.borderedProminent)
-                            .tint(Color.primaryAccent)
+                            .tint(vm.activeTheme.primaryAccent)
                         }
                     }
                 }
-                .glassCardStyle()
+                .glassCardStyle(theme: vm.activeTheme)
+                
             } else {
-                // No Team yet
+                // USER HAS NO TEAM
                 VStack(spacing: 16) {
                     Text("Assemble your squad to start compiling submissions.")
                         .font(.subheadline)
-                        .foregroundColor(Color.textSecondary)
+                        .foregroundColor(vm.activeTheme.textSecondary)
                         .multilineTextAlignment(.center)
                     
                     HStack(spacing: 12) {
@@ -722,7 +1004,7 @@ struct HackathonTeamSectionView: View {
                                 .font(.subheadline.bold())
                                 .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(Color.primaryAccent)
+                                .background(vm.activeTheme.primaryAccent)
                                 .foregroundColor(.white)
                                 .cornerRadius(12)
                         }
@@ -734,8 +1016,8 @@ struct HackathonTeamSectionView: View {
                                 .font(.subheadline.bold())
                                 .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(Color.surfaceVariant)
-                                .foregroundColor(Color.textPrimary)
+                                .background(vm.activeTheme.surfaceVariant)
+                                .foregroundColor(vm.activeTheme.textPrimary)
                                 .cornerRadius(12)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12)
@@ -744,7 +1026,151 @@ struct HackathonTeamSectionView: View {
                         }
                     }
                 }
-                .glassCardStyle()
+                .glassCardStyle(theme: vm.activeTheme)
+                
+                // My Outgoing Invitations Section
+                if !vm.myIncomingInvitations.isEmpty {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Incoming Team Invitations")
+                            .font(.subheadline.bold())
+                            .foregroundColor(vm.activeTheme.textSecondary)
+                        
+                        ForEach(vm.myIncomingInvitations) { inv in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(inv.teamName)
+                                        .font(.subheadline.bold())
+                                        .foregroundColor(vm.activeTheme.textPrimary)
+                                    Text("Invited you to join")
+                                        .font(.caption)
+                                        .foregroundColor(vm.activeTheme.textSecondary)
+                                }
+                                Spacer()
+                                
+                                HStack(spacing: 8) {
+                                    Button("Accept") {
+                                        Task {
+                                            await vm.respondToInvitation(invitationId: inv.id, accept: true)
+                                        }
+                                    }
+                                    .font(.caption.bold())
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(vm.activeTheme.accentSecondary)
+                                    .cornerRadius(6)
+                                    
+                                    Button("Decline") {
+                                        Task {
+                                            await vm.respondToInvitation(invitationId: inv.id, accept: false)
+                                        }
+                                    }
+                                    .font(.caption.bold())
+                                    .foregroundColor(.red)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(Color.red.opacity(0.1))
+                                    .cornerRadius(6)
+                                }
+                            }
+                            .padding()
+                            .glassCardStyle(theme: vm.activeTheme)
+                        }
+                    }
+                    .padding(.top, 10)
+                }
+                
+                // Outgoing Sent Requests Section
+                if !vm.myOutgoingRequests.isEmpty {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("My Sent Join Requests")
+                            .font(.subheadline.bold())
+                            .foregroundColor(vm.activeTheme.textSecondary)
+                        
+                        ForEach(vm.myOutgoingRequests) { req in
+                            HStack {
+                                Text("Requested: \(req.teamName ?? "Team")")
+                                    .font(.subheadline.bold())
+                                    .foregroundColor(vm.activeTheme.textPrimary)
+                                Spacer()
+                                StatusBadge(status: req.status)
+                            }
+                            .padding()
+                            .glassCardStyle(theme: vm.activeTheme)
+                        }
+                    }
+                    .padding(.top, 10)
+                }
+                
+                // Browse Open Teams Section
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Browse Open Public Teams")
+                        .font(.subheadline.bold())
+                        .foregroundColor(vm.activeTheme.textSecondary)
+                    
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(vm.activeTheme.textSecondary)
+                        TextField("Search teams by name...", text: $teamSearchText)
+                            .foregroundColor(vm.activeTheme.textPrimary)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.none)
+                    }
+                    .padding()
+                    .background(vm.activeTheme.surfaceVariant.opacity(0.5))
+                    .cornerRadius(12)
+                    
+                    let filteredTeams = vm.publicTeams.filter { team in
+                        teamSearchText.isEmpty || team.teamName.localizedCaseInsensitiveContains(teamSearchText)
+                    }
+                    
+                    if vm.publicTeams.isEmpty {
+                        Text("No open teams registered yet. Be the first to create one!")
+                            .font(.caption)
+                            .foregroundColor(vm.activeTheme.textSecondary)
+                            .padding(.top, 4)
+                    } else if filteredTeams.isEmpty {
+                        Text("No matching open teams found.")
+                            .font(.caption)
+                            .foregroundColor(vm.activeTheme.textSecondary)
+                            .padding(.top, 4)
+                    } else {
+                        ForEach(filteredTeams) { team in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(team.teamName)
+                                        .font(.headline)
+                                        .foregroundColor(vm.activeTheme.textPrimary)
+                                    Text("Code: \(team.inviteCode)")
+                                        .font(.caption)
+                                        .foregroundColor(vm.activeTheme.textSecondary)
+                                }
+                                Spacer()
+                                
+                                let isRequested = requestedTeamIds.contains(team.id) || vm.myOutgoingRequests.contains(where: { $0.teamId == team.id })
+                                
+                                Button {
+                                    Task {
+                                        requestedTeamIds.insert(team.id)
+                                        await vm.requestToJoin(teamId: team.id)
+                                    }
+                                } label: {
+                                    Text(isRequested ? "Requested" : "Join Request")
+                                        .font(.caption.bold())
+                                        .foregroundColor(.white)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(isRequested ? Color.gray : vm.activeTheme.primaryAccent)
+                                .cornerRadius(8)
+                                .disabled(isRequested)
+                            }
+                            .padding()
+                            .glassCardStyle(theme: vm.activeTheme)
+                        }
+                    }
+                }
+                .padding(.top, 10)
             }
         }
         .sheet(isPresented: $showCreateTeam) {
@@ -787,11 +1213,13 @@ struct HackathonApplicationView: View {
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.none)
                 }
+                .listRowBackground(vm.activeTheme.surface.opacity(0.4))
                 
                 Section("Core Skills") {
                     TextField("Skills (comma-separated, e.g. iOS, Swift)", text: $skills)
                         .autocorrectionDisabled()
                 }
+                .listRowBackground(vm.activeTheme.surface.opacity(0.4))
                 
                 Section("Team Formation Preference") {
                     Picker("Preference", selection: $teamPreference) {
@@ -799,25 +1227,31 @@ struct HackathonApplicationView: View {
                         Text("Creating a Team").tag("CreateTeam")
                         Text("Competing Solo").tag("Solo")
                     }
-                    .pickerStyle(.menu)
                 }
+                .listRowBackground(vm.activeTheme.surface.opacity(0.4))
                 
                 if let errorMessage {
                     Section {
                         Text(errorMessage).foregroundColor(.red).bold()
                     }
+                    .listRowBackground(vm.activeTheme.surface.opacity(0.4))
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(vm.activeTheme.background.ignoresSafeArea())
             .navigationTitle("Hacker Application")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
+                        .foregroundColor(vm.activeTheme.primaryAccent)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(isSubmitting ? "Submitting..." : "Apply") {
                         Task { await submitApplication() }
                     }
+                    .foregroundColor(vm.activeTheme.accentSecondary)
+                    .fontWeight(.bold)
                     .disabled(isSubmitting || github.isEmpty || linkedin.isEmpty)
                 }
             }
@@ -840,6 +1274,7 @@ struct HackathonApplicationView: View {
                 )
             )
             await vm.refreshSelectedHackathon()
+            await vm.loadHackathons()
             dismiss()
         } catch {
             errorMessage = error.localizedDescription
@@ -867,16 +1302,21 @@ struct CreateTeamView: View {
                     Text(errorMessage).foregroundColor(.red).font(.footnote)
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(vm.activeTheme.background.ignoresSafeArea())
             .navigationTitle("Initialize Team")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
+                        .foregroundColor(vm.activeTheme.primaryAccent)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(isLoading ? "Creating..." : "Create") {
                         Task { await performCreate() }
                     }
+                    .foregroundColor(vm.activeTheme.accentSecondary)
+                    .fontWeight(.bold)
                     .disabled(teamName.trimmingCharacters(in: .whitespaces).isEmpty || isLoading)
                 }
             }
@@ -918,16 +1358,21 @@ struct JoinTeamView: View {
                     Text(errorMessage).foregroundColor(.red).font(.footnote)
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(vm.activeTheme.background.ignoresSafeArea())
             .navigationTitle("Join Hacker Team")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
+                        .foregroundColor(vm.activeTheme.primaryAccent)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(isLoading ? "Joining..." : "Join") {
                         Task { await performJoin() }
                     }
+                    .foregroundColor(vm.activeTheme.accentSecondary)
+                    .fontWeight(.bold)
                     .disabled(inviteCode.trimmingCharacters(in: .whitespaces).isEmpty || isLoading)
                 }
             }
@@ -969,16 +1414,21 @@ struct ProjectSubmissionView: View {
                     Text(errorMessage).foregroundColor(.red).font(.footnote)
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(vm.activeTheme.background.ignoresSafeArea())
             .navigationTitle("Submit Repository")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
+                        .foregroundColor(vm.activeTheme.primaryAccent)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(isLoading ? "Submitting..." : "Submit") {
                         Task { await performSubmit() }
                     }
+                    .foregroundColor(vm.activeTheme.accentSecondary)
+                    .fontWeight(.bold)
                     .disabled(repositoryURL.trimmingCharacters(in: .whitespaces).isEmpty || isLoading)
                 }
             }
@@ -1019,7 +1469,7 @@ struct SubmitTicketView: View {
                             Group {
                                 if description.isEmpty {
                                     Text("Describe your technical issue details...")
-                                        .foregroundColor(Color.textSecondary)
+                                        .foregroundColor(vm.activeTheme.textSecondary)
                                         .padding(.leading, 5)
                                         .padding(.top, 8)
                                 }
@@ -1027,21 +1477,27 @@ struct SubmitTicketView: View {
                             alignment: .topLeading
                         )
                 }
+                .listRowBackground(vm.activeTheme.surface.opacity(0.4))
                 
                 if let errorMessage {
                     Text(errorMessage).foregroundColor(.red).font(.footnote)
                 }
             }
-            .navigationTitle("Request Technical Support")
+            .scrollContentBackground(.hidden)
+            .background(vm.activeTheme.background.ignoresSafeArea())
+            .navigationTitle("Request Support")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
+                        .foregroundColor(vm.activeTheme.primaryAccent)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(isLoading ? "Routing..." : "Request") {
                         Task { await performRequest() }
                     }
+                    .foregroundColor(vm.activeTheme.accentSecondary)
+                    .fontWeight(.bold)
                     .disabled(description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading)
                 }
             }
@@ -1068,16 +1524,17 @@ struct TeamView: View {
     var body: some View {
         NavigationStack {
             VStack {
-                if let _ = vm.selectedHackathon {
+                if let hack = vm.selectedHackathon {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 20) {
                             if vm.selectedRegistration?.approvalStatus == "Accepted" {
-                                HackathonTeamSectionView(hackathonId: vm.selectedHackathon!.id)
+                                HackathonTeamSectionView(hackathonId: hack.id)
                             } else {
                                 EmptyStateView(
                                     title: "Access Restricted",
                                     systemImage: "lock.fill",
-                                    message: "You must be approved for the hackathon to manage teams."
+                                    message: "You must be approved for the hackathon to manage teams.",
+                                    theme: vm.activeTheme
                                 )
                             }
                         }
@@ -1087,11 +1544,12 @@ struct TeamView: View {
                     EmptyStateView(
                         title: "No Active Context",
                         systemImage: "person.3.fill",
-                        message: "Go to the Hackathons tab and select an event to view or configure team status."
+                        message: "Go to the Hackathons tab and select an event to view or configure team status.",
+                        theme: vm.activeTheme
                     )
                 }
             }
-            .matrixBackground()
+            .matrixBackground(theme: vm.activeTheme)
             .navigationTitle("Team Workspace")
         }
     }
@@ -1100,128 +1558,504 @@ struct TeamView: View {
 // MARK: - Profile View (Tab 3)
 struct ProfileView: View {
     @EnvironmentObject var vm: AppViewModel
-    
-    @State private var bio = ""
-    @State private var github = ""
-    @State private var linkedin = ""
-    @State private var skills = ""
-    @State private var showSuccessMessage = false
+    @State private var showEditSheet = false
     
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    HStack {
-                        Spacer()
-                        VStack(spacing: 8) {
-                            Image(systemName: "person.crop.circle.fill")
-                                .font(.system(size: 64))
-                                .foregroundColor(Color.primaryAccent)
-                            
-                            Text(vm.currentProfile?.name ?? "Hacker")
-                                .font(.title2.bold())
-                                .foregroundColor(Color.textPrimary)
-                            
-                            Text(vm.currentProfile?.email ?? "")
-                                .font(.caption)
-                                .foregroundColor(Color.textSecondary)
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Header Card
+                    VStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(vm.activeTheme.primaryAccent.opacity(0.15))
+                                .frame(width: 80, height: 80)
+                                .overlay(
+                                    Circle()
+                                        .stroke(vm.activeTheme.primaryAccent, lineWidth: 2)
+                                )
+                            Text(String(vm.currentUser?.name.prefix(2) ?? "H").uppercased())
+                                .font(.system(size: 28, weight: .black, design: .rounded))
+                                .foregroundColor(vm.activeTheme.textPrimary)
                         }
-                        Spacer()
+                        
+                        Text(vm.currentUser?.name ?? "Hacker Name")
+                            .font(.title2.bold())
+                            .foregroundColor(vm.activeTheme.textPrimary)
+                        
+                        Text(vm.currentUser?.email ?? "email@address.com")
+                            .font(.subheadline)
+                            .foregroundColor(vm.activeTheme.textSecondary)
+                        
+                        if let role = vm.currentUser?.role {
+                            Text(role.uppercased())
+                                .font(.system(size: 10, weight: .black))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(vm.activeTheme.primaryAccent.opacity(0.2))
+                                .foregroundColor(vm.activeTheme.primaryAccent)
+                                .cornerRadius(6)
+                        }
                     }
-                    .padding(.vertical, 8)
-                }
-                .listRowBackground(Color.surface.opacity(0.3))
-                
-                Section("Hacker Info & Bio") {
-                    TextField("Tell us about yourself...", text: $bio)
-                        .foregroundStyle(Color.textPrimary)
-                }
-                .listRowBackground(Color.surface.opacity(0.3))
-                
-                Section("Social Channels") {
-                    HStack {
-                        Image(systemName: "link")
-                            .foregroundColor(Color.textSecondary)
-                        TextField("GitHub Profile URL", text: $github)
-                            .foregroundColor(Color.textPrimary)
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.none)
+                    .frame(maxWidth: .infinity)
+                    .glassCardStyle(theme: vm.activeTheme)
+                    
+                    // Glassy Bio Card (if not empty)
+                    if let bio = vm.currentProfile?.bio, !bio.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: "quote.opening")
+                                    .foregroundColor(vm.activeTheme.primaryAccent)
+                                    .font(.footnote)
+                                Text("BIO")
+                                    .font(.system(size: 11, weight: .black))
+                                    .foregroundColor(vm.activeTheme.textSecondary)
+                            }
+                            Text(bio)
+                                .font(.subheadline)
+                                .foregroundColor(vm.activeTheme.textPrimary)
+                                .lineSpacing(3)
+                                .italic()
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .glassCardStyle(theme: vm.activeTheme)
                     }
                     
-                    HStack {
-                        Image(systemName: "link")
-                            .foregroundColor(Color.textSecondary)
-                        TextField("LinkedIn Profile URL", text: $linkedin)
-                            .foregroundColor(Color.textPrimary)
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.none)
+                    // Premium Interface Customization Theme Selector
+                    VStack(alignment: .leading, spacing: 12) {
+                        Label("Interface Theme", systemImage: "paintpalette.fill")
+                            .font(.headline)
+                            .foregroundColor(vm.activeTheme.textPrimary)
+                        
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(AppTheme.allCases) { themeOption in
+                                    Button {
+                                        withAnimation {
+                                            vm.activeTheme = themeOption
+                                        }
+                                    } label: {
+                                        VStack(alignment: .leading, spacing: 10) {
+                                            HStack {
+                                                Circle()
+                                                    .fill(themeOption.primaryAccent)
+                                                    .frame(width: 14, height: 14)
+                                                Circle()
+                                                    .fill(themeOption.accentSecondary)
+                                                    .frame(width: 14, height: 14)
+                                                Spacer()
+                                                if vm.activeTheme == themeOption {
+                                                    Image(systemName: "checkmark.circle.fill")
+                                                        .foregroundColor(themeOption.accentSecondary)
+                                                        .font(.caption)
+                                                }
+                                            }
+                                            
+                                            Text(themeOption.rawValue)
+                                                .font(.caption.bold())
+                                                .foregroundColor(themeOption.textPrimary)
+                                        }
+                                        .frame(width: 110, height: 60)
+                                        .padding()
+                                        .background(themeOption.background.opacity(0.8))
+                                        .cornerRadius(16)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 16)
+                                                .stroke(vm.activeTheme == themeOption ? themeOption.primaryAccent : Color.white.opacity(0.12), lineWidth: 2)
+                                        )
+                                    }
+                                    .buttonStyle(ScaleButtonStyle())
+                                }
+                            }
+                        }
                     }
-                }
-                .listRowBackground(Color.surface.opacity(0.3))
-                
-                Section("Skills (comma-separated)") {
-                    TextField("e.g. iOS, Swift, Go", text: $skills)
-                        .foregroundColor(Color.textPrimary)
-                        .autocorrectionDisabled()
-                }
-                .listRowBackground(Color.surface.opacity(0.3))
-                
-                Section {
+                    
+                    // Detailed Hacker Portfolio display
+                    VStack(alignment: .leading, spacing: 16) {
+                        ProfileInfoSection(title: "Personal & Logistics", theme: vm.activeTheme) {
+                            ProfileInfoRow(icon: "person.fill", label: "Gender", value: vm.currentProfile?.gender)
+                            ProfileInfoRow(icon: "tshirt.fill", label: "T-Shirt Size", value: vm.currentProfile?.tshirtSize)
+                            ProfileInfoRow(icon: "phone.fill", label: "Phone", value: vm.currentProfile?.phoneNumber)
+                            ProfileInfoRow(icon: "mappin.circle.fill", label: "City", value: vm.currentProfile?.city)
+                        }
+                        
+                        ProfileInfoSection(title: "Emergency Contacts", theme: vm.activeTheme) {
+                            ProfileInfoRow(icon: "phone.bubble.left.fill", label: "Contact Name", value: vm.currentProfile?.emergencyContactName)
+                            ProfileInfoRow(icon: "phone.circle.fill", label: "Contact Phone", value: vm.currentProfile?.emergencyContactNumber)
+                        }
+                        
+                        ProfileInfoSection(title: "Education & Institution", theme: vm.activeTheme) {
+                            if vm.currentProfile?.hasFormalEducation == true {
+                                ProfileInfoRow(icon: "building.columns.fill", label: "Institution", value: vm.currentProfile?.institution)
+                                ProfileInfoRow(icon: "academicclass.fill", label: "Degree", value: vm.currentProfile?.degreeType)
+                                ProfileInfoRow(icon: "book.fill", label: "Field", value: vm.currentProfile?.fieldOfStudy)
+                                let yearStr = vm.currentProfile?.gradYear != nil && vm.currentProfile!.gradYear! > 0 ? String(vm.currentProfile!.gradYear!) : ""
+                                ProfileInfoRow(icon: "calendar", label: "Graduation", value: "\(vm.currentProfile?.gradMonth ?? "") \(yearStr)")
+                            } else {
+                                ProfileInfoRow(icon: "xmark.circle.fill", label: "Formal Education", value: "No formal education")
+                            }
+                        }
+                        
+                        ProfileInfoSection(title: "Preferences & Dietary", theme: vm.activeTheme) {
+                            ProfileInfoRow(icon: "fork.knife", label: "Dietary Pref", value: vm.currentProfile?.dietaryPreference)
+                            ProfileInfoRow(icon: "medical.tape", label: "Allergies", value: vm.currentProfile?.allergies)
+                            ProfileInfoRow(icon: "person.3.fill", label: "Team Preference", value: vm.currentProfile?.defaultTeamPreference)
+                        }
+                        
+                        ProfileInfoSection(title: "Portfolios & CV", theme: vm.activeTheme) {
+                            ProfileInfoRow(icon: "link", label: "GitHub", value: vm.currentProfile?.githubUrl, isLink: true)
+                            ProfileInfoRow(icon: "link", label: "LinkedIn", value: vm.currentProfile?.linkedinUrl, isLink: true)
+                            ProfileInfoRow(icon: "doc.text.fill", label: "Resume", value: vm.currentProfile?.resumeUrl, isLink: true)
+                            ProfileInfoRow(icon: "cpu", label: "Skills", value: vm.currentProfile?.skills)
+                        }
+                    }
+                    
                     Button(role: .destructive) {
                         vm.logout()
                     } label: {
                         HStack {
                             Image(systemName: "power")
-                            Text("Wipe Session / Sign Out")
+                            Text("Sign Out / Wipe Session")
                                 .fontWeight(.bold)
                         }
                         .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.red.opacity(0.12))
+                        .foregroundColor(.red)
+                        .cornerRadius(16)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color.red.opacity(0.2), lineWidth: 1)
+                        )
                     }
+                    .buttonStyle(ScaleButtonStyle())
+                    .padding(.top, 10)
                 }
-                .listRowBackground(Color.red.opacity(0.1))
+                .padding()
             }
-            .scrollContentBackground(.hidden)
-            .matrixBackground()
+            .matrixBackground(theme: vm.activeTheme)
             .navigationTitle("Hacker Portfolio")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        Task {
-                            let parsedSkills = skills.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
-                            await vm.saveProfile(bio: bio, github: github, linkedin: linkedin, skills: parsedSkills)
-                            showSuccessMessage = true
-                        }
+                        showEditSheet = true
                     } label: {
-                        Text("Save")
-                            .fontWeight(.bold)
-                            .foregroundColor(Color.accentSecondary)
+                        HStack(spacing: 4) {
+                            Image(systemName: "pencil")
+                            Text("Edit")
+                                .fontWeight(.bold)
+                        }
+                        .foregroundColor(vm.activeTheme.accentSecondary)
+                    }
+                    .buttonStyle(ScaleButtonStyle())
+                }
+            }
+            .sheet(isPresented: $showEditSheet) {
+                EditProfileView()
+                    .environmentObject(vm)
+            }
+        }
+    }
+}
+
+// MARK: - Edit Profile Sheet View
+struct EditProfileView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var vm: AppViewModel
+    
+    @State private var bio = ""
+    @State private var city = ""
+    @State private var gender = "Male"
+    @State private var tshirtSize = "M"
+    @State private var phoneNumber = ""
+    @State private var emergencyContactName = ""
+    @State private var emergencyContactNumber = ""
+    
+    @State private var hasFormalEducation = true
+    @State private var institution = ""
+    @State private var degreeType = "Bachelors"
+    @State private var fieldOfStudy = ""
+    @State private var gradYearStr = ""
+    @State private var gradMonth = "May"
+    
+    @State private var dietaryPreference = "No Restrictions"
+    @State private var allergies = ""
+    @State private var githubUrl = ""
+    @State private var linkedinUrl = ""
+    @State private var resumeUrl = ""
+    @State private var skills = ""
+    @State private var defaultTeamPreference = "JoinTeam"
+    
+    @State private var isSaving = false
+    @State private var errorMessage: String?
+    
+    let genders = ["Male", "Female", "Non-Binary", "Prefer not to say"]
+    let tshirtSizes = ["S", "M", "L", "XL", "XXL"]
+    let degrees = ["High School", "Bachelors", "Masters", "PhD"]
+    let months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+    let dietaryPreferences = ["No Restrictions", "Vegetarian", "Non-Vegetarian", "Vegan", "Jain", "Halal"]
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Personal Details") {
+                    TextField("Tell us about yourself...", text: $bio)
+                    TextField("City", text: $city)
+                    TextField("Phone Number", text: $phoneNumber)
+                        .keyboardType(.phonePad)
+                    
+                    Picker("Gender", selection: $gender) {
+                        ForEach(genders, id: \.self) { g in Text(g).tag(g) }
+                    }
+                    
+                    Picker("T-Shirt Size", selection: $tshirtSize) {
+                        ForEach(tshirtSizes, id: \.self) { s in Text(s).tag(s) }
                     }
                 }
+                .listRowBackground(vm.activeTheme.surface.opacity(0.4))
+                
+                Section("Emergency Contacts") {
+                    TextField("Contact Name", text: $emergencyContactName)
+                    TextField("Contact Phone", text: $emergencyContactNumber)
+                        .keyboardType(.phonePad)
+                }
+                .listRowBackground(vm.activeTheme.surface.opacity(0.4))
+                
+                Section {
+                    Toggle("Has Formal Education", isOn: $hasFormalEducation)
+                    
+                    if hasFormalEducation {
+                        TextField("School / University Name", text: $institution)
+                        
+                        Picker("Degree", selection: $degreeType) {
+                            ForEach(degrees, id: \.self) { d in Text(d).tag(d) }
+                        }
+                        
+                        TextField("Field of Study", text: $fieldOfStudy)
+                        TextField("Graduation Year", text: $gradYearStr)
+                            .keyboardType(.numberPad)
+                        
+                        Picker("Graduation Month", selection: $gradMonth) {
+                            ForEach(months, id: \.self) { m in Text(m).tag(m) }
+                        }
+                    }
+                } header: {
+                    Text("Academic Background")
+                }
+                .listRowBackground(vm.activeTheme.surface.opacity(0.4))
+                
+                Section("Hackathon Preferences") {
+                    Picker("Dietary Preference", selection: $dietaryPreference) {
+                        ForEach(dietaryPreferences, id: \.self) { d in Text(d).tag(d) }
+                    }
+                    
+                    TextField("Allergies / Restrictions", text: $allergies)
+                    
+                    Picker("Team Preference", selection: $defaultTeamPreference) {
+                        Text("Looking for a Team").tag("JoinTeam")
+                        Text("Creating a Team").tag("CreateTeam")
+                        Text("Competing Solo").tag("Solo")
+                    }
+                }
+                .listRowBackground(vm.activeTheme.surface.opacity(0.4))
+                
+                Section("Socials & Portfolios") {
+                    TextField("GitHub Profile URL", text: $githubUrl)
+                        .keyboardType(.URL)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.none)
+                    
+                    TextField("LinkedIn Profile URL", text: $linkedinUrl)
+                        .keyboardType(.URL)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.none)
+                    
+                    TextField("Resume Link (PDF URL)", text: $resumeUrl)
+                        .keyboardType(.URL)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.none)
+                    
+                    TextField("Skills (comma-separated, e.g. iOS, Go)", text: $skills)
+                        .autocorrectionDisabled()
+                }
+                .listRowBackground(vm.activeTheme.surface.opacity(0.4))
+                
+                if let errorMessage {
+                    Section {
+                        Text(errorMessage).foregroundColor(.red).bold()
+                    }
+                    .listRowBackground(vm.activeTheme.surface.opacity(0.4))
+                }
             }
-            .alert("Portfolio Updated", isPresented: $showSuccessMessage) {
-                Button("OK") {}
-            } message: {
-                Text("Your hacker profile changes have been successfully saved to the backend server.")
+            .scrollContentBackground(.hidden)
+            .background(vm.activeTheme.background.ignoresSafeArea())
+            .navigationTitle("Update Portfolio")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundColor(vm.activeTheme.primaryAccent)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(isSaving ? "Saving..." : "Save") {
+                        Task { await performSave() }
+                    }
+                    .foregroundColor(vm.activeTheme.accentSecondary)
+                    .fontWeight(.bold)
+                    .disabled(isSaving)
+                }
             }
             .onAppear {
-                // Populate inputs from VM profile on load
-                if let profile = vm.currentProfile {
-                    bio = profile.bio ?? ""
-                    github = profile.githubUrl ?? ""
-                    linkedin = profile.linkedinUrl ?? ""
-                    skills = profile.skills?.joined(separator: ", ") ?? ""
+                if let p = vm.currentProfile {
+                    bio = p.bio ?? ""
+                    city = p.city ?? ""
+                    gender = p.gender ?? "Male"
+                    tshirtSize = p.tshirtSize ?? "M"
+                    phoneNumber = p.phoneNumber ?? ""
+                    emergencyContactName = p.emergencyContactName ?? ""
+                    emergencyContactNumber = p.emergencyContactNumber ?? ""
+                    
+                    hasFormalEducation = p.hasFormalEducation
+                    institution = p.institution ?? ""
+                    degreeType = p.degreeType ?? "Bachelors"
+                    fieldOfStudy = p.fieldOfStudy ?? ""
+                    gradYearStr = p.gradYear != nil && p.gradYear! > 0 ? String(p.gradYear!) : ""
+                    gradMonth = p.gradMonth ?? "May"
+                    
+                    dietaryPreference = p.dietaryPreference ?? "No Restrictions"
+                    allergies = p.allergies ?? ""
+                    githubUrl = p.githubUrl ?? ""
+                    linkedinUrl = p.linkedinUrl ?? ""
+                    resumeUrl = p.resumeUrl ?? ""
+                    skills = p.skills ?? ""
+                    defaultTeamPreference = p.defaultTeamPreference ?? "JoinTeam"
                 }
+            }
+        }
+    }
+    
+    private func performSave() async {
+        isSaving = true
+        defer { isSaving = false }
+        errorMessage = nil
+        
+        let gradYear = Int(gradYearStr) ?? 0
+        
+        let updateRequest = HackerProfile(
+            userId: vm.currentProfile?.userId,
+            gender: gender,
+            tshirtSize: tshirtSize,
+            city: city,
+            phoneNumber: phoneNumber,
+            emergencyContactName: emergencyContactName,
+            emergencyContactNumber: emergencyContactNumber,
+            bio: bio,
+            readmeMd: vm.currentProfile?.readmeMd,
+            hasFormalEducation: hasFormalEducation,
+            degreeType: hasFormalEducation ? degreeType : "",
+            institution: hasFormalEducation ? institution : "",
+            fieldOfStudy: hasFormalEducation ? fieldOfStudy : "",
+            gradYear: hasFormalEducation ? gradYear : 0,
+            gradMonth: hasFormalEducation ? gradMonth : "",
+            dietaryPreference: dietaryPreference,
+            allergies: allergies,
+            githubUrl: githubUrl,
+            linkedinUrl: linkedinUrl,
+            resumeUrl: resumeUrl,
+            skills: skills,
+            defaultTeamPreference: defaultTeamPreference,
+            industry: vm.currentProfile?.industry,
+            yearsOfExperience: vm.currentProfile?.yearsOfExperience,
+            mentorExpertise: vm.currentProfile?.mentorExpertise
+        )
+        
+        do {
+            await vm.saveProfile(profile: updateRequest)
+            if vm.authError == nil {
+                dismiss()
+            } else {
+                errorMessage = vm.authError
             }
         }
     }
 }
 
 // MARK: - Shared UI Sub-components
+struct ProfileInfoSection<Content: View>: View {
+    let title: String
+    let theme: AppTheme
+    let content: Content
+    
+    init(title: String, theme: AppTheme, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.theme = theme
+        self.content = content()
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.subheadline.bold())
+                .foregroundColor(theme.textSecondary)
+                .padding(.leading, 4)
+            
+            VStack(spacing: 12) {
+                content
+            }
+            .glassCardStyle(theme: theme)
+        }
+    }
+}
+
+struct ProfileInfoRow: View {
+    let icon: String
+    let label: String
+    let value: String?
+    var isLink: Bool = false
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .foregroundColor(.secondary)
+                .frame(width: 20)
+            
+            Text(label)
+                .foregroundColor(.secondary)
+                .font(.subheadline)
+            
+            Spacer()
+            
+            let displayVal = (value ?? "").isEmpty ? "—" : value!
+            if isLink && displayVal != "—" {
+                Link(destination: URL(string: displayVal.hasPrefix("http") ? displayVal : "https://\(displayVal)") ?? URL(string: "https://google.com")!) {
+                    HStack(spacing: 4) {
+                        Text(displayVal)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Image(systemName: "arrow.up.right.square")
+                            .font(.caption)
+                    }
+                    .font(.subheadline.bold())
+                    .foregroundColor(Color(hex: "0EA5E9"))
+                }
+            } else {
+                Text(displayVal)
+                    .foregroundColor(.primary)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+}
+
 struct DashboardMetricCard: View {
     let title: String
     let value: String
     let icon: String
     let color: Color
+    let theme: AppTheme
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -1239,36 +2073,38 @@ struct DashboardMetricCard: View {
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(value)
-                    .font(.system(.title, design: .rounded).bold())
-                    .foregroundColor(Color.textPrimary)
+                    .font(.system(.title2, design: .rounded).bold())
+                    .foregroundColor(theme.textPrimary)
                 Text(title)
-                    .font(.caption)
-                    .foregroundColor(Color.textSecondary)
+                    .font(.system(size: 10))
+                    .foregroundColor(theme.textSecondary)
+                    .lineLimit(1)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCardStyle()
+        .glassCardStyle(theme: theme)
     }
 }
 
 struct ChecklistItem: View {
     let title: String
     let isDone: Bool
+    let theme: AppTheme
     
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: isDone ? "checkmark.circle.fill" : "circle")
-                .foregroundColor(isDone ? Color.accentSecondary : Color.textSecondary)
+                .foregroundColor(isDone ? theme.accentSecondary : theme.textSecondary)
                 .font(.title3)
             
             Text(title)
                 .font(.subheadline)
-                .foregroundColor(isDone ? Color.textPrimary : Color.textSecondary)
+                .foregroundColor(isDone ? theme.textPrimary : theme.textSecondary)
             
             Spacer()
         }
         .padding()
-        .background(Color.surfaceVariant.opacity(0.3))
+        .background(theme.surfaceVariant.opacity(0.3))
         .cornerRadius(12)
     }
 }
@@ -1279,20 +2115,20 @@ struct StatusBadge: View {
     private var displayStatus: String { status ?? "Not Applied" }
     
     private var badgeColor: Color {
-        switch displayStatus {
-        case "Accepted": return Color.accentSecondary
-        case "Pending": return .orange
-        case "Rejected": return .red
-        default: return Color.primaryAccent
+        switch displayStatus.lowercased() {
+        case "accepted": return Color(hex: "10B981")
+        case "pending": return .orange
+        case "rejected": return .red
+        default: return Color(hex: "0EA5E9")
         }
     }
     
     var body: some View {
-        Text(displayStatus)
-            .font(.caption.bold())
+        Text(displayStatus.uppercased())
+            .font(.system(size: 10).bold())
             .foregroundColor(badgeColor)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
             .background(badgeColor.opacity(0.15))
             .clipShape(Capsule())
     }
@@ -1302,25 +2138,26 @@ struct EmptyStateView: View {
     let title: String
     let systemImage: String
     let message: String
+    let theme: AppTheme
     
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: systemImage)
                 .font(.system(size: 44))
-                .foregroundColor(Color.textSecondary)
+                .foregroundColor(theme.textSecondary)
             
             Text(title)
                 .font(.headline)
-                .foregroundColor(Color.textPrimary)
+                .foregroundColor(theme.textPrimary)
             
             Text(message)
                 .font(.subheadline)
-                .foregroundColor(Color.textSecondary)
+                .foregroundColor(theme.textSecondary)
                 .multilineTextAlignment(.center)
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .glassCardStyle()
+        .glassCardStyle(theme: theme)
         .padding()
     }
 }

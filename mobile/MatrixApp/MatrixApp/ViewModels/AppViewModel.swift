@@ -10,7 +10,20 @@ final class AppViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var authError: String?
     @Published var authMessage: String?
-    @Published var currentProfile: UserProfile?
+    @Published var currentUser: User?
+    @Published var currentProfile: HackerProfile?
+    @Published var allRegistrations: [Registration] = []
+    @Published var activeTheme: AppTheme = .norseObsidian {
+        didSet {
+            if let encoded = try? JSONEncoder().encode(activeTheme) {
+                UserDefaults.standard.set(encoded, forKey: "matrix_active_theme")
+            }
+        }
+    }
+    @Published var publicTeams: [Team] = []
+    @Published var myOutgoingRequests: [TeamJoinRequest] = []
+    @Published var myIncomingInvitations: [TeamInvitation] = []
+    @Published var incomingTeamRequests: [TeamJoinRequest] = []
     
     // MARK: - Selected Hackathon Details State
     @Published var selectedHackathon: Hackathon? {
@@ -30,6 +43,10 @@ final class AppViewModel: ObservableObject {
     @Published var registrationStatus: Registration?
     
     func bootstrap() {
+        if let data = UserDefaults.standard.data(forKey: "matrix_active_theme"),
+           let decoded = try? JSONDecoder().decode(AppTheme.self, from: data) {
+            activeTheme = decoded
+        }
         #if DEBUG
         // In debug mode, we can clear to allow testing fresh login states easily
         // If you want persistent logins, comment out clear()
@@ -48,7 +65,11 @@ final class AppViewModel: ObservableObject {
 
     func loadCurrentProfile() async {
         do {
-            currentProfile = try await NetworkManager.shared.fetchMyProfile()
+            async let userFetch = NetworkManager.shared.fetchCurrentUser()
+            async let profileFetch = NetworkManager.shared.fetchMyProfile()
+            
+            currentUser = try await userFetch
+            currentProfile = try await profileFetch
         } catch {
             authError = "Profile load failed: \(error.localizedDescription)"
         }
@@ -56,7 +77,9 @@ final class AppViewModel: ObservableObject {
 
     func logout() {
         KeychainHelper.shared.clear()
+        currentUser = nil
         currentProfile = nil
+        allRegistrations = []
         selectedHackathon = nil
         selectedRegistration = nil
         selectedTeam = nil
@@ -65,18 +88,12 @@ final class AppViewModel: ObservableObject {
         isLoggedIn = false
     }
 
-    func saveProfile(bio: String, github: String, linkedin: String, skills: [String]) async {
+    func saveProfile(profile: HackerProfile) async {
         isLoading = true
+        authError = nil
         defer { isLoading = false }
         do {
-            try await NetworkManager.shared.updateProfile(
-                HackerProfileRequest(
-                    bio: bio,
-                    githubUrl: github,
-                    linkedinUrl: linkedin,
-                    skills: skills
-                )
-            )
+            try await NetworkManager.shared.updateProfile(profile)
             await loadCurrentProfile()
         } catch {
             authError = "Failed to save profile: \(error.localizedDescription)"
@@ -120,6 +137,22 @@ final class AppViewModel: ObservableObject {
             if selectedHackathon == nil, let first = hackathons.first {
                 selectedHackathon = first
             }
+            
+            // Parallel load registrations for dashboard stats
+            var regs: [Registration] = []
+            await withTaskGroup(of: Registration?.self) { group in
+                for hack in hackathons {
+                    group.addTask {
+                        try? await NetworkManager.shared.fetchRegistrationStatus(for: hack.id)
+                    }
+                }
+                for await reg in group {
+                    if let reg = reg {
+                        regs.append(reg)
+                    }
+                }
+            }
+            self.allRegistrations = regs
         } catch {
             authError = "Failed to load hackathons: \(error.localizedDescription)"
         }
@@ -139,10 +172,38 @@ final class AppViewModel: ObservableObject {
             self.selectedTeam = fetchedTeam
             self.selectedAnnouncements = fetchedAnn
             
-            // Synchronize back to legacy single-context states
             self.registrationStatus = fetchedReg
             self.activeHackathonTeam = fetchedTeam
             self.announcements = fetchedAnn
+            
+            // Fetch team hub state conditionally
+            if fetchedReg?.approvalStatus == "Accepted" {
+                if let teamInfo = fetchedTeam {
+                    let isLeader = currentUser?.id != nil && currentUser?.id == teamInfo.team.leaderId
+                    if isLeader {
+                        self.incomingTeamRequests = (try? await NetworkManager.shared.fetchTeamRequests(hackathonId: id, teamId: teamInfo.team.id)) ?? []
+                    } else {
+                        self.incomingTeamRequests = []
+                    }
+                    self.publicTeams = []
+                    self.myOutgoingRequests = []
+                    self.myIncomingInvitations = []
+                } else {
+                    async let pub = NetworkManager.shared.fetchPublicTeams(for: id)
+                    async let out = NetworkManager.shared.fetchMyRequests(hackathonId: id)
+                    async let inv = NetworkManager.shared.fetchMyInvitations(hackathonId: id)
+                    
+                    self.publicTeams = (try? await pub) ?? []
+                    self.myOutgoingRequests = (try? await out) ?? []
+                    self.myIncomingInvitations = (try? await inv) ?? []
+                    self.incomingTeamRequests = []
+                }
+            } else {
+                self.publicTeams = []
+                self.myOutgoingRequests = []
+                self.myIncomingInvitations = []
+                self.incomingTeamRequests = []
+            }
         } catch {
             print("Failed to load details for hackathon \(id): \(error)")
         }
@@ -220,5 +281,54 @@ final class AppViewModel: ObservableObject {
             return "Password is required"
         }
         return nil
+    }
+
+    // MARK: - Team Hub Management Actions
+    func requestToJoin(teamId: String) async {
+        guard let hackId = selectedHackathon?.id else { return }
+        do {
+            try await NetworkManager.shared.requestToJoinTeam(hackathonId: hackId, teamId: teamId)
+            await refreshSelectedHackathon()
+        } catch {
+            print("Request to join failed: \(error)")
+        }
+    }
+
+    func inviteUser(email: String) async throws {
+        guard let hackId = selectedHackathon?.id, let teamId = selectedTeam?.team.id else { return }
+        try await NetworkManager.shared.inviteUserToTeam(hackathonId: hackId, teamId: teamId, email: email)
+        await refreshSelectedHackathon()
+    }
+
+    func removeMember(memberId: String) async {
+        guard let hackId = selectedHackathon?.id, let teamId = selectedTeam?.team.id else { return }
+        do {
+            try await NetworkManager.shared.removeTeamMember(hackathonId: hackId, teamId: teamId, memberId: memberId)
+            await refreshSelectedHackathon()
+        } catch {
+            print("Remove member failed: \(error)")
+        }
+    }
+
+    func respondToRequest(requestId: String, accept: Bool) async {
+        guard let hackId = selectedHackathon?.id else { return }
+        let status = accept ? "Accepted" : "Rejected"
+        do {
+            try await NetworkManager.shared.manageTeamRequest(hackathonId: hackId, requestId: requestId, status: status)
+            await refreshSelectedHackathon()
+        } catch {
+            print("Respond to request failed: \(error)")
+        }
+    }
+
+    func respondToInvitation(invitationId: String, accept: Bool) async {
+        guard let hackId = selectedHackathon?.id else { return }
+        let status = accept ? "Accepted" : "Declined"
+        do {
+            try await NetworkManager.shared.manageInvitation(hackathonId: hackId, invitationId: invitationId, status: status)
+            await refreshSelectedHackathon()
+        } catch {
+            print("Respond to invitation failed: \(error)")
+        }
     }
 }
