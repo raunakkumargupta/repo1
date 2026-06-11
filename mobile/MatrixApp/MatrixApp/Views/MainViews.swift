@@ -15,6 +15,22 @@ struct RegisterView: View {
     var body: some View {
         VStack(spacing: 24) {
             VStack(spacing: 8) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(vm.activeTheme.primaryAccent.opacity(0.15))
+                        .frame(width: 60, height: 60)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(vm.activeTheme.primaryAccent.opacity(0.4), lineWidth: 1.5)
+                        )
+                    
+                    Image("AppLogo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 40, height: 40)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                
                 Text("Join Matrix")
                     .font(.system(size: 28, weight: .black, design: .rounded))
                     .foregroundStyle(vm.activeTheme.textPrimary)
@@ -203,20 +219,25 @@ struct ForgotPasswordView: View {
 // MARK: - Main Dashboard
 struct DashboardView: View {
     @EnvironmentObject var vm: AppViewModel
+    @State private var selectedTab: Int = 0
     
     var body: some View {
-        TabView {
-            HomeDashboardView()
+        TabView(selection: $selectedTab) {
+            HomeDashboardView(selectedTab: $selectedTab)
                 .tabItem { Label("Home", systemImage: "house.fill") }
+                .tag(0)
             
             HackathonsView()
                 .tabItem { Label("Hackathons", systemImage: "trophy.fill") }
+                .tag(1)
             
             TeamView()
                 .tabItem { Label("Team", systemImage: "person.3.fill") }
+                .tag(2)
             
             ProfileView()
                 .tabItem { Label("Profile", systemImage: "person.crop.circle.fill") }
+                .tag(3)
         }
         .tint(vm.activeTheme.primaryAccent)
     }
@@ -225,6 +246,7 @@ struct DashboardView: View {
 // MARK: - Home Dashboard View
 struct HomeDashboardView: View {
     @EnvironmentObject var vm: AppViewModel
+    @Binding var selectedTab: Int
     @State private var showNotifications = false
     
     private var profileCompletion: Double {
@@ -241,8 +263,9 @@ struct HomeDashboardView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(spacing: 20) {
                     // Header Area
                     HStack(spacing: 16) {
                         VStack(alignment: .leading, spacing: 6) {
@@ -353,45 +376,55 @@ struct HomeDashboardView: View {
                     }
                     
                     // Quick Actions
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 14) {
                         Text("Quick Actions")
                             .font(.system(.headline, design: .rounded).bold())
                             .foregroundColor(vm.activeTheme.textPrimary)
                         
                         HStack(spacing: 16) {
                             Button {
-                                // Explore logic
+                                selectedTab = 1 // Switch to Hackathons tab
                             } label: {
-                                HStack {
-                                    Image(systemName: "magnifyingglass")
+                                VStack(spacing: 12) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(vm.activeTheme.primaryAccent.opacity(0.15))
+                                            .frame(width: 48, height: 48)
+                                        Image(systemName: "magnifyingglass")
+                                            .font(.title3.bold())
+                                            .foregroundColor(vm.activeTheme.primaryAccent)
+                                    }
                                     Text("Explore")
-                                        .fontWeight(.bold)
+                                        .font(.subheadline.bold())
+                                        .foregroundColor(vm.activeTheme.textPrimary)
                                 }
                                 .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(vm.activeTheme.primaryAccent)
-                                .foregroundColor(vm.activeTheme.onPrimary)
-                                .cornerRadius(12)
+                                .padding(.vertical, 16)
+                                .glassCardStyle(theme: vm.activeTheme)
                             }
                             .buttonStyle(ScaleButtonStyle())
                             
                             Button {
-                                // My Apps logic
+                                withAnimation {
+                                    proxy.scrollTo("MyApplications", anchor: .top)
+                                }
                             } label: {
-                                HStack {
-                                    Image(systemName: "list.clipboard.fill")
+                                VStack(spacing: 12) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(vm.activeTheme.accentSecondary.opacity(0.15))
+                                            .frame(width: 48, height: 48)
+                                        Image(systemName: "list.clipboard.fill")
+                                            .font(.title3.bold())
+                                            .foregroundColor(vm.activeTheme.accentSecondary)
+                                    }
                                     Text("My Apps")
-                                        .fontWeight(.bold)
+                                        .font(.subheadline.bold())
+                                        .foregroundColor(vm.activeTheme.textPrimary)
                                 }
                                 .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(vm.activeTheme.surfaceVariant)
-                                .foregroundColor(vm.activeTheme.primaryAccent)
-                                .cornerRadius(12)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(vm.activeTheme.primaryAccent, lineWidth: 1)
-                                )
+                                .padding(.vertical, 16)
+                                .glassCardStyle(theme: vm.activeTheme)
                             }
                             .buttonStyle(ScaleButtonStyle())
                         }
@@ -404,14 +437,8 @@ struct HomeDashboardView: View {
                                 .font(.system(.headline, design: .rounded).bold())
                                 .foregroundColor(vm.activeTheme.textPrimary)
                             Spacer()
-                            Button {
-                                // See all logic
-                            } label: {
-                                Text("See all →")
-                                    .font(.subheadline.bold())
-                                    .foregroundColor(vm.activeTheme.primaryAccent)
-                            }
                         }
+                        .id("MyApplications")
                         
                         if vm.allRegistrations.isEmpty {
                             VStack(spacing: 12) {
@@ -480,6 +507,7 @@ struct HomeDashboardView: View {
                 }
                 .padding()
             }
+            } // Close ScrollViewReader
             .matrixBackground(theme: vm.activeTheme)
             .navigationTitle("Command Matrix")
             .toolbar {
@@ -2505,11 +2533,30 @@ struct RichHackathonSection: View {
         if let content = content, !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 SectionHeader(title: title, icon: icon, theme: theme)
-                Text(content)
-                    .font(.subheadline)
-                    .foregroundColor(theme.textSecondary)
-                    .lineSpacing(5)
-                    .fixedSize(horizontal: false, vertical: true)
+                
+                if content.hasPrefix("[") && content.hasSuffix("]"),
+                   let data = content.data(using: .utf8),
+                   let array = try? JSONDecoder().decode([String].self, from: data) {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(array, id: \.self) { item in
+                                Text(item)
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(theme.primaryAccent)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(theme.primaryAccent.opacity(0.12))
+                                    .cornerRadius(8)
+                            }
+                        }
+                    }
+                } else {
+                    Text(content)
+                        .font(.subheadline)
+                        .foregroundColor(theme.textSecondary)
+                        .lineSpacing(5)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)

@@ -89,9 +89,11 @@ struct LoginView: View {
                                 .stroke(vm.activeTheme.primaryAccent.opacity(0.4), lineWidth: 1.5)
                         )
                     
-                    Image(systemName: "terminal.fill")
-                        .font(.title)
-                        .foregroundStyle(vm.activeTheme.primaryAccent)
+                    Image("AppLogo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 40, height: 40)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
                 
                 Text("Matrix Command")
