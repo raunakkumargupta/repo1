@@ -250,7 +250,7 @@ func main() {
 
 	// Create some Hackers
 	var hackerEmails []string
-	for i := 1; i <= 12; i++ {
+	for i := 1; i <= 120; i++ {
 		hackerEmails = append(hackerEmails, fmt.Sprintf("hacker%d@matrix.com", i))
 	}
 	for i, email := range hackerEmails {

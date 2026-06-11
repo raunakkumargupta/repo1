@@ -1608,8 +1608,8 @@ struct HackathonApplicationView: View {
                         
                         Section(header: Text("Team Formation Preference"), footer: Text("You can override your default team preference for this specific hackathon.")) {
                             Picker("Preference", selection: $teamPreference) {
-                                Text("Looking for a Team").tag("JoinTeam")
-                                Text("Creating a Team").tag("CreateTeam")
+                                Text("Looking for a Team").tag("Looking for Team")
+                                Text("Has a Team").tag("Has Team")
                                 Text("Competing Solo").tag("Solo")
                             }
                         }

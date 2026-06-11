@@ -157,7 +157,9 @@ export default function LandingPage() {
   ];
 
   // Slice to only show 3 recently added on the landing page
-  const allHackathons = hackathons.length > 0 ? hackathons : mockHackathons;
+  const allHackathons = Array.isArray(hackathons) && hackathons.length > 0
+    ? hackathons
+    : mockHackathons;
   const displayedHackathons = allHackathons.slice(0, 3);
 
   const tracks = ["All", "AI", "Web3", "QC", "Mobile", "Design"];
