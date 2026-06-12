@@ -638,6 +638,7 @@ export default function WorkspacePage({ params }: Props) {
   const [ticketDesc, setTicketDesc] = useState("");
   const [ticketMsg, setTicketMsg] = useState("");
   const [ticketSubmitting, setTicketSubmitting] = useState(false);
+  const [myTickets, setMyTickets] = useState<any[]>([]);
   const [fullProfile, setFullProfile] = useState<any>(null);
 
   useEffect(() => {
@@ -675,6 +676,9 @@ export default function WorkspacePage({ params }: Props) {
         }
       })
       .catch((err) => console.log("Failed to fetch global profile:", err));
+
+    // Fetch my team's tickets
+    fetchMyTickets();
   }, [hackathon_id]);
 
   const handleApply = async (e: React.FormEvent) => {
@@ -772,11 +776,26 @@ export default function WorkspacePage({ params }: Props) {
 
       setTicketMsg("Help ticket created! An active mentor will claim it shortly.");
       setTicketDesc("");
+      // Refresh my tickets list
+      fetchMyTickets(teamID);
     } catch (err: any) {
       setTicketMsg(`Error: ${err.message || "Failed to create ticket"}`);
     } finally {
       setTicketSubmitting(false);
     }
+  };
+
+  const fetchMyTickets = async (teamID?: string) => {
+    try {
+      let tid = teamID;
+      if (!tid) {
+        const teamData = await fetchApi<any>(`/hackathons/${hackathon_id}/my-team`).catch(() => null);
+        if (teamData && teamData.team) tid = teamData.team.id;
+      }
+      if (!tid) return;
+      const data = await fetch(`/api/hackathons/${hackathon_id}/my-tickets?team_id=${tid}`).then(r => r.ok ? r.json() : []);
+      setMyTickets(data || []);
+    } catch { setMyTickets([]); }
   };
 
   if (loading) {
@@ -1271,6 +1290,32 @@ export default function WorkspacePage({ params }: Props) {
                   )}
                 </motion.button>
               </form>
+
+              {/* My Tickets History */}
+              {myTickets.length > 0 && (
+                <div className="mt-6 pt-4 border-t border-slate-200/60 dark:border-white/10">
+                  <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-3">My Tickets</h3>
+                  <div className="space-y-2">
+                    {myTickets.map((t: any) => (
+                      <div key={t.id} className="p-3 bg-white/30 dark:bg-slate-900/30 border border-slate-200/40 dark:border-white/5 rounded-lg">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                            t.status === "Open" ? "text-yellow-600" :
+                            t.status === "Active" ? "text-blue-600" :
+                            t.status === "Resolved" ? "text-green-600" : "text-slate-500"
+                          }`}>
+                            {t.status === "Open" ? "⏳ Open" : t.status === "Active" ? "🔧 In Progress" : "✅ Resolved"}
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            {new Date(t.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2">{t.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

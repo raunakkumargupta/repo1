@@ -24,6 +24,15 @@ func NewTicketService(pgRepo *repository.PostgresRepo, redisRepo *repository.Red
 }
 
 func (s *TicketService) CreateTicket(ctx context.Context, hackathonID string, req models.CreateTicketRequest) (*models.Ticket, error) {
+	// Spam prevention: check if team already has an open/active ticket
+	hasOpen, err := s.pgRepo.HasOpenTicket(ctx, hackathonID, req.TeamID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check existing tickets: %w", err)
+	}
+	if hasOpen {
+		return nil, fmt.Errorf("your team already has an open ticket. Please wait for it to be resolved before creating another")
+	}
+
 	ticket := &models.Ticket{
 		HackathonID: hackathonID,
 		TeamID:      req.TeamID,
@@ -46,6 +55,10 @@ func (s *TicketService) CreateTicket(ctx context.Context, hackathonID string, re
 	})
 
 	return ticket, nil
+}
+
+func (s *TicketService) GetMyTeamTickets(ctx context.Context, hackathonID, teamID string) ([]models.Ticket, error) {
+	return s.pgRepo.GetTicketsByTeam(ctx, hackathonID, teamID)
 }
 
 func (s *TicketService) GetHackathonTicketsQueue(ctx context.Context, hackathonID string) ([]models.Ticket, error) {

@@ -127,6 +127,7 @@ type Ticket struct {
 	Status           string     `json:"status" db:"status"`
 	CreatedAt        time.Time  `json:"created_at" db:"created_at"`
 	ResolvedAt       *time.Time `json:"resolved_at" db:"resolved_at"`
+	TeamName         string     `json:"team_name,omitempty"`
 }
 
 type Evaluation struct {

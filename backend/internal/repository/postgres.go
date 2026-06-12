@@ -681,12 +681,41 @@ func (r *PostgresRepo) GetTicketsByIDs(ctx context.Context, ids []string) ([]mod
 
 func (r *PostgresRepo) GetTicketsQueue(ctx context.Context, hackathonID string) ([]models.Ticket, error) {
 	query := `
-		SELECT id, hackathon_id, team_id, assigned_mentor_id, description, status, created_at
-		FROM tickets
-		WHERE hackathon_id = $1 AND status != 'Resolved'
-		ORDER BY created_at ASC
+		SELECT t.id, t.hackathon_id, t.team_id, t.assigned_mentor_id, t.description, t.status, t.created_at,
+			   COALESCE(tm.team_name, 'Unknown Team') as team_name
+		FROM tickets t
+		LEFT JOIN teams tm ON tm.id = t.team_id
+		WHERE t.hackathon_id = $1 AND t.status != 'Resolved'
+		ORDER BY t.created_at ASC
 	`
 	rows, err := r.pool.Query(ctx, query, hackathonID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tickets []models.Ticket
+	for rows.Next() {
+		var t models.Ticket
+		var teamName string
+		if err := rows.Scan(&t.ID, &t.HackathonID, &t.TeamID, &t.AssignedMentorID, &t.Description, &t.Status, &t.CreatedAt, &teamName); err != nil {
+			return nil, err
+		}
+		t.TeamName = teamName
+		tickets = append(tickets, t)
+	}
+	return tickets, rows.Err()
+}
+
+// GetTicketsByTeam returns all tickets for a specific team (for "my tickets" view)
+func (r *PostgresRepo) GetTicketsByTeam(ctx context.Context, hackathonID, teamID string) ([]models.Ticket, error) {
+	query := `
+		SELECT id, hackathon_id, team_id, assigned_mentor_id, description, status, created_at
+		FROM tickets
+		WHERE hackathon_id = $1 AND team_id = $2
+		ORDER BY created_at DESC
+	`
+	rows, err := r.pool.Query(ctx, query, hackathonID, teamID)
 	if err != nil {
 		return nil, err
 	}
@@ -701,6 +730,14 @@ func (r *PostgresRepo) GetTicketsQueue(ctx context.Context, hackathonID string) 
 		tickets = append(tickets, t)
 	}
 	return tickets, rows.Err()
+}
+
+// HasOpenTicket checks if a team already has an open/active ticket (spam prevention)
+func (r *PostgresRepo) HasOpenTicket(ctx context.Context, hackathonID, teamID string) (bool, error) {
+	query := `SELECT COUNT(*) FROM tickets WHERE hackathon_id = $1 AND team_id = $2 AND status IN ('Open', 'Active')`
+	var count int
+	err := r.pool.QueryRow(ctx, query, hackathonID, teamID).Scan(&count)
+	return count > 0, err
 }
 
 // ==========================================

@@ -35,10 +35,14 @@ export async function POST(request: Request) {
     // We don't send the raw token to the client. We send user info and set the cookie.
     const res = NextResponse.json({ user: data.user }, { status: 200 });
 
-    // Set secure only if we're absolutely on HTTPS (check actual request URL, not proxy headers
-    // which can be unreliable in some deployments)
+    // Determine if we should set secure flag:
+    // - Check x-forwarded-proto (reliable behind most proxies/LBs)
+    // - Check actual request URL protocol
+    // - Default to false so HTTP deployments work out of the box
+    const forwardedProto = request.headers.get("x-forwarded-proto");
     const requestUrl = new URL(request.url);
-    const isHttps = requestUrl.protocol === "https:";
+    const isHttps = forwardedProto === "https" || requestUrl.protocol === "https:";
+    
     res.cookies.set('jwt', token, {
       httpOnly: true,
       secure: isHttps,

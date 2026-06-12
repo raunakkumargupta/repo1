@@ -33,13 +33,35 @@ func (h *TicketHandler) CreateTicket(w http.ResponseWriter, r *http.Request) {
 
 	ticket, err := h.ticketService.CreateTicket(r.Context(), hackathonID, req)
 	if err != nil {
-		http.Error(w, "failed to create ticket", http.StatusInternalServerError)
+		// Return the error message (e.g. "already has an open ticket")
+		http.Error(w, err.Error(), http.StatusConflict)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(ticket)
+}
+
+func (h *TicketHandler) GetMyTickets(w http.ResponseWriter, r *http.Request) {
+	hackathonID := chi.URLParam(r, "id")
+	teamID := r.URL.Query().Get("team_id")
+	if hackathonID == "" || teamID == "" {
+		http.Error(w, "hackathon_id and team_id are required", http.StatusBadRequest)
+		return
+	}
+
+	tickets, err := h.ticketService.GetMyTeamTickets(r.Context(), hackathonID, teamID)
+	if err != nil {
+		http.Error(w, "failed to fetch tickets", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if tickets == nil {
+		tickets = []models.Ticket{}
+	}
+	json.NewEncoder(w).Encode(tickets)
 }
 
 func (h *TicketHandler) GetQueue(w http.ResponseWriter, r *http.Request) {

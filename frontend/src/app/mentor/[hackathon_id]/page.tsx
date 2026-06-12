@@ -28,6 +28,21 @@ export default function MentorTerminal({ params }: Props) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null);
   const [user, setUser] = useState<any>(null);
+  const [authorized, setAuthorized] = useState<boolean | null>(null);
+
+  // Route guard: check if user is assigned as Mentor for this hackathon
+  useEffect(() => {
+    fetch(`/api/hackathons/${hackathon_id}/staff-role`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data && (data.role === "Mentor" || data.role === "Judge")) {
+          setAuthorized(true);
+        } else {
+          setAuthorized(false);
+        }
+      })
+      .catch(() => setAuthorized(false));
+  }, [hackathon_id]);
 
   const fetchTickets = async () => {
     try {
@@ -37,22 +52,11 @@ export default function MentorTerminal({ params }: Props) {
       const listData = await fetch(`/api/hackathons/${hackathon_id}/tickets`).then((r) => r.ok ? r.json() : []);
       const list = listData || [];
       
-      // Fetch team names for each ticket to show beautiful details
-      const ticketsWithTeams = await Promise.all(
-        list.map(async (t: Ticket) => {
-          try {
-            // Note: Since standard routes might restrict fetching specific team details,
-            // we can fallback to mock team names if needed, or query them.
-            // Let's resolve with a fallback team slice
-            return {
-              ...t,
-              team_name: `Team ${t.team_id.slice(0, 5).toUpperCase()}`
-            };
-          } catch(e) {
-            return t;
-          }
-        })
-      );
+      // Backend now returns team_name via JOIN — use it directly
+      const ticketsWithTeams = list.map((t: Ticket) => ({
+        ...t,
+        team_name: t.team_name || `Team ${t.team_id.slice(0, 6)}`
+      }));
 
       setTickets(ticketsWithTeams);
 
@@ -101,6 +105,33 @@ export default function MentorTerminal({ params }: Props) {
       alert(`Failed to resolve ticket: ${err.message}`);
     }
   };
+
+  if (authorized === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+      </div>
+    );
+  }
+
+  if (authorized === false) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-6">
+        <div className="text-center space-y-4 max-w-md">
+          <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto">
+            <AlertCircle className="w-8 h-8 text-red-500" />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Access Denied</h1>
+          <p className="text-slate-500 dark:text-slate-400">
+            You are not assigned as a Mentor for this hackathon. Only organizers can assign mentor roles.
+          </p>
+          <Link href="/dashboard" className="inline-block px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-500 transition-all">
+            Back to Dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
