@@ -14,8 +14,7 @@ import com.matrix.app.models.ApiUser;
 import com.matrix.app.models.Hackathon;
 import com.matrix.app.models.Registration;
 
-import com.matrix.app.notifications.NotificationPollingService;
-import com.matrix.app.notifications.NotificationScheduler;
+
 
 import java.util.ArrayList;
 import java.util.List;
@@ -85,10 +84,24 @@ public class DashboardActivity extends AppCompatActivity {
             return false;
         });
 
-        // Start notification polling service
-        NotificationPollingService.start(this);
-        // Schedule persistent background checks
-        NotificationScheduler.schedule(this);
+        // Register/refresh FCM token
+        com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful() && task.getResult() != null) {
+                        String token = task.getResult();
+                        api.registerDeviceToken(new com.matrix.app.models.DeviceTokenRequest(token))
+                                .enqueue(new Callback<Void>() {
+                                    @Override
+                                    public void onResponse(Call<Void> call, Response<Void> response) {
+                                        android.util.Log.d("DashboardActivity", "FCM token registered");
+                                    }
+                                    @Override
+                                    public void onFailure(Call<Void> call, Throwable t) {
+                                        android.util.Log.e("DashboardActivity", "FCM token registration failed", t);
+                                    }
+                                });
+                    }
+                });
 
         loadDashboard();
     }

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "171536933576",
+    "project_id": "project-1-bcd0f",
+    "storage_bucket": "project-1-bcd0f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:171536933576:android:8aa7bb4d8df06a2f32bbfd",
+        "android_client_info": {
+          "package_name": "com.matrix.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCiJOCdTY4njEm4UYN_xGXlvapVGaxKxJc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

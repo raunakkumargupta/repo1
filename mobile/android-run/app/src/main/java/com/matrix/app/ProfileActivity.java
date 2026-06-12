@@ -14,8 +14,7 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.snackbar.Snackbar;
 import com.matrix.app.models.ApiUser;
 import com.matrix.app.models.HackerProfile;
-import com.matrix.app.notifications.NotificationPollingService;
-import com.matrix.app.notifications.NotificationScheduler;
+
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -206,8 +205,7 @@ public class ProfileActivity extends AppCompatActivity {
     private void performSignOut() {
         securityManager.clearToken();
         ApiClient.reset();
-        NotificationPollingService.stop(this);
-        NotificationScheduler.cancel(this);
+
         Intent intent = new Intent(this, LoginActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);

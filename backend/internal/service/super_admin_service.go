@@ -3,17 +3,20 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/raunakkumargupta/repo1/backend/internal/models"
 	"github.com/raunakkumargupta/repo1/backend/internal/repository"
+	"github.com/raunakkumargupta/repo1/backend/internal/worker"
 )
 
 type SuperAdminService struct {
-	pgRepo *repository.PostgresRepo
+	pgRepo     *repository.PostgresRepo
+	workerPool *worker.WorkerPool
 }
 
-func NewSuperAdminService(pgRepo *repository.PostgresRepo) *SuperAdminService {
-	return &SuperAdminService{pgRepo: pgRepo}
+func NewSuperAdminService(pgRepo *repository.PostgresRepo, wp *worker.WorkerPool) *SuperAdminService {
+	return &SuperAdminService{pgRepo: pgRepo, workerPool: wp}
 }
 
 func (s *SuperAdminService) ListPendingHackathons(ctx context.Context) ([]models.Hackathon, error) {
@@ -47,7 +50,47 @@ func (s *SuperAdminService) ApproveOrganizer(ctx context.Context, hackathonID st
 	}
 
 	// Approve hackathon
-	return s.pgRepo.ApproveHackathon(ctx, hackathonID)
+	err = s.pgRepo.ApproveHackathon(ctx, hackathonID)
+	if err != nil {
+		return err
+	}
+
+	// 1. Notify the organizer (the creator) of the hackathon
+	organizer, err := s.pgRepo.GetUserByID(ctx, h.OrganizerID)
+	if err == nil && organizer != nil && organizer.FCMToken != nil && *organizer.FCMToken != "" {
+		s.workerPool.Enqueue(worker.Job{
+			Type: "FCM_NOTIFICATION",
+			Payload: worker.FcmJobPayload{
+				Tokens: []string{*organizer.FCMToken},
+				Title:  "Hackathon Approved",
+				Body:   fmt.Sprintf("Your hackathon '%s' has been approved and is now live!", h.Title),
+			},
+		})
+	}
+
+	// 2. Notify all hackers about the new hackathon
+	hackerTokens, err := s.pgRepo.GetFcmTokensForAllHackers(ctx)
+	if err == nil && len(hackerTokens) > 0 {
+		var targetTokens []string
+		for _, t := range hackerTokens {
+			if organizer != nil && organizer.FCMToken != nil && t == *organizer.FCMToken {
+				continue
+			}
+			targetTokens = append(targetTokens, t)
+		}
+		if len(targetTokens) > 0 {
+			s.workerPool.Enqueue(worker.Job{
+				Type: "FCM_NOTIFICATION",
+				Payload: worker.FcmJobPayload{
+					Tokens: targetTokens,
+					Title:  "New Hackathon Published",
+					Body:   fmt.Sprintf("A new event '%s' is now open for registrations! check it out.", h.Title),
+				},
+			})
+		}
+	}
+
+	return nil
 }
 
 func (s *SuperAdminService) GetGlobalMetrics(ctx context.Context) (map[string]interface{}, error) {

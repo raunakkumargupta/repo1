@@ -989,3 +989,106 @@ func (r *PostgresRepo) GetCommunityPosts(ctx context.Context, category string) (
 	}
 	return posts, rows.Err()
 }
+
+func (r *PostgresRepo) GetFcmTokensForHackathon(ctx context.Context, hackathonID string) ([]string, error) {
+	query := `
+		SELECT u.fcm_token, u.apns_token
+		FROM users u
+		JOIN registrations r ON u.id = r.user_id
+		WHERE r.hackathon_id = $1
+	`
+	rows, err := r.pool.Query(ctx, query, hackathonID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	tokenMap := make(map[string]bool)
+	for rows.Next() {
+		var fcm, apns *string
+		if err := rows.Scan(&fcm, &apns); err != nil {
+			return nil, err
+		}
+		if fcm != nil && *fcm != "" {
+			tokenMap[*fcm] = true
+		}
+		if apns != nil && *apns != "" {
+			tokenMap[*apns] = true
+		}
+	}
+
+	tokens := make([]string, 0, len(tokenMap))
+	for t := range tokenMap {
+		tokens = append(tokens, t)
+	}
+	return tokens, rows.Err()
+}
+
+func (r *PostgresRepo) GetFcmTokensForTeam(ctx context.Context, teamID string) ([]string, error) {
+	query := `
+		SELECT u.fcm_token, u.apns_token
+		FROM users u
+		JOIN team_members tm ON u.id = tm.user_id
+		WHERE tm.team_id = $1
+	`
+	rows, err := r.pool.Query(ctx, query, teamID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	tokenMap := make(map[string]bool)
+	for rows.Next() {
+		var fcm, apns *string
+		if err := rows.Scan(&fcm, &apns); err != nil {
+			return nil, err
+		}
+		if fcm != nil && *fcm != "" {
+			tokenMap[*fcm] = true
+		}
+		if apns != nil && *apns != "" {
+			tokenMap[*apns] = true
+		}
+	}
+
+	tokens := make([]string, 0, len(tokenMap))
+	for t := range tokenMap {
+		tokens = append(tokens, t)
+	}
+	return tokens, rows.Err()
+}
+
+func (r *PostgresRepo) GetFcmTokensForAllHackers(ctx context.Context) ([]string, error) {
+	query := `
+		SELECT fcm_token, apns_token
+		FROM users
+		WHERE role = 'Hacker'
+	`
+	rows, err := r.pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	tokenMap := make(map[string]bool)
+	for rows.Next() {
+		var fcm, apns *string
+		if err := rows.Scan(&fcm, &apns); err != nil {
+			return nil, err
+		}
+		if fcm != nil && *fcm != "" {
+			tokenMap[*fcm] = true
+		}
+		if apns != nil && *apns != "" {
+			tokenMap[*apns] = true
+		}
+	}
+
+	tokens := make([]string, 0, len(tokenMap))
+	for t := range tokenMap {
+		tokens = append(tokens, t)
+	}
+	return tokens, rows.Err()
+}
+
+

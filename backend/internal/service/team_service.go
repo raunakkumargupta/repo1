@@ -4,18 +4,21 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/raunakkumargupta/repo1/backend/internal/models"
 	"github.com/raunakkumargupta/repo1/backend/internal/repository"
+	"github.com/raunakkumargupta/repo1/backend/internal/worker"
 )
 
 type TeamService struct {
-	pgRepo *repository.PostgresRepo
+	pgRepo     *repository.PostgresRepo
+	workerPool *worker.WorkerPool
 }
 
-func NewTeamService(pgRepo *repository.PostgresRepo) *TeamService {
-	return &TeamService{pgRepo: pgRepo}
+func NewTeamService(pgRepo *repository.PostgresRepo, wp *worker.WorkerPool) *TeamService {
+	return &TeamService{pgRepo: pgRepo, workerPool: wp}
 }
 
 func generateInviteCode() string {
@@ -59,7 +62,12 @@ func (s *TeamService) JoinTeam(ctx context.Context, userID, inviteCode string) (
 	if inviteCode == "" {
 		return nil, errors.New("invite code is required")
 	}
-	return s.pgRepo.JoinTeamByInviteCode(ctx, userID, inviteCode)
+	team, err := s.pgRepo.JoinTeamByInviteCode(ctx, userID, inviteCode)
+	if err != nil {
+		return nil, err
+	}
+	go s.notifyTeamJoin(userID, team.ID)
+	return team, nil
 }
 
 func (s *TeamService) GetTeamByUserIDAndHackathon(ctx context.Context, userID, hackathonID string) (*models.Team, error) {
@@ -143,7 +151,11 @@ func (s *TeamService) ManageJoinRequest(ctx context.Context, reqID, status, requ
 	}
 
 	if status == "Accepted" {
-		return s.pgRepo.AddUserToTeam(ctx, req.TeamID, req.UserID)
+		err := s.pgRepo.AddUserToTeam(ctx, req.TeamID, req.UserID)
+		if err == nil {
+			go s.notifyTeamJoin(req.UserID, req.TeamID)
+		}
+		return err
 	}
 
 	return nil
@@ -206,11 +218,52 @@ func (s *TeamService) ManageInvitation(ctx context.Context, invID, status, userI
 	}
 
 	if status == "Accepted" {
-		return s.pgRepo.AddUserToTeam(ctx, inv.TeamID, inv.InviteeID)
+		err := s.pgRepo.AddUserToTeam(ctx, inv.TeamID, inv.InviteeID)
+		if err == nil {
+			go s.notifyTeamJoin(inv.InviteeID, inv.TeamID)
+		}
+		return err
 	}
 	return nil
 }
 
 func (s *TeamService) GetMyInvitations(ctx context.Context, hackathonID, userID string) ([]models.TeamInvitation, error) {
 	return s.pgRepo.GetMyInvitations(ctx, hackathonID, userID)
+}
+
+func (s *TeamService) notifyTeamJoin(joiningUserID, teamID string) {
+	ctx := context.Background()
+	user, err := s.pgRepo.GetUserByID(ctx, joiningUserID)
+	if err != nil || user == nil {
+		return
+	}
+
+	team, err := s.pgRepo.GetTeamByID(ctx, teamID)
+	if err != nil || team == nil {
+		return
+	}
+
+	tokens, err := s.pgRepo.GetFcmTokensForTeam(ctx, teamID)
+	if err != nil || len(tokens) == 0 {
+		return
+	}
+
+	var targetTokens []string
+	for _, t := range tokens {
+		if user.FCMToken != nil && t == *user.FCMToken {
+			continue
+		}
+		targetTokens = append(targetTokens, t)
+	}
+
+	if len(targetTokens) > 0 {
+		s.workerPool.Enqueue(worker.Job{
+			Type: "FCM_NOTIFICATION",
+			Payload: worker.FcmJobPayload{
+				Tokens: targetTokens,
+				Title:  "New Team Member",
+				Body:   fmt.Sprintf("%s has joined your team %s!", user.Name, team.TeamName),
+			},
+		})
+	}
 }

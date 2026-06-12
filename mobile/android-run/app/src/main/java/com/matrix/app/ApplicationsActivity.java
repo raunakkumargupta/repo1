@@ -1,9 +1,11 @@
 package com.matrix.app;
 
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -29,6 +31,7 @@ public class ApplicationsActivity extends AppCompatActivity {
 
         TextView tvSummary = findViewById(R.id.tv_application_summary);
         LinearLayout container = findViewById(R.id.applications_container);
+        ProgressBar progressBar = findViewById(R.id.progress_bar);
         MatrixApi api = ApiClient.getClient(new SecurityManager(this)).create(MatrixApi.class);
 
         // Bottom nav
@@ -56,11 +59,15 @@ public class ApplicationsActivity extends AppCompatActivity {
             return false;
         });
 
+        progressBar.setVisibility(View.VISIBLE);
+        tvSummary.setText("Loading your registrations...");
+
         // Load all hackathons, then check registration for each
         api.listHackathons().enqueue(new Callback<List<Hackathon>>() {
             @Override
             public void onResponse(Call<List<Hackathon>> call, Response<List<Hackathon>> response) {
                 if (response.body() == null || response.body().isEmpty()) {
+                    progressBar.setVisibility(View.GONE);
                     tvSummary.setText("No hackathons available.");
                     return;
                 }
@@ -76,17 +83,24 @@ public class ApplicationsActivity extends AppCompatActivity {
                             if (r2.isSuccessful() && r2.body() != null && r2.body().getId() != null) {
                                 results.add(new Object[]{r2.body(), h});
                             }
-                            if (pending.decrementAndGet() == 0) renderResults(results, tvSummary, container);
+                            if (pending.decrementAndGet() == 0) {
+                                progressBar.setVisibility(View.GONE);
+                                renderResults(results, tvSummary, container);
+                            }
                         }
                         @Override
                         public void onFailure(Call<Registration> call2, Throwable t) {
-                            if (pending.decrementAndGet() == 0) renderResults(results, tvSummary, container);
+                            if (pending.decrementAndGet() == 0) {
+                                progressBar.setVisibility(View.GONE);
+                                renderResults(results, tvSummary, container);
+                            }
                         }
                     });
                 }
             }
             @Override
             public void onFailure(Call<List<Hackathon>> call, Throwable t) {
+                progressBar.setVisibility(View.GONE);
                 tvSummary.setText("Failed to load. Check your connection.");
             }
         });
@@ -123,11 +137,26 @@ public class ApplicationsActivity extends AppCompatActivity {
             tvDetail.setText("Team pref: " + reg.getTeamPreference()
                     + (reg.getGithubUrl() != null && !reg.getGithubUrl().isEmpty() ? "  •  GitHub ✓" : ""));
 
+            int textColor = 0xFF0EA5E9; // default cyan
+            int bgColor = 0x1A0EA5E9;
+
             switch (reg.getApprovalStatus().toLowerCase()) {
-                case "accepted": tvStatus.setTextColor(0xFF10B981); break;
-                case "pending":  tvStatus.setTextColor(0xFFF59E0B); break;
-                case "rejected": tvStatus.setTextColor(0xFFEF4444); break;
+                case "accepted":
+                    textColor = 0xFF10B981; // green
+                    bgColor = 0x1A10B981;
+                    break;
+                case "pending":
+                    textColor = 0xFFF59E0B; // amber
+                    bgColor = 0x1AF59E0B;
+                    break;
+                case "rejected":
+                    textColor = 0xFFEF4444; // red
+                    bgColor = 0x1AEF4444;
+                    break;
             }
+
+            tvStatus.setTextColor(textColor);
+            tvStatus.setBackgroundTintList(ColorStateList.valueOf(bgColor));
 
             card.setOnClickListener(v -> {
                 Intent intent = new Intent(this, HackathonDetailActivity.class);

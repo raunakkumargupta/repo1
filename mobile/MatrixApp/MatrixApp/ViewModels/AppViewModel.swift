@@ -41,7 +41,22 @@ final class AppViewModel: ObservableObject {
     @Published var announcements: [Announcement] = []
     @Published var activeHackathonTeam: TeamStatusResponse?
     @Published var registrationStatus: Registration?
-    
+    private var cancellables = Set<AnyCancellable>()
+
+    init() {
+        NotificationCenter.default.publisher(for: .didReceiveFCMToken)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] notification in
+                guard let self = self, self.isLoggedIn else { return }
+                if let token = notification.userInfo?["token"] as? String {
+                    Task {
+                        try? await NetworkManager.shared.saveFcmToken(token: token)
+                    }
+                }
+            }
+            .store(in: &cancellables)
+    }
+
     func bootstrap() {
         if let data = UserDefaults.standard.data(forKey: "matrix_active_theme"),
            let decoded = try? JSONDecoder().decode(AppTheme.self, from: data) {
@@ -249,10 +264,12 @@ final class AppViewModel: ObservableObject {
         do {
             let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
             if granted {
-                // In production this would be retrieved from application:didRegisterForRemoteNotificationsWithDeviceToken:
-                // For simulator/testing, we supply a simulation-grade APNS push token to test Go API connection.
-                let simulatedToken = "simulated_apns_device_token_matrix_command_ios_2026"
-                try await NetworkManager.shared.saveFcmToken(token: simulatedToken)
+                await MainActor.run {
+                    UIApplication.shared.registerForRemoteNotifications()
+                }
+                if let fcmToken = UserDefaults.standard.string(forKey: "matrix_fcm_token") {
+                    try? await NetworkManager.shared.saveFcmToken(token: fcmToken)
+                }
             }
         } catch {
             print("Push notification registration failed: \(error.localizedDescription)")

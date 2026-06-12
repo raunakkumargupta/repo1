@@ -3,11 +3,14 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 	"time"
 
 	"github.com/raunakkumargupta/repo1/backend/internal/models"
 	"github.com/raunakkumargupta/repo1/backend/internal/repository"
+	"github.com/raunakkumargupta/repo1/backend/internal/worker"
 )
 
 const (
@@ -18,12 +21,13 @@ const (
 )
 
 type HackathonService struct {
-	pgRepo *repository.PostgresRepo
-	cache  *repository.Cache
+	pgRepo     *repository.PostgresRepo
+	cache      *repository.Cache
+	workerPool *worker.WorkerPool
 }
 
-func NewHackathonService(pgRepo *repository.PostgresRepo, cache *repository.Cache) *HackathonService {
-	return &HackathonService{pgRepo: pgRepo, cache: cache}
+func NewHackathonService(pgRepo *repository.PostgresRepo, cache *repository.Cache, wp *worker.WorkerPool) *HackathonService {
+	return &HackathonService{pgRepo: pgRepo, cache: cache, workerPool: wp}
 }
 
 func (s *HackathonService) CreateHackathon(ctx context.Context, organizerID string, req models.CreateHackathonRequest) (*models.Hackathon, error) {
@@ -119,11 +123,57 @@ func (s *HackathonService) GetHackathons(ctx context.Context, onlyApproved bool)
 }
 
 func (s *HackathonService) ApproveHackathon(ctx context.Context, id string) error {
-	err := s.pgRepo.ApproveHackathon(ctx, id)
-	if err == nil {
-		s.invalidateListCache(ctx)
+	h, err := s.pgRepo.GetHackathonByID(ctx, id)
+	if err != nil {
+		return err
 	}
-	return err
+	if h == nil {
+		return errors.New("hackathon not found")
+	}
+
+	err = s.pgRepo.ApproveHackathon(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	s.invalidateListCache(ctx)
+
+	// 1. Notify the organizer (the creator) of the hackathon
+	organizer, err := s.pgRepo.GetUserByID(ctx, h.OrganizerID)
+	if err == nil && organizer != nil && organizer.FCMToken != nil && *organizer.FCMToken != "" {
+		s.workerPool.Enqueue(worker.Job{
+			Type: "FCM_NOTIFICATION",
+			Payload: worker.FcmJobPayload{
+				Tokens: []string{*organizer.FCMToken},
+				Title:  "Hackathon Approved",
+				Body:   fmt.Sprintf("Your hackathon '%s' has been approved and is now live!", h.Title),
+			},
+		})
+	}
+
+	// 2. Notify all hackers about the new hackathon
+	hackerTokens, err := s.pgRepo.GetFcmTokensForAllHackers(ctx)
+	if err == nil && len(hackerTokens) > 0 {
+		var targetTokens []string
+		for _, t := range hackerTokens {
+			if organizer != nil && organizer.FCMToken != nil && t == *organizer.FCMToken {
+				continue
+			}
+			targetTokens = append(targetTokens, t)
+		}
+		if len(targetTokens) > 0 {
+			s.workerPool.Enqueue(worker.Job{
+				Type: "FCM_NOTIFICATION",
+				Payload: worker.FcmJobPayload{
+					Tokens: targetTokens,
+					Title:  "New Hackathon Published",
+					Body:   fmt.Sprintf("A new event '%s' is now open for registrations! check it out.", h.Title),
+				},
+			})
+		}
+	}
+
+	return nil
 }
 
 func (s *HackathonService) UpdateHackathonDetails(ctx context.Context, id string, details models.UpdateHackathonDetailsRequest) error {

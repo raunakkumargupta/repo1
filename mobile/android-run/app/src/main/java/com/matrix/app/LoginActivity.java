@@ -22,8 +22,7 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.matrix.app.models.LoginRequest;
 import com.matrix.app.models.LoginResponse;
-import com.matrix.app.notifications.NotificationPollingService;
-import com.matrix.app.notifications.NotificationScheduler;
+
 import com.matrix.app.utils.EmailValidator;
 
 import java.util.List;
@@ -179,8 +178,26 @@ public class LoginActivity extends AppCompatActivity {
 
                     if (jwt != null && !jwt.isEmpty()) {
                         securityManager.saveToken(jwt);
-                        NotificationPollingService.start(LoginActivity.this);
-                        NotificationScheduler.schedule(LoginActivity.this);
+                        
+                        // Register FCM token
+                        com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken()
+                                .addOnCompleteListener(task -> {
+                                    if (task.isSuccessful() && task.getResult() != null) {
+                                        String token = task.getResult();
+                                        api.registerDeviceToken(new com.matrix.app.models.DeviceTokenRequest(token))
+                                                .enqueue(new Callback<Void>() {
+                                                    @Override
+                                                    public void onResponse(Call<Void> call, Response<Void> response) {
+                                                        android.util.Log.d("LoginActivity", "FCM token registered");
+                                                    }
+                                                    @Override
+                                                    public void onFailure(Call<Void> call, Throwable t) {
+                                                        android.util.Log.e("LoginActivity", "FCM token registration failed", t);
+                                                    }
+                                                });
+                                    }
+                                });
+
                         Toast.makeText(LoginActivity.this, "Welcome back! 👋", Toast.LENGTH_SHORT).show();
                         navigateToDashboard();
                         return;

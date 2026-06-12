@@ -71,11 +71,22 @@ func (s *TicketService) UpdateTicketStatus(ctx context.Context, ticketID, status
 		return err
 	}
 
-	// Dispatch asynchronous push notification (simulated)
-	s.workerPool.Enqueue(worker.Job{
-		Type:    "FCM_NOTIFICATION",
-		Payload: fmt.Sprintf("Ticket %s status updated to %s by mentor %s", ticketID, status, mentorID),
-	})
+	// Fetch ticket team and send push notification to all team members
+	tickets, err := s.pgRepo.GetTicketsByIDs(ctx, []string{ticketID})
+	if err == nil && len(tickets) > 0 {
+		ticket := tickets[0]
+		tokens, err := s.pgRepo.GetFcmTokensForTeam(ctx, ticket.TeamID)
+		if err == nil && len(tokens) > 0 {
+			s.workerPool.Enqueue(worker.Job{
+				Type: "FCM_NOTIFICATION",
+				Payload: worker.FcmJobPayload{
+					Tokens: tokens,
+					Title:  "Ticket Update",
+					Body:   fmt.Sprintf("Ticket status has been updated to %s", status),
+				},
+			})
+		}
+	}
 
 	return nil
 }

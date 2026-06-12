@@ -1,14 +1,51 @@
-//
-//  MatrixAppApp.swift
-//  MatrixApp
-//
-//  Created by Admin on 10/06/26.
-//
-
 import SwiftUI
+import FirebaseCore
+import FirebaseMessaging
+import UserNotifications
+
+class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
+        FirebaseApp.configure()
+        
+        UNUserNotificationCenter.current().delegate = self
+        Messaging.messaging().delegate = self
+        
+        let authOptions: UNAuthorizationOptions = [.alert, .sound, .badge]
+        UNUserNotificationCenter.current().requestAuthorization(options: authOptions) { _, _ in }
+        
+        application.registerForRemoteNotifications()
+        
+        return true
+    }
+    
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Messaging.messaging().apnsToken = deviceToken
+    }
+    
+    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+        print("Firebase registration token: \(String(describing: fcmToken))")
+        if let fcmToken = fcmToken {
+            UserDefaults.standard.set(fcmToken, forKey: "matrix_fcm_token")
+            NotificationCenter.default.post(name: .didReceiveFCMToken, object: nil, userInfo: ["token": fcmToken])
+        }
+    }
+    
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([[.banner, .sound, .badge]])
+    }
+}
+
+extension Notification.Name {
+    static let didReceiveFCMToken = Notification.Name("didReceiveFCMToken")
+}
 
 @main
 struct MatrixAppApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
+    
     var body: some Scene {
         WindowGroup {
             ContentView()

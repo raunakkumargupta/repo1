@@ -37,10 +37,19 @@ func (s *AnnouncementService) CreateAnnouncement(ctx context.Context, hackathonI
 	}
 
 	// Dispatch asynchronous push notifications to all users accepted to this event
-	s.workerPool.Enqueue(worker.Job{
-		Type:    "FCM_NOTIFICATION",
-		Payload: fmt.Sprintf("Mass broadcast to hackathon %s: %s", hackathonID, req.Message),
-	})
+	tokens, err := s.pgRepo.GetFcmTokensForHackathon(ctx, hackathonID)
+	if err == nil && len(tokens) > 0 {
+		s.workerPool.Enqueue(worker.Job{
+			Type: "FCM_NOTIFICATION",
+			Payload: worker.FcmJobPayload{
+				Tokens: tokens,
+				Title:  "Hackathon Announcement",
+				Body:   req.Message,
+			},
+		})
+	} else if err != nil {
+		fmt.Printf("Error fetching FCM tokens for hackathon: %v\n", err)
+	}
 
 	return ann, nil
 }

@@ -65,6 +65,7 @@
 			);
 			name = MatrixApp;
 			packageProductDependencies = (
+				84FC00022FD93EC100305507 /* FirebaseMessaging */,
 			);
 			productName = MatrixApp;
 			productReference = 842C30712FD93EC100305507 /* MatrixApp.app */;
@@ -96,6 +97,9 @@
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 842C30722FD93EC100305507 /* Products */;
+			packageReferences = (
+				84FC00012FD93EC100305507 /* RemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -123,6 +127,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		84FC00012FD93EC100305507 /* RemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 10.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		84FC00022FD93EC100305507 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84FC00012FD93EC100305507 /* RemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCBuildConfiguration section */
 		842C307A2FD93EC300305507 /* Debug */ = {
