@@ -58,25 +58,79 @@ struct RegisterView: View {
                     .cornerRadius(12)
                     .foregroundColor(vm.activeTheme.textPrimary)
                 
-                Group {
-                    if showPassword {
-                        TextField("Password", text: $password)
-                        TextField("Confirm Password", text: $confirmPassword)
-                    } else {
-                        SecureField("Password", text: $password)
-                        SecureField("Confirm Password", text: $confirmPassword)
+                // Password field
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        if showPassword {
+                            TextField("Password", text: $password)
+                        } else {
+                            SecureField("Password", text: $password)
+                        }
+                        Button { showPassword.toggle() } label: {
+                            Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
+                                .foregroundColor(vm.activeTheme.textSecondary)
+                                .font(.footnote)
+                        }
+                    }
+                    .padding()
+                    .background(vm.activeTheme.surfaceVariant.opacity(0.5))
+                    .cornerRadius(12)
+                    .foregroundColor(vm.activeTheme.textPrimary)
+
+                    // Password strength checklist
+                    if !password.isEmpty {
+                        let rules: [(label: String, passed: Bool)] = [
+                            ("8+ characters", password.count >= 8),
+                            ("Uppercase (A–Z)", password.range(of: "[A-Z]", options: .regularExpression) != nil),
+                            ("Lowercase (a–z)", password.range(of: "[a-z]", options: .regularExpression) != nil),
+                            ("Number (0–9)",    password.range(of: "[0-9]", options: .regularExpression) != nil),
+                            ("Special char (@#$%)", password.range(of: "[@#$%^&+=!?_\\-.*]", options: .regularExpression) != nil),
+                        ]
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(rules, id: \.label) { rule in
+                                HStack(spacing: 6) {
+                                    Image(systemName: rule.passed ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                        .font(.caption2)
+                                        .foregroundColor(rule.passed ? .green : .red.opacity(0.6))
+                                    Text(rule.label)
+                                        .font(.caption2)
+                                        .foregroundColor(rule.passed ? .green : vm.activeTheme.textSecondary)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 4)
                     }
                 }
-                .padding()
-                .background(vm.activeTheme.surfaceVariant.opacity(0.5))
-                .cornerRadius(12)
-                .foregroundColor(vm.activeTheme.textPrimary)
-                
-                Toggle("Show Passwords", isOn: $showPassword)
-                    .font(.footnote)
-                    .foregroundColor(vm.activeTheme.textSecondary)
-                    .tint(vm.activeTheme.primaryAccent)
-                
+
+                // Confirm Password field
+                VStack(alignment: .leading, spacing: 4) {
+                    SecureField("Confirm Password", text: $confirmPassword)
+                        .padding()
+                        .background(vm.activeTheme.surfaceVariant.opacity(0.5))
+                        .cornerRadius(12)
+                        .foregroundColor(vm.activeTheme.textPrimary)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(
+                                    !confirmPassword.isEmpty
+                                        ? (confirmPassword == password ? Color.green.opacity(0.6) : Color.red.opacity(0.5))
+                                        : Color.clear,
+                                    lineWidth: 1.5
+                                )
+                        )
+                    if !confirmPassword.isEmpty {
+                        HStack(spacing: 4) {
+                            Image(systemName: confirmPassword == password ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .font(.caption2)
+                                .foregroundColor(confirmPassword == password ? .green : .red.opacity(0.7))
+                            Text(confirmPassword == password ? "Passwords match" : "Passwords do not match")
+                                .font(.caption2)
+                                .foregroundColor(confirmPassword == password ? .green : .red.opacity(0.7))
+                        }
+                        .padding(.horizontal, 4)
+                    }
+                }
+
                 if let error = validationError ?? vm.authError {
                     Text(error)
                         .font(.caption.bold())

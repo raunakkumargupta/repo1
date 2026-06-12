@@ -3,6 +3,7 @@ package worker
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -131,6 +132,7 @@ func sendFcmMessage(tokens []string, title, body string) {
 	}
 	defer resp.Body.Close()
 
-	log.Printf("FCM HTTP API response status: %s", resp.Status)
+	respBody, _ := io.ReadAll(resp.Body)
+	log.Printf("FCM HTTP API response status: %s | body: %s", resp.Status, string(respBody))
 }
 

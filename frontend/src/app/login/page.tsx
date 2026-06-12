@@ -4,18 +4,44 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Loader2, Terminal } from "lucide-react";
+import { Loader2, Terminal, Eye, EyeOff, CheckCircle2, XCircle } from "lucide-react";
+
+// ─── Password Validation Rules ───────────────────────────────────────────────
+const PASSWORD_RULES = [
+  { id: "length",    label: "At least 8 characters",         test: (p: string) => p.length >= 8 },
+  { id: "upper",     label: "One uppercase letter (A–Z)",     test: (p: string) => /[A-Z]/.test(p) },
+  { id: "lower",     label: "One lowercase letter (a–z)",     test: (p: string) => /[a-z]/.test(p) },
+  { id: "digit",     label: "One number (0–9)",               test: (p: string) => /[0-9]/.test(p) },
+  { id: "special",   label: "One special character (@#$%…)",  test: (p: string) => /[@#$%^&+=!?_\-.*]/.test(p) },
+];
+
+function validatePassword(p: string) {
+  return PASSWORD_RULES.map((r) => ({ ...r, passed: r.test(p) }));
+}
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showRules, setShowRules] = useState(false);
+
+  const rules = validatePassword(password);
+  const allRulesPassed = rules.every((r) => r.passed);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    // Client-side validation
+    if (!allRulesPassed) {
+      setShowRules(true);
+      setError("Password does not meet the requirements below.");
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch("/api/auth/login", {
@@ -26,7 +52,6 @@ export default function LoginPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Login failed");
 
-      // Middleware will redirect based on role after navigation
       const role = data.user?.role;
       if (role === "SuperAdmin") router.push("/super-admin");
       else if (role === "Admin") router.push("/admin");
@@ -43,7 +68,6 @@ export default function LoginPage() {
     <div className="min-h-screen grid grid-cols-1 md:grid-cols-2">
       {/* Left Panel — Brand */}
       <div className="hidden md:flex relative bg-[#0B0F19] flex-col justify-between p-12 overflow-hidden">
-        {/* Ambient Glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-600/15 rounded-full blur-[120px] pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-indigo-600/10 rounded-full blur-[80px] pointer-events-none" />
 
@@ -104,6 +128,7 @@ export default function LoginPage() {
           )}
 
           <form onSubmit={handleLogin} className="space-y-6">
+            {/* Email */}
             <div className="space-y-1">
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Email</label>
               <input
@@ -116,6 +141,7 @@ export default function LoginPage() {
               />
             </div>
 
+            {/* Password */}
             <div className="space-y-1">
               <div className="flex justify-between items-center">
                 <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Password</label>
@@ -123,14 +149,44 @@ export default function LoginPage() {
                   Forgot password?
                 </Link>
               </div>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-transparent border-b border-white/20 py-3 text-white placeholder-slate-600 focus:border-blue-500 focus:outline-none transition-colors text-sm"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  required
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); setShowRules(true); }}
+                  placeholder="••••••••"
+                  className="w-full bg-transparent border-b border-white/20 py-3 pr-10 text-white placeholder-slate-600 focus:border-blue-500 focus:outline-none transition-colors text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+
+              {/* Password strength checklist */}
+              {showRules && password.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  className="mt-3 space-y-1.5"
+                >
+                  {rules.map((rule) => (
+                    <div key={rule.id} className="flex items-center gap-2">
+                      {rule.passed
+                        ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                        : <XCircle className="w-3.5 h-3.5 text-red-400/70 flex-shrink-0" />
+                      }
+                      <span className={`text-xs ${rule.passed ? "text-emerald-400" : "text-slate-500"}`}>
+                        {rule.label}
+                      </span>
+                    </div>
+                  ))}
+                </motion.div>
+              )}
             </div>
 
             <motion.button

@@ -283,9 +283,9 @@ final class AppViewModel: ObservableObject {
     }
 
     func validateRegistration(name: String, email: String, password: String, confirmPassword: String) -> String? {
-        if name.trimmingCharacters(in: .whitespaces).count < 2 { return "Enter your full name" }
+        if name.trimmingCharacters(in: .whitespaces).count < 2 { return "Enter your full name (at least 2 characters)" }
         if !isValidEmail(email) { return "Enter a valid email address" }
-        if password.count < 8 { return "Password must be at least 8 characters" }
+        if let pwdError = validatePasswordStrength(password) { return pwdError }
         if password != confirmPassword { return "Passwords do not match" }
         return nil
     }
@@ -297,7 +297,31 @@ final class AppViewModel: ObservableObject {
         if password.isEmpty {
             return "Password is required"
         }
+        if let pwdError = validatePasswordStrength(password) {
+            return pwdError
+        }
         return nil
+    }
+
+    // MARK: - Password Strength Validator
+    /// Returns nil if strong enough, otherwise a human-readable error string.
+    func validatePasswordStrength(_ password: String) -> String? {
+        if password.count < 8 {
+            return "Password must be at least 8 characters"
+        }
+        let hasUpper   = password.range(of: "[A-Z]",           options: .regularExpression) != nil
+        let hasLower   = password.range(of: "[a-z]",           options: .regularExpression) != nil
+        let hasDigit   = password.range(of: "[0-9]",           options: .regularExpression) != nil
+        let hasSpecial = password.range(of: "[@#$%^&+=!?_\\-.*]", options: .regularExpression) != nil
+
+        var missing: [String] = []
+        if !hasUpper   { missing.append("uppercase letter") }
+        if !hasLower   { missing.append("lowercase letter") }
+        if !hasDigit   { missing.append("number") }
+        if !hasSpecial { missing.append("special character (@#$%)") }
+
+        if missing.isEmpty { return nil }
+        return "Password needs: " + missing.prefix(2).joined(separator: ", ") + (missing.count > 2 ? " and more" : "")
     }
 
     // MARK: - Team Hub Management Actions

@@ -24,6 +24,7 @@ import com.matrix.app.models.LoginRequest;
 import com.matrix.app.models.LoginResponse;
 
 import com.matrix.app.utils.EmailValidator;
+import com.matrix.app.utils.PasswordValidator;
 
 import java.util.List;
 
@@ -118,9 +119,10 @@ public class LoginActivity extends AppCompatActivity {
         String password = etPassword.getText() != null ? etPassword.getText().toString() : "";
 
         boolean emailValid = EmailValidator.isValid(email);
-        boolean passwordFilled = password.length() >= 1;
+        PasswordValidator.ValidationResult passResult = PasswordValidator.validate(password);
+        boolean passwordValid = passResult.isValid;
 
-        btnLogin.setEnabled(emailValid && passwordFilled);
+        btnLogin.setEnabled(emailValid && passwordValid);
     }
 
     private void attemptLogin() {
@@ -139,6 +141,20 @@ public class LoginActivity extends AppCompatActivity {
         if (password.isEmpty()) {
             tilPassword.setError("Password is required");
             hasError = true;
+        } else {
+            PasswordValidator.ValidationResult passResult = PasswordValidator.validate(password);
+            if (!passResult.isValid) {
+                StringBuilder errMsg = new StringBuilder("Password needs: ");
+                for (int i = 0; i < Math.min(passResult.errors.size(), 2); i++) {
+                    if (i > 0) errMsg.append(", ");
+                    errMsg.append(passResult.errors.get(i));
+                }
+                if (passResult.errors.size() > 2) {
+                    errMsg.append(" +").append(passResult.errors.size() - 2).append(" more");
+                }
+                tilPassword.setError(errMsg.toString());
+                hasError = true;
+            }
         }
 
         if (hasError) return;
