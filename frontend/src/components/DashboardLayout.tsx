@@ -16,6 +16,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
   const [user, setUser] = useState<{ id: string; role: string } | null | undefined>(undefined);
+  const [authChecked, setAuthChecked] = useState(false);
   const [hackathonId, setHackathonId] = useState<string | null>(null);
   const [preference, setPreference] = useState<string | null>(null);
   const [theme, setTheme] = useState<"light" | "dark">("dark");
@@ -55,12 +56,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setUser(data))
-      .catch(() => setUser(null));
+      .then((data) => {
+        setUser(data);
+        setAuthChecked(true);
+      })
+      .catch(() => {
+        setUser(null);
+        setAuthChecked(true);
+      });
   }, [pathname]);
 
   // Role-based route protection guards
   useEffect(() => {
+    // Only redirect if auth check has completed (user is explicitly null, not undefined/loading)
+    if (!authChecked) return; // still loading, don't redirect
     if (user === null) {
       // Session expired or not logged in -> Redirect to login
       router.push("/login");
@@ -71,7 +80,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         router.push("/admin");
       }
     }
-  }, [user, pathname, router]);
+  }, [user, authChecked, pathname, router]);
 
   useEffect(() => {
     const match = pathname.match(/^\/(workspace|organizer|mentor|judge)\/([a-f0-9-]+)/i);

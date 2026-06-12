@@ -1,10 +1,14 @@
 package com.matrix.app.models;
 
-public class FcmTokenRequest {
+/**
+ * Request body for registering a device token with the backend.
+ * Can be used with any push notification service (or left unused if polling only).
+ */
+public class DeviceTokenRequest {
     private String token;
     private String platform;
 
-    public FcmTokenRequest(String token) {
+    public DeviceTokenRequest(String token) {
         this.token = token;
         this.platform = "android";
     }

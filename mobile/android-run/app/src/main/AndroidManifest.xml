@@ -4,6 +4,8 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Required on Android 13+ (API 33+) for push notifications -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Keep polling service alive when device is idle -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
     <application
         android:label="@string/app_name"
@@ -12,7 +14,6 @@
         android:usesCleartextTraffic="true">
 
         <activity android:name=".HackathonDetailActivity" android:exported="false" />
-
         <activity android:name=".FindTeamActivity" android:exported="false" />
         <activity android:name=".ApplicationsActivity" android:exported="false" />
         <activity android:name=".ProfileActivity" android:exported="false" />
@@ -21,6 +22,7 @@
         <activity android:name=".ExploreActivity" android:exported="false" />
         <activity android:name=".RegisterActivity" android:exported="false" />
         <activity android:name=".DashboardActivity" android:exported="false" />
+
         <activity android:name=".LoginActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -28,15 +30,10 @@
             </intent-filter>
         </activity>
 
-        <!-- Firebase Cloud Messaging service -->
+        <!-- Local notification polling service (no Firebase needed) -->
         <service
-            android:name=".MatrixFirebaseMessagingService"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.google.firebase.MESSAGING_EVENT" />
-            </intent-filter>
-        </service>
+            android:name=".notifications.NotificationPollingService"
+            android:exported="false" />
 
     </application>
 </manifest>
-

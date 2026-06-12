@@ -92,6 +92,7 @@ func main() {
 	// Setup Repositories
 	pgRepo := repository.NewPostgresRepo(dbpool)
 	redisRepo := repository.NewRedisRepo(redisClient)
+	cache := repository.NewCache(redisClient)
 
 	// Initialize Worker Pool
 	workerPoolSize, _ := strconv.Atoi(cfg.WorkerPoolSize)
@@ -106,7 +107,7 @@ func main() {
 	userService := service.NewUserService(pgRepo)
 	regService := service.NewRegistrationService(pgRepo)
 	commService := service.NewCommunityService(pgRepo)
-	hackathonService := service.NewHackathonService(pgRepo)
+	hackathonService := service.NewHackathonService(pgRepo, cache)
 	judgeService := service.NewJudgeService(pgRepo)
 	superAdminService := service.NewSuperAdminService(pgRepo)
 	staffService := service.NewStaffService(pgRepo)

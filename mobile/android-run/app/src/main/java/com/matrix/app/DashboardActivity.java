@@ -14,6 +14,9 @@ import com.matrix.app.models.ApiUser;
 import com.matrix.app.models.Hackathon;
 import com.matrix.app.models.Registration;
 
+import com.matrix.app.notifications.NotificationPollingService;
+import com.matrix.app.notifications.NotificationScheduler;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -82,6 +85,11 @@ public class DashboardActivity extends AppCompatActivity {
             return false;
         });
 
+        // Start notification polling service
+        NotificationPollingService.start(this);
+        // Schedule persistent background checks
+        NotificationScheduler.schedule(this);
+
         loadDashboard();
     }
 
@@ -106,7 +114,7 @@ public class DashboardActivity extends AppCompatActivity {
             public void onFailure(Call<ApiUser> call, Throwable t) {}
         });
 
-        // Load hackathons → then load registrations for each
+        // Load hackathons → then load registrations only for ones user might be in
         api.listHackathons().enqueue(new Callback<List<Hackathon>>() {
             @Override
             public void onResponse(Call<List<Hackathon>> call, Response<List<Hackathon>> response) {
@@ -117,7 +125,11 @@ public class DashboardActivity extends AppCompatActivity {
                     tvMentorCount.setText("0");
                     return;
                 }
-                List<Hackathon> hackathons = response.body();
+                List<Hackathon> allHackathons = response.body();
+                // Only check registrations for the most recent 10 hackathons to avoid 45+ network calls
+                int limit = Math.min(10, allHackathons.size());
+                List<Hackathon> hackathons = allHackathons.subList(0, limit);
+
                 final int[] pending = {hackathons.size()};
                 final List<Registration> myRegs = new ArrayList<>();
 
@@ -129,12 +141,12 @@ public class DashboardActivity extends AppCompatActivity {
                                 myRegs.add(r2.body());
                             }
                             pending[0]--;
-                            if (pending[0] == 0) renderRegistrations(myRegs, hackathons);
+                            if (pending[0] == 0) renderRegistrations(myRegs, allHackathons);
                         }
                         @Override
                         public void onFailure(Call<Registration> call2, Throwable t) {
                             pending[0]--;
-                            if (pending[0] == 0) renderRegistrations(myRegs, hackathons);
+                            if (pending[0] == 0) renderRegistrations(myRegs, allHackathons);
                         }
                     });
                 }

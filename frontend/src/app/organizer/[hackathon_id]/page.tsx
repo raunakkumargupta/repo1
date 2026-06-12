@@ -78,16 +78,16 @@ export default function OrganizerDashboard({ params }: Props) {
   const fetchData = async () => {
     try {
       // 1. Fetch title
-      const ev = await fetch(`/api/hackathons/${hackathon_id}`).then((r) => r.ok ? r.json() : null);
+      const ev = await fetchApi<any>(`/hackathons/${hackathon_id}`).catch(() => null);
       if (ev) setEventTitle(ev.title);
 
       // 2. Fetch applications
-      const appsData = await fetch(`/api/hackathons/${hackathon_id}/applications`).then((r) => r.ok ? r.json() : []);
+      const appsData = await fetchApi<any[]>(`/hackathons/${hackathon_id}/applications`).catch(() => []);
       const apps = appsData || [];
       setApplications(apps);
 
       // 3. Fetch submissions
-      const subsData = await fetch(`/api/hackathons/${hackathon_id}/submissions`).then((r) => r.ok ? r.json() : []);
+      const subsData = await fetchApi<any[]>(`/hackathons/${hackathon_id}/submissions`).catch(() => []);
       const subs = subsData || [];
       setSubmissions(subs);
 
@@ -103,7 +103,7 @@ export default function OrganizerDashboard({ params }: Props) {
       });
 
       // 5. Fetch assigned staff
-      const staffData = await fetch(`/api/hackathons/${hackathon_id}/staff`).then((r) => r.ok ? r.json() : []);
+      const staffData = await fetchApi<any[]>(`/hackathons/${hackathon_id}/staff`).catch(() => []);
       setStaffList(staffData || []);
     } catch (err) {
       console.error(err);
@@ -168,9 +168,8 @@ export default function OrganizerDashboard({ params }: Props) {
     setStaffMsg("");
 
     try {
-      await fetch(`/api/hackathons/${hackathon_id}/staff`, {
+      await fetchApi(`/hackathons/${hackathon_id}/staff`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: staffName.trim(), email: staffEmail.trim(), role: staffRole }),
       });
       setStaffMsg("Staff assigned successfully!");
@@ -186,9 +185,8 @@ export default function OrganizerDashboard({ params }: Props) {
     setConfirmBroadcastOpen(false);
     setBroadcastStatus("sending");
     try {
-      await fetch(`/api/hackathons/${hackathon_id}/broadcasts`, {
+      await fetchApi(`/hackathons/${hackathon_id}/broadcasts`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: broadcastMsg }),
       });
       setBroadcastStatus("success");

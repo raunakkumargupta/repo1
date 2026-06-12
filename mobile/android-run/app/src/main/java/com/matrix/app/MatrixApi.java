@@ -2,7 +2,7 @@ package com.matrix.app;
 
 import com.matrix.app.models.ApplyHackathonRequest;
 import com.matrix.app.models.CreateTicketRequest;
-import com.matrix.app.models.FcmTokenRequest;
+import com.matrix.app.models.DeviceTokenRequest;
 import com.matrix.app.models.HackerProfile;
 import com.matrix.app.models.Hackathon;
 import com.matrix.app.models.InviteUserRequest;
@@ -128,7 +128,11 @@ public interface MatrixApi {
     @POST("hackathons/{id}/tickets")
     Call<Void> createTicket(@Path("id") String hackathonId, @Body CreateTicketRequest body);
 
-    // ---- FCM ----
+    // ---- Device Token (for push notifications) ----
     @POST("users/fcm-token")
-    Call<Void> registerFcmToken(@Body FcmTokenRequest body);
+    Call<Void> registerDeviceToken(@Body DeviceTokenRequest body);
+
+    // ---- Notifications (polling) ----
+    @GET("hackathons/{id}/broadcasts")
+    Call<List<Map<String, Object>>> getBroadcasts(@Path("id") String hackathonId);
 }

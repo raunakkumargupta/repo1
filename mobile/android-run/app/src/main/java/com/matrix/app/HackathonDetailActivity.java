@@ -13,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 import com.matrix.app.models.ApplyHackathonRequest;
+import com.matrix.app.models.Hackathon;
 import com.matrix.app.models.HackerProfile;
 import com.matrix.app.models.Registration;
 
@@ -38,6 +39,11 @@ public class HackathonDetailActivity extends AppCompatActivity {
     private TextInputEditText etGithub, etLinkedin, etSkills, etResume;
     private AutoCompleteTextView spinnerTeamPreference;
     private MaterialButton btnApply;
+
+    // New detail views
+    private TextView tvStartDate, tvEndDate, tvFee, tvTeamSize, tvTracks;
+    private TextView tvProblemStatement, tvPrizes, tvSchedule, tvSponsors;
+    private View cardProblem, cardPrizes, cardSchedule, cardSponsors;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,6 +74,21 @@ public class HackathonDetailActivity extends AppCompatActivity {
 
         setupDropdown(spinnerTeamPreference, new String[]{"Solo", "Looking for Team", "Has Team"});
 
+        // New detail views
+        tvStartDate = findViewById(R.id.tv_start_date);
+        tvEndDate = findViewById(R.id.tv_end_date);
+        tvFee = findViewById(R.id.tv_fee);
+        tvTeamSize = findViewById(R.id.tv_team_size);
+        tvTracks = findViewById(R.id.tv_tracks);
+        tvProblemStatement = findViewById(R.id.tv_problem_statement);
+        tvPrizes = findViewById(R.id.tv_prizes);
+        tvSchedule = findViewById(R.id.tv_schedule);
+        tvSponsors = findViewById(R.id.tv_sponsors);
+        cardProblem = findViewById(R.id.card_problem);
+        cardPrizes = findViewById(R.id.card_prizes);
+        cardSchedule = findViewById(R.id.card_schedule);
+        cardSponsors = findViewById(R.id.card_sponsors);
+
         // Back button
         findViewById(R.id.btn_back).setOnClickListener(v -> finish());
 
@@ -97,8 +118,89 @@ public class HackathonDetailActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // Load registration status
+        loadHackathonDetails();
         loadRegistration();
+    }
+
+    private void loadHackathonDetails() {
+        // Fetch full hackathon data from API
+        api.listHackathons().enqueue(new Callback<java.util.List<Hackathon>>() {
+            @Override
+            public void onResponse(Call<java.util.List<Hackathon>> call, Response<java.util.List<Hackathon>> response) {
+                if (!response.isSuccessful() || response.body() == null) return;
+                for (Hackathon h : response.body()) {
+                    if (h.getId().equals(hackathonId)) {
+                        populateHackathonDetails(h);
+                        break;
+                    }
+                }
+            }
+            @Override
+            public void onFailure(Call<java.util.List<Hackathon>> call, Throwable t) {}
+        });
+    }
+
+    private void populateHackathonDetails(Hackathon h) {
+        // Dates
+        tvStartDate.setText(formatDate(h.getStartDate()));
+        tvEndDate.setText(formatDate(h.getEndDate()));
+
+        // Fee
+        tvFee.setText(isBlank(h.getRegistrationFee()) ? "Free" : h.getRegistrationFee());
+
+        // Team size
+        if (h.getMinTeamSize() > 0 && h.getMaxTeamSize() > 0) {
+            tvTeamSize.setText(h.getMinTeamSize() + " - " + h.getMaxTeamSize() + " members");
+        } else {
+            tvTeamSize.setText("Flexible");
+        }
+
+        // Tracks
+        String tracks = h.getTracks();
+        if (!isBlank(tracks)) {
+            tracks = tracks.replace("[", "").replace("]", "").replace("\"", "");
+            tvTracks.setText(tracks);
+        } else {
+            tvTracks.setText("—");
+        }
+
+        // Problem Statement
+        if (!isBlank(h.getProblemStatement())) {
+            cardProblem.setVisibility(View.VISIBLE);
+            tvProblemStatement.setText(h.getProblemStatement());
+        }
+
+        // Prizes
+        if (!isBlank(h.getPrizes())) {
+            cardPrizes.setVisibility(View.VISIBLE);
+            tvPrizes.setText(h.getPrizes());
+        }
+
+        // Schedule
+        if (!isBlank(h.getSchedule())) {
+            cardSchedule.setVisibility(View.VISIBLE);
+            tvSchedule.setText(h.getSchedule());
+        }
+
+        // Sponsors
+        if (!isBlank(h.getSponsors())) {
+            cardSponsors.setVisibility(View.VISIBLE);
+            tvSponsors.setText(h.getSponsors());
+        }
+    }
+
+    private String formatDate(String isoDate) {
+        if (isBlank(isoDate)) return "—";
+        try {
+            // Parse ISO 8601 and format to readable
+            String[] parts = isoDate.split("T")[0].split("-");
+            String[] months = {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+            int monthIdx = Integer.parseInt(parts[1]) - 1;
+            return months[monthIdx] + " " + Integer.parseInt(parts[2]) + ", " + parts[0];
+        } catch (Exception e) {
+            return isoDate.split("T")[0];
+        }
     }
 
     private void loadRegistration() {

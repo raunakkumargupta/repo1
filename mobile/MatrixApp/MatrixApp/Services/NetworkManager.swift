@@ -18,8 +18,8 @@ enum APIError: Error, LocalizedError {
 final class NetworkManager {
     static let shared = NetworkManager()
     
-    // Using host LAN IP for physical device connection, same as Android client
-    private let baseURL = "http://192.168.29.115:8080/api"
+    // Connect to the deployed staging backend
+    private let baseURL = "http://matrix.cometchat-staging.com/api"
     
     private let decoder: JSONDecoder = {
         let dec = JSONDecoder()
