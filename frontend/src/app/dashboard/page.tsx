@@ -44,23 +44,24 @@ export default function DashboardPage() {
     fetch("/api/hackathons")
       .then((r) => r.ok ? r.json() : [])
       .then(async (events: any[]) => {
-        // Find registrations for these events
         const safeEvents = events || [];
         const regs: RegisteredEvent[] = [];
-        for (const ev of safeEvents) {
-          try {
-            const reg = await fetchApi<any>(`/hackathons/${ev.id}/my-registration`);
-            if (reg && reg.id) {
-              regs.push({
-                ...reg,
-                title: ev.title,
-                cover_image: ev.cover_image
-              });
+        await Promise.all(
+          safeEvents.map(async (ev) => {
+            try {
+              const reg = await fetchApi<any>(`/hackathons/${ev.id}/my-registration`);
+              if (reg && reg.id) {
+                regs.push({
+                  ...reg,
+                  title: ev.title,
+                  cover_image: ev.cover_image
+                });
+              }
+            } catch (e) {
+              // not registered to this one
             }
-          } catch (e) {
-            // not registered to this one
-          }
-        }
+          })
+        );
         setRegistrations(regs);
       })
       .catch((err) => console.error(err))

@@ -23,7 +23,7 @@ export async function proxy(request: NextRequest) {
   if (token) {
     try {
       const secret = new TextEncoder().encode(
-        process.env.JWT_SECRET || "super_secret_jwt_key"
+        process.env.JWT_SECRET || "737334e376af72b3ad827135c8f5a13b7debbe9da07c4c76d1f395686bb7bc7f"
       );
       const { payload } = await jwtVerify(token, secret);
       role = (payload.role as string) || null;
