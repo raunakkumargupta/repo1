@@ -8,15 +8,14 @@ RUN apk add --no-cache git ca-certificates
 
 # Copy go mod files first to leverage build cache
 COPY go.mod go.sum ./
-RUN go env -w GONOSUMCHECK=* GONOSUMDB=* GONOPROXY="" && \
-    go mod download
+RUN GONOSUMDB=* GOFLAGS=-mod=mod go mod download
 
 # Copy application source
 COPY . .
 
 # Build the main server binary and the seed binary
-RUN CGO_ENABLED=0 GOOS=linux go build -o server ./cmd/server
-RUN CGO_ENABLED=0 GOOS=linux go build -o seed seed.go
+RUN CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=mod go build -o server ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=mod go build -o seed seed.go
 
 # Run stage
 FROM alpine:latest
