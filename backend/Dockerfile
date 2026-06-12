@@ -8,7 +8,8 @@ RUN apk add --no-cache git ca-certificates
 
 # Copy go mod files first to leverage build cache
 COPY go.mod go.sum ./
-RUN go mod download
+RUN go env -w GONOSUMCHECK=* GONOSUMDB=* GONOPROXY="" && \
+    go mod download
 
 # Copy application source
 COPY . .

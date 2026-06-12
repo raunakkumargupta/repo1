@@ -9,4 +9,5 @@
     <color name="primaryAccentDark">#0284C7</color>
     <color name="onPrimary">#FFFFFF</color>
     <color name="accentSecondary">#14B8A6</color>
+    <color name="destructive">#EF4444</color>
 </resources>

@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: hackathon
     ports:
-      - "5435:5432"
+      - "127.0.0.1:5435:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -24,7 +24,7 @@ services:
     container_name: hackathon_redis
     restart: always
     ports:
-      - "6381:6379"
+      - "127.0.0.1:6381:6379"
     volumes:
       - redisdata:/data
 
@@ -35,7 +35,7 @@ services:
     container_name: hackathon_backend
     restart: always
     ports:
-      - "${PORT}:${PORT}"
+      - "127.0.0.1:${PORT}:${PORT}"
     environment:
       - DB_URL=${DB_URL}
       - REDIS_URL=${REDIS_URL}
@@ -45,6 +45,9 @@ services:
       - WORKER_POOL_SIZE=${WORKER_POOL_SIZE}
       - DB_MAX_CONNS=${DB_MAX_CONNS}
       - DB_MIN_CONNS=${DB_MIN_CONNS}
+      - FIREBASE_SERVICE_ACCOUNT_PATH=/app/firebase-service-account.json
+    volumes:
+      - ./firebase-service-account.json:/app/firebase-service-account.json:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -58,7 +61,7 @@ services:
     container_name: hackathon_frontend
     restart: always
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       - BACKEND_API_URL=${BACKEND_API_URL}
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
