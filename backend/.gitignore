@@ -24,3 +24,6 @@ go.work.sum
 
 # OS files
 .DS_Store
+
+# Go dependencies / vendor
+vendor/

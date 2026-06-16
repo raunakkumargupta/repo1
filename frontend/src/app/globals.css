@@ -1,5 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
 
+@import "@cometchat/chat-uikit-react/css-variables.css";
+
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
@@ -86,3 +88,20 @@ select option {
 }
 
 
+
+/* ==========================================
+   CometChat Dark Mode Overrides
+   Match the platform's deep gunmetal (#0B0F19) aesthetic
+   ========================================== */
+.dark {
+  --cometchat-background-color-01: #0B0F19;
+  --cometchat-background-color-02: #111827;
+  --cometchat-background-color-03: #1E293B;
+  --cometchat-primary-color: #3B82F6;
+  --cometchat-neutral-color-300: #94A3B8;
+  --cometchat-neutral-color-600: #475569;
+  --cometchat-text-color-primary: #F1F5F9;
+  --cometchat-text-color-secondary: #94A3B8;
+  --cometchat-border-color-default: rgba(255, 255, 255, 0.08);
+  --cometchat-border-color-light: rgba(255, 255, 255, 0.05);
+}

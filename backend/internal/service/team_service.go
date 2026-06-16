@@ -55,6 +55,15 @@ func (s *TeamService) CreateTeam(ctx context.Context, userID, hackathonID string
 		return nil, err
 	}
 
+	// Sync: Create CometChat Group with GUID = team.ID
+	go func() {
+		ccService := NewCometChatService()
+		tags := []string{"hackathon:" + hackathonID, "team"}
+		if err := ccService.CreateGroup(context.Background(), team.ID, req.TeamName, userID, tags); err != nil {
+			fmt.Printf("[CometChat Sync] Failed to create group %s: %v\n", team.ID, err)
+		}
+	}()
+
 	return team, nil
 }
 
@@ -67,6 +76,15 @@ func (s *TeamService) JoinTeam(ctx context.Context, userID, inviteCode string) (
 		return nil, err
 	}
 	go s.notifyTeamJoin(userID, team.ID)
+
+	// Sync: Add user to CometChat group
+	go func() {
+		ccService := NewCometChatService()
+		if err := ccService.AddMemberToGroup(context.Background(), team.ID, userID); err != nil {
+			fmt.Printf("[CometChat Sync] Failed to add member %s to group %s: %v\n", userID, team.ID, err)
+		}
+	}()
+
 	return team, nil
 }
 
@@ -154,6 +172,13 @@ func (s *TeamService) ManageJoinRequest(ctx context.Context, reqID, status, requ
 		err := s.pgRepo.AddUserToTeam(ctx, req.TeamID, req.UserID)
 		if err == nil {
 			go s.notifyTeamJoin(req.UserID, req.TeamID)
+			// Sync: Add accepted user to CometChat group
+			go func() {
+				ccService := NewCometChatService()
+				if err := ccService.AddMemberToGroup(context.Background(), req.TeamID, req.UserID); err != nil {
+					fmt.Printf("[CometChat Sync] Failed to add member %s to group %s: %v\n", req.UserID, req.TeamID, err)
+				}
+			}()
 		}
 		return err
 	}
@@ -221,6 +246,13 @@ func (s *TeamService) ManageInvitation(ctx context.Context, invID, status, userI
 		err := s.pgRepo.AddUserToTeam(ctx, inv.TeamID, inv.InviteeID)
 		if err == nil {
 			go s.notifyTeamJoin(inv.InviteeID, inv.TeamID)
+			// Sync: Add accepted invitee to CometChat group
+			go func() {
+				ccService := NewCometChatService()
+				if err := ccService.AddMemberToGroup(context.Background(), inv.TeamID, inv.InviteeID); err != nil {
+					fmt.Printf("[CometChat Sync] Failed to add member %s to group %s: %v\n", inv.InviteeID, inv.TeamID, err)
+				}
+			}()
 		}
 		return err
 	}

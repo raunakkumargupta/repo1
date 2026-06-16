@@ -5,6 +5,9 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Loader2, ArrowLeft, Code, Globe, MessageSquare, Tag, Search, Users } from "lucide-react";
 import { fetchApi } from "@/lib/api";
+import ChatModal from "@/components/chat/ChatModal";
+import { useCometChat } from "@/components/providers/CometChatProvider";
+import { useAuth } from "@/lib/auth";
 
 type Props = {
   params: Promise<{ hackathon_id: string }>;
@@ -28,6 +31,18 @@ export default function FindTeamPage({ params }: Props) {
   const [loading, setLoading] = useState(true);
   const [profiles, setProfiles] = useState<HackerProfile[]>([]);
   const [search, setSearch] = useState("");
+
+  // CometChat integration
+  const { isInitialized, loginUser } = useCometChat();
+  const { user } = useAuth();
+  const [chatTarget, setChatTarget] = useState<{ uid: string; name: string } | null>(null);
+
+  // Auto-login to CometChat when user is authenticated
+  useEffect(() => {
+    if (isInitialized && user?.id) {
+      loginUser(user.id);
+    }
+  }, [isInitialized, user?.id, loginUser]);
 
   useEffect(() => {
     // Fetch all registrations for this hackathon
@@ -161,11 +176,11 @@ export default function FindTeamPage({ params }: Props) {
 
                   <div className="mt-6 border-t border-slate-200/40 dark:border-white/5 pt-4">
                     <button
-                      onClick={() => alert("CometChat 1-on-1 chat will be implemented in Step 2 here!")}
+                      onClick={() => setChatTarget({ uid: profile.user_id, name: profile.user_name })}
                       className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
                     >
                       <MessageSquare className="w-3.5 h-3.5" />
-                      Chat with Hacker
+                      Message
                     </button>
                   </div>
 
@@ -176,6 +191,14 @@ export default function FindTeamPage({ params }: Props) {
         )}
 
       </div>
+
+      {/* CometChat 1-on-1 Chat Modal */}
+      <ChatModal
+        isOpen={!!chatTarget}
+        onClose={() => setChatTarget(null)}
+        targetUid={chatTarget?.uid || ""}
+        targetName={chatTarget?.name}
+      />
     </div>
   );
 }

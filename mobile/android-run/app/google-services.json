@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "171536933576",
-    "project_id": "project-1-bcd0f",
-    "storage_bucket": "project-1-bcd0f.firebasestorage.app"
+    "project_number": "628157463950",
+    "project_id": "cometchattestflight",
+    "storage_bucket": "cometchattestflight.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:171536933576:android:8aa7bb4d8df06a2f32bbfd",
+        "mobilesdk_app_id": "1:628157463950:android:73c9924dfce4bfb29778df",
         "android_client_info": {
           "package_name": "com.matrix.app"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCiJOCdTY4njEm4UYN_xGXlvapVGaxKxJc"
+          "current_key": "AIzaSyDwZjQVEpEYv8x766MvJR-5EEkKEN9_JrE"
         }
       ],
       "services": {

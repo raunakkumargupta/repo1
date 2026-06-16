@@ -24,6 +24,7 @@ func NewRouter(
 	staffHandler *StaffHandler,
 	announcementHandler *AnnouncementHandler,
 	profileHandler *ProfileHandler,
+	webhookHandler *CometChatWebhookHandler,
 	jwtSecret string,
 	allowedOrigins string,
 	redisClient *redis.Client,
@@ -64,6 +65,9 @@ func NewRouter(
 		
 		// Community reads
 		r.Get("/api/community", commHandler.GetPosts)
+
+		// CometChat Webhooks (public — validated by CometChat secret)
+		r.Post("/api/webhooks/cometchat", webhookHandler.HandleWebhook)
 	})
 
 	// ==========================================

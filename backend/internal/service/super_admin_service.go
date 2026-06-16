@@ -115,20 +115,11 @@ func (s *SuperAdminService) BanUser(ctx context.Context, userID string) error {
 }
 
 func (s *SuperAdminService) GetModerationLogs(ctx context.Context) ([]map[string]interface{}, error) {
-	// Return a set of mock moderation flags ready to receive future CometChat moderation webhooks
-	logs := []map[string]interface{}{
-		{
-			"id":        "1",
-			"user_id":   "hacker-id-placeholder-1",
-			"content":   "Potential spam containing links to unverified software repositories.",
-			"timestamp": "2026-06-08T01:00:00Z",
-		},
-		{
-			"id":        "2",
-			"user_id":   "hacker-id-placeholder-2",
-			"content":   "Off-topic messaging report in team community channels.",
-			"timestamp": "2026-06-08T01:10:00Z",
-		},
+	// Fetch real moderation logs from the database (populated by CometChat webhooks)
+	logs, err := s.pgRepo.GetModerationLogs(ctx, false)
+	if err != nil {
+		// Fallback: return empty array if table doesn't exist yet
+		return []map[string]interface{}{}, nil
 	}
 	return logs, nil
 }

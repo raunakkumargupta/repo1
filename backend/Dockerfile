@@ -1,33 +1,31 @@
-# Build stage
+# Build stage — golang:1.25-alpine already includes git + ca-certificates, no apk needed
 FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
-# Install git and certificates
-RUN apk add --no-cache git ca-certificates
-
-# Copy go mod files first to leverage build cache
+# Copy go mod files and vendor directory (zero network — all deps are local)
 COPY go.mod go.sum ./
-RUN GONOSUMDB=* GOFLAGS=-mod=mod go mod download
+COPY vendor/ vendor/
 
 # Copy application source
 COPY . .
 
-# Build the main server binary and the seed binary
-RUN CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=mod go build -o server ./cmd/server
-RUN CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=mod go build -o seed seed.go
+# Build the main server binary and the seed binary using -mod=vendor (offline compile)
+RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -o server ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -o seed seed.go
 
 # Run stage
 FROM alpine:latest
 
 WORKDIR /app
 
-RUN apk update && apk upgrade --no-cache && apk add --no-cache ca-certificates tzdata
-
 # Copy binaries and migrations from builder
 COPY --from=builder /app/server .
 COPY --from=builder /app/seed .
 COPY --from=builder /app/migrations ./migrations
+
+# Copy certificates and zone info from builder (avoiding apk packages update inside docker)
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 EXPOSE 8080
 

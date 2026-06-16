@@ -35,7 +35,7 @@ services:
     container_name: hackathon_backend
     restart: always
     ports:
-      - "127.0.0.1:${PORT}:${PORT}"
+      - "${PORT}:${PORT}"
     environment:
       - DB_URL=${DB_URL}
       - REDIS_URL=${REDIS_URL}
@@ -61,7 +61,7 @@ services:
     container_name: hackathon_frontend
     restart: always
     ports:
-      - "127.0.0.1:3000:3000"
+      - "3000:3000"
     environment:
       - BACKEND_API_URL=${BACKEND_API_URL}
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}

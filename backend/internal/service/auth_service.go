@@ -54,6 +54,14 @@ func (s *AuthService) RegisterUser(ctx context.Context, req models.RegisterReque
 		return nil, fmt.Errorf("error creating user: %w", err)
 	}
 
+	// Sync user to CometChat (async — non-blocking)
+	go func() {
+		ccService := NewCometChatService()
+		if err := ccService.CreateUser(context.Background(), user.ID, user.Name, user.Role); err != nil {
+			fmt.Printf("[CometChat Sync] Failed to create user %s: %v\n", user.ID, err)
+		}
+	}()
+
 	return user, nil
 }
 

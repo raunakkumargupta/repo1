@@ -127,12 +127,13 @@ func main() {
 	staffHandler := handler.NewStaffHandler(staffService)
 	announcementHandler := handler.NewAnnouncementHandler(announcementService)
 	profileHandler := handler.NewProfileHandler(profileService)
+	webhookHandler := handler.NewCometChatWebhookHandler(pgRepo)
 
 	// Setup Router
 	r := handler.NewRouter(
 		authHandler, ticketHandler, teamHandler, userHandler, regHandler, commHandler,
 		hackathonHandler, judgeHandler, superAdminHandler, staffHandler, announcementHandler,
-		profileHandler,
+		profileHandler, webhookHandler,
 		cfg.JWTSecret, cfg.AllowedOrigins, redisClient,
 	)
 

@@ -3,3 +3,5 @@ frontend.tar
 backend.tar
 staging-build.zip
 firebase-service-account.json
+.claude
+.vscode

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -1089,6 +1090,80 @@ func (r *PostgresRepo) GetFcmTokensForAllHackers(ctx context.Context) ([]string,
 		tokens = append(tokens, t)
 	}
 	return tokens, rows.Err()
+}
+
+// ==========================================
+// CometChat Moderation Logs
+// ==========================================
+
+// ModerationLogEntry represents a CometChat webhook event stored for admin review.
+type ModerationLogEntry struct {
+	EventType    string
+	SenderUID    string
+	SenderName   string
+	ReceiverID   string
+	MessageType  string
+	MessageText  string
+	IsFlagged    bool
+	FlagCategory string
+	FlagReason   string
+	CreatedAt    time.Time
+}
+
+// InsertModerationLog writes a CometChat webhook event to the moderation_logs table.
+func (r *PostgresRepo) InsertModerationLog(ctx context.Context, entry ModerationLogEntry) error {
+	query := `
+		INSERT INTO moderation_logs (event_type, sender_uid, sender_name, receiver_id, message_type, message_text, is_flagged, flag_category, flag_reason, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	`
+	_, err := r.pool.Exec(ctx, query,
+		entry.EventType, entry.SenderUID, entry.SenderName, entry.ReceiverID,
+		entry.MessageType, entry.MessageText, entry.IsFlagged, entry.FlagCategory, entry.FlagReason, entry.CreatedAt,
+	)
+	return err
+}
+
+// GetModerationLogs returns flagged moderation entries for the admin dashboard.
+func (r *PostgresRepo) GetModerationLogs(ctx context.Context, flaggedOnly bool) ([]map[string]interface{}, error) {
+	var query string
+	if flaggedOnly {
+		query = `SELECT id, event_type, sender_uid, sender_name, receiver_id, message_type, message_text, is_flagged, flag_category, flag_reason, created_at FROM moderation_logs WHERE is_flagged = true ORDER BY created_at DESC LIMIT 100`
+	} else {
+		query = `SELECT id, event_type, sender_uid, sender_name, receiver_id, message_type, message_text, is_flagged, flag_category, flag_reason, created_at FROM moderation_logs ORDER BY created_at DESC LIMIT 100`
+	}
+
+	rows, err := r.pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var logs []map[string]interface{}
+	for rows.Next() {
+		var id, eventType, senderUID, senderName, receiverID, msgType, msgText, flagCat, flagReason string
+		var isFlagged bool
+		var createdAt time.Time
+		if err := rows.Scan(&id, &eventType, &senderUID, &senderName, &receiverID, &msgType, &msgText, &isFlagged, &flagCat, &flagReason, &createdAt); err != nil {
+			return nil, err
+		}
+		logs = append(logs, map[string]interface{}{
+			"id":            id,
+			"event_type":    eventType,
+			"sender_uid":    senderUID,
+			"sender_name":   senderName,
+			"receiver_id":   receiverID,
+			"message_type":  msgType,
+			"message_text":  msgText,
+			"is_flagged":    isFlagged,
+			"flag_category": flagCat,
+			"flag_reason":   flagReason,
+			"created_at":    createdAt,
+		})
+	}
+	if logs == nil {
+		logs = []map[string]interface{}{}
+	}
+	return logs, rows.Err()
 }
 
 

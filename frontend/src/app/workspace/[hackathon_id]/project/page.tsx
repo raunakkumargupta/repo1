@@ -5,6 +5,9 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Loader2, ArrowLeft, FolderGit2, Users, Plus, UserPlus, CheckCircle2 } from "lucide-react";
 import { fetchApi } from "@/lib/api";
+import TeamGroupChat from "@/components/chat/TeamGroupChat";
+import { useCometChat } from "@/components/providers/CometChatProvider";
+import { useAuth } from "@/lib/auth";
 
 type Props = {
   params: Promise<{ hackathon_id: string }>;
@@ -40,6 +43,17 @@ export default function ProjectPage({ params }: Props) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // CometChat integration
+  const { isInitialized, loginUser } = useCometChat();
+  const { user: authUser } = useAuth();
+
+  // Auto-login to CometChat when user is authenticated
+  useEffect(() => {
+    if (isInitialized && authUser?.id) {
+      loginUser(authUser.id);
+    }
+  }, [isInitialized, authUser?.id, loginUser]);
 
   // Fetch current user's registration preference and team status
   const fetchWorkspaceStatus = async () => {
@@ -355,6 +369,9 @@ export default function ProjectPage({ params }: Props) {
                   {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Submit Project Repository"}
                 </motion.button>
               </form>
+
+              {/* Embedded Team Group Chat */}
+              <TeamGroupChat teamId={teamDetails.team.id} teamName={teamDetails.team.team_name} />
             </div>
 
             {/* Invite code & Teammates List */}

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Navbar from "@/components/Navbar";
+import { CometChatProvider } from "@/components/providers/CometChatProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,8 +16,10 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body className="flex flex-col min-h-screen">
-        <Navbar />
-        <main className="flex-grow">{children}</main>
+        <CometChatProvider>
+          <Navbar />
+          <main className="flex-grow">{children}</main>
+        </CometChatProvider>
       </body>
     </html>
   );
