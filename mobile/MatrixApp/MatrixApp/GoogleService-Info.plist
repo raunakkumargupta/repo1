@@ -3,17 +3,17 @@
 <plist version="1.0">
 <dict>
 	<key>API_KEY</key>
-	<string>AIzaSyAjtq-R-sRW32jbZKARCgC4KtKVnr16P9s</string>
+	<string>AIzaSyBbxfL_WZETikfY6U9YwYKbRw_VgzukCGk</string>
 	<key>GCM_SENDER_ID</key>
-	<string>171536933576</string>
+	<string>628157463950</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>raunak.MatrixApp</string>
+	<string>com.cometchat.MatrixApp</string>
 	<key>PROJECT_ID</key>
-	<string>project-1-bcd0f</string>
+	<string>cometchattestflight</string>
 	<key>STORAGE_BUCKET</key>
-	<string>project-1-bcd0f.firebasestorage.app</string>
+	<string>cometchattestflight.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
 	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:171536933576:ios:ac91f387edf6936232bbfd</string>
+	<string>1:628157463950:ios:dd934d78c43bd0419778df</string>
 </dict>
 </plist>

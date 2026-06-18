@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>MatrixApp.ipa</key>
+	<array>
+		<dict>
+			<key>architectures</key>
+			<array>
+				<string>arm64</string>
+			</array>
+			<key>buildNumber</key>
+			<string>1</string>
+			<key>certificate</key>
+			<dict>
+				<key>SHA1</key>
+				<string>311BB8600B0852A3A134B10A783B4D3F035566A6</string>
+				<key>dateExpires</key>
+				<string>26/05/27</string>
+				<key>type</key>
+				<string>Cloud Managed Apple Distribution</string>
+			</dict>
+			<key>entitlements</key>
+			<dict>
+				<key>application-identifier</key>
+				<string>T9F7QDSC2S.com.cometchat.MatrixApp</string>
+				<key>aps-environment</key>
+				<string>production</string>
+				<key>com.apple.developer.team-identifier</key>
+				<string>T9F7QDSC2S</string>
+				<key>get-task-allow</key>
+				<false/>
+			</dict>
+			<key>name</key>
+			<string>MatrixApp.app</string>
+			<key>profile</key>
+			<dict>
+				<key>UUID</key>
+				<string>5e4300f3-d403-4ab2-938b-221067a20670</string>
+				<key>dateExpires</key>
+				<string>26/05/27</string>
+				<key>name</key>
+				<string>iOS Team Ad Hoc Provisioning Profile: com.cometchat.MatrixApp</string>
+			</dict>
+			<key>team</key>
+			<dict>
+				<key>id</key>
+				<string>T9F7QDSC2S</string>
+				<key>name</key>
+				<string>CometChat Inc</string>
+			</dict>
+			<key>versionNumber</key>
+			<string>1.0</string>
+		</dict>
+	</array>
+</dict>
+</plist>
