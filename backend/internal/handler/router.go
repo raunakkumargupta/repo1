@@ -193,6 +193,7 @@ func NewRouter(
 			r.Get("/api/admin/metrics", superAdminHandler.GetMetrics)
 			r.Get("/api/admin/moderation/logs", superAdminHandler.GetModerationLogs)
 			r.Put("/api/admin/users/{id}/status", superAdminHandler.BanUser)
+			r.Post("/api/admin/cometchat/sync-users", superAdminHandler.SyncCometChatUsers)
 			r.Delete("/api/admin/hackathons/{id}", hackathonHandler.DeleteHackathon)
 			
 			// Legacy user fetch

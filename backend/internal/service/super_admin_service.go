@@ -111,7 +111,48 @@ func (s *SuperAdminService) GetGlobalMetrics(ctx context.Context) (map[string]in
 }
 
 func (s *SuperAdminService) BanUser(ctx context.Context, userID string) error {
-	return s.pgRepo.UpdateUserStatus(ctx, userID, "deactivated")
+	if err := s.pgRepo.UpdateUserStatus(ctx, userID, "deactivated"); err != nil {
+		return err
+	}
+
+	// Sync: Deactivate the user in CometChat as well
+	go func() {
+		ccService := NewCometChatService()
+		if err := ccService.DeactivateUser(context.Background(), userID); err != nil {
+			fmt.Printf("[CometChat Sync] Failed to deactivate user %s: %v\n", userID, err)
+		}
+	}()
+
+	return nil
+}
+
+// SyncAllUsersToCometChat backfills all existing app users into CometChat.
+// This is a one-time operation to sync the 100+ seeded users created before
+// the CometChat integration. Idempotent — existing users are skipped (409).
+func (s *SuperAdminService) SyncAllUsersToCometChat(ctx context.Context) (map[string]interface{}, error) {
+	users, err := s.pgRepo.GetUsers(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	ccService := NewCometChatService()
+	synced := 0
+	failed := 0
+
+	for _, u := range users {
+		if err := ccService.CreateUser(ctx, u.ID, u.Name, u.Role); err != nil {
+			fmt.Printf("[CometChat Sync] Failed to sync user %s (%s): %v\n", u.ID, u.Email, err)
+			failed++
+			continue
+		}
+		synced++
+	}
+
+	return map[string]interface{}{
+		"total_users": len(users),
+		"synced":      synced,
+		"failed":      failed,
+	}, nil
 }
 
 func (s *SuperAdminService) GetModerationLogs(ctx context.Context) ([]map[string]interface{}, error) {

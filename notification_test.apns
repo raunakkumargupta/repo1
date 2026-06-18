@@ -1,0 +1,11 @@
+{
+    "Simulator Target Bundle": "comet.MatrixApp",
+    "aps": {
+        "alert": {
+            "title": "Matrix Platform Notification",
+            "body": "This is a simulated notification test on the iOS Simulator!"
+        },
+        "badge": 1,
+        "sound": "default"
+    }
+}

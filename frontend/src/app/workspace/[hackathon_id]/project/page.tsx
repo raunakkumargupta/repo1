@@ -2,12 +2,18 @@
 
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { Loader2, ArrowLeft, FolderGit2, Users, Plus, UserPlus, CheckCircle2 } from "lucide-react";
 import { fetchApi } from "@/lib/api";
-import TeamGroupChat from "@/components/chat/TeamGroupChat";
 import { useCometChat } from "@/components/providers/CometChatProvider";
 import { useAuth } from "@/lib/auth";
+
+// Dynamic import with ssr:false — CometChat UI Kit is browser-only.
+// This page is a Client Component, so dynamic({ ssr: false }) is allowed.
+const TeamGroupChat = dynamic(() => import("@/components/chat/TeamGroupChat"), {
+  ssr: false,
+});
 
 type Props = {
   params: Promise<{ hackathon_id: string }>;

@@ -2,12 +2,19 @@
 
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { Loader2, ArrowLeft, Code, Globe, MessageSquare, Tag, Search, Users } from "lucide-react";
 import { fetchApi } from "@/lib/api";
-import ChatModal from "@/components/chat/ChatModal";
 import { useCometChat } from "@/components/providers/CometChatProvider";
 import { useAuth } from "@/lib/auth";
+
+// Dynamic import with ssr:false — CometChat UI Kit accesses window/document at
+// import time, which breaks Next.js static prerendering. This page is already
+// a Client Component, so dynamic({ ssr: false }) is allowed (Next.js 15+ rule).
+const ChatModal = dynamic(() => import("@/components/chat/ChatModal"), {
+  ssr: false,
+});
 
 type Props = {
   params: Promise<{ hackathon_id: string }>;

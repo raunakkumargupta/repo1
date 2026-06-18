@@ -1,7 +1,11 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { CometChatUIKit, UIKitSettingsBuilder } from "@cometchat/chat-uikit-react";
+// CSS-only import is SSR-safe (no window access). The JS module is loaded
+// lazily inside the browser-only effect below to keep this file SSR-safe,
+// because it is imported by the root layout (a Server Component) which is
+// evaluated during static prerendering.
+import "@cometchat/chat-uikit-react/css-variables.css";
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
@@ -40,8 +44,13 @@ async function initCometChat(): Promise<void> {
 
   initPromise = (async () => {
     if (!APP_ID || !REGION || !AUTH_KEY) {
-      throw new Error("CometChat credentials not configured. Set NEXT_PUBLIC_COMETCHAT_APP_ID, NEXT_PUBLIC_COMETCHAT_REGION, NEXT_PUBLIC_COMETCHAT_AUTH_KEY in .env.local");
+      throw new Error(
+        "CometChat credentials not configured. Set NEXT_PUBLIC_COMETCHAT_APP_ID, NEXT_PUBLIC_COMETCHAT_REGION, NEXT_PUBLIC_COMETCHAT_AUTH_KEY in .env.local"
+      );
     }
+
+    // Lazy-load the browser-only UI Kit module (keeps this file SSR-safe).
+    const { CometChatUIKit, UIKitSettingsBuilder } = await import("@cometchat/chat-uikit-react");
 
     const settings = new UIKitSettingsBuilder()
       .setAppId(APP_ID)
@@ -62,6 +71,7 @@ async function initCometChat(): Promise<void> {
 let loginInFlight: Promise<unknown> | null = null;
 
 async function ensureLoggedIn(uid: string): Promise<void> {
+  const { CometChatUIKit } = await import("@cometchat/chat-uikit-react");
   const existing = await CometChatUIKit.getLoggedinUser();
   if (existing) return;
   if (loginInFlight) {
@@ -84,6 +94,10 @@ export function CometChatProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Skip init entirely if credentials are not configured (keeps the app usable).
+    if (!APP_ID || !AUTH_KEY) {
+      return;
+    }
     initCometChat()
       .then(() => setIsInitialized(true))
       .catch((e) => {
@@ -93,24 +107,27 @@ export function CometChatProvider({ children }: { children: React.ReactNode }) {
       });
   }, []);
 
-  const loginUser = useCallback(async (uid: string) => {
-    if (!isInitialized) {
-      setError("CometChat not initialized yet");
-      return;
-    }
-    try {
-      await ensureLoggedIn(uid);
-      setIsLoggedIn(true);
-      setError(null);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "CometChat login failed";
-      setError(msg);
-      console.error("[CometChat] Login error:", e);
-    }
-  }, [isInitialized]);
+  const loginUser = useCallback(
+    async (uid: string) => {
+      if (!isInitialized) {
+        return;
+      }
+      try {
+        await ensureLoggedIn(uid);
+        setIsLoggedIn(true);
+        setError(null);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "CometChat login failed";
+        setError(msg);
+        console.error("[CometChat] Login error:", e);
+      }
+    },
+    [isInitialized]
+  );
 
   const logoutUser = useCallback(async () => {
     try {
+      const { CometChatUIKit } = await import("@cometchat/chat-uikit-react");
       await CometChatUIKit.logout();
       setIsLoggedIn(false);
     } catch (e) {

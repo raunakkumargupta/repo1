@@ -123,3 +123,132 @@ Automated database seeding of 100+ diverse users using a dedicated SQL seed scri
 To prove the architecture is production-ready and to prepare for CometChat integration, we needed a heavily populated database representing all roles (Admins, Managers, Agents, standard Users) with realistic activity histories.
 ### Trade-offs
 Requires maintaining the seed script to align with any schema changes.
+
+---
+
+# Step 2 — CometChat Integration Decisions
+
+## Decision 10: CometChat Integration Approach
+### Selected Approach
+Integrate the official CometChat **React UI Kit v6** on the frontend and the **CometChat REST API (v3)** on the Go backend, driven by the CometChat Skills packs.
+### Alternate Options Considered
+1. Pure SDK (no UI Kit) — build all chat UI by hand.
+2. A third-party chat (e.g. Stream, Sendbird).
+3. Self-hosted WebSocket chat.
+### Why This Was Chosen
+The UI Kit ships production-grade chat surfaces (typing, presence, receipts, reactions) out of the box, cutting weeks of UI work. The assignment specifically requires CometChat. The REST API lets the backend keep CometChat as the source of truth for identity while our PostgreSQL remains the source of truth for the app.
+### Trade-offs
+The UI Kit's look is customised via CSS variables rather than full control of markup.
+### Limitations or Assumptions
+Assumes a CometChat app is provisioned with valid App ID / Region / Auth Key / API Key.
+
+## Decision 11: User Sync Method
+### Selected Approach
+Sync users to CometChat **server-side, asynchronously** (background goroutine) at registration, plus a one-time SuperAdmin backfill endpoint for the 100+ seeded users.
+### Alternate Options Considered
+1. Client-side user creation from the browser.
+2. Synchronous (blocking) sync in the registration request path.
+3. A nightly batch cron sync.
+### Why This Was Chosen
+Server-side keeps the API Key secret (never shipped to the browser). Async means a CometChat outage can never break app registration. The backfill endpoint handles users created before the integration. Calls are idempotent (409 = already exists → skip).
+### Trade-offs
+A brief eventual-consistency window between app user creation and CometChat availability.
+
+## Decision 12: CometChat UID Strategy
+### Selected Approach
+Use the PostgreSQL `user_id` directly as the CometChat `UID`, and the `team_id` directly as the group `GUID`.
+### Alternate Options Considered
+1. A separate `cometchat_uid` column with a generated ID + mapping table.
+2. Email-based UIDs.
+### Why This Was Chosen
+A shared-identity model removes an entire class of mapping/lookup bugs and keeps identity consistent across app and CometChat with zero extra storage. Email-based UIDs leak PII and break if a user changes email.
+### Trade-offs
+The app's internal IDs become visible inside CometChat (acceptable — they are opaque UUIDs).
+
+## Decision 13: CometChat Tags
+### Selected Approach
+Tag every CometChat user with their app **role** (`Hacker`, `Mentor`, `Organizer`, `Judge`, `SuperAdmin`) and tag groups with `hackathon:<id>` + `team`.
+### Alternate Options Considered
+1. No tags (rely solely on app-side RBAC).
+2. Department/region tags.
+### Why This Was Chosen
+Role tags let CometChat-side filtering, moderation routing, and future role-based conversation restrictions work without re-querying our DB. Hackathon tags scope groups to an event for clean filtering and webhook handling.
+### Trade-offs
+Tags must be kept in sync on role change (handled by `UpdateUser`).
+
+## Decision 14: Role-Based Access Control Design
+### Selected Approach
+App JWT remains the authority for who can *reach* a chat surface; CometChat tags + group membership enforce who can *participate*. Team group membership mirrors PostgreSQL team membership exactly.
+### Alternate Options Considered
+1. CometChat-only RBAC.
+2. App-only RBAC with open CometChat.
+### Why This Was Chosen
+Defence in depth: the app gates UI/route access (existing `useAuth` + Go `RequireRole`), while CometChat group membership ensures a user can only read/post in groups they actually belong to. Neither layer alone is sufficient.
+### Trade-offs
+Two systems to keep aligned; mitigated by syncing membership at the same point as the DB write.
+
+## Decision 15: Push Notification Setup
+### Selected Approach
+Keep the existing Firebase FCM push (app events: team join, ticket updates, announcements) **untouched**, and layer CometChat push as a separate channel for chat/call events.
+### Alternate Options Considered
+1. Route all notifications through CometChat.
+2. Route all notifications through FCM (including chat).
+### Why This Was Chosen
+The assignment explicitly requires that existing app notifications keep working after CometChat is added. Keeping the two channels separate guarantees no regression and lets each system do what it does best. Notification source is distinguishable by payload.
+### Trade-offs
+Two notification pipelines to operate.
+
+## Decision 16: Agent (Mentor) Chat Flow
+### Selected Approach
+Reuse the existing ticket system for routing/assignment, and use CometChat group/1-on-1 chat as the live conversation channel once a mentor engages.
+### Alternate Options Considered
+1. A brand-new CometChat-only agent routing system.
+2. Pure ticket system with no live chat.
+### Why This Was Chosen
+The ticket queue (with its one-open-ticket-per-team spam guard) already handles availability/assignment well. Adding CometChat chat on top gives real-time conversation without discarding the proven routing logic.
+### Trade-offs
+Two concepts (ticket + chat) the mentor sees; acceptable for traceability.
+
+## Decision 17: Moderation Rules
+### Selected Approach
+Use CometChat **Rules Management** (keyword/toxicity rules configured on the dashboard) + a webhook that logs flagged messages to `moderation_logs` for SuperAdmin review.
+### Alternate Options Considered
+1. Legacy moderation extensions (Profanity Filter, Sentiment Analysis).
+2. Client-side word filtering.
+### Why This Was Chosen
+The `cometchat-features` skill flags the legacy extensions as deprecated and warns they double-process messages if run alongside Rules. Rules Management is the modern, server-enforced path. Client-side filtering is trivially bypassed.
+### Trade-offs
+Rules are configured in the dashboard (operator action), not in code.
+
+## Decision 18: Webhook Use Case
+### Selected Approach
+A single endpoint `POST /api/webhooks/cometchat` handling `after_message_sent` (activity log) and `after_message_moderated` (flag log), both writing to `moderation_logs`.
+### Alternate Options Considered
+1. Group-created → sync to internal team.
+2. Call started/ended → record call activity.
+### Why This Was Chosen
+Moderation logging delivers the highest real-world value for a hackathon platform (safety + admin oversight) and directly demonstrates webhook → DB → admin-dashboard visibility, which is the assignment's core requirement.
+### Trade-offs
+Other webhook scenarios (call logging, group sync) are left as documented future work.
+
+## Decision 19: Real-Time Communication Flow
+### Selected Approach
+Lean entirely on the UI Kit's built-in realtime (websocket) for messages, typing, presence, and receipts; no custom polling for chat.
+### Alternate Options Considered
+1. Custom polling on top of REST.
+2. Custom websocket layer.
+### Why This Was Chosen
+The UI Kit already maintains a single efficient websocket and renders realtime updates. Re-implementing this would be wasteful and less reliable.
+### Trade-offs
+Realtime behaviour is the kit's, not ours, to tune.
+
+## Decision 20: UI Kit vs SDK vs Custom UI
+### Selected Approach
+Use the React UI Kit v6 components (`CometChatMessageHeader/List/Composer`) embedded in our own modal/panel chrome, styled via CSS variables.
+### Alternate Options Considered
+1. Full custom UI on the bare SDK.
+2. The all-in-one `CometChatConversationsWithMessages` shell.
+### Why This Was Chosen
+The composable trio lets us drop chat exactly where it belongs (a modal on find-team, an embedded panel on the project page) while keeping our app's layout and design language. The all-in-one shell would impose its own full-screen layout.
+### Trade-offs
+Slightly more wiring than the all-in-one shell, in exchange for placement control.

@@ -19,7 +19,7 @@ final class NetworkManager {
     static let shared = NetworkManager()
     
     // Connect to the deployed staging backend
-    private let baseURL = "http://192.168.29.115:8080/api"
+    private let baseURL = "http://192.168.1.152:8080/api"
     
     private let decoder: JSONDecoder = {
         let dec = JSONDecoder()

@@ -97,3 +97,15 @@ func (h *SuperAdminHandler) BanUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"message": "User status updated successfully"})
 }
+
+// SyncCometChatUsers backfills all existing app users into CometChat (one-time).
+func (h *SuperAdminHandler) SyncCometChatUsers(w http.ResponseWriter, r *http.Request) {
+	result, err := h.adminService.SyncAllUsersToCometChat(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
