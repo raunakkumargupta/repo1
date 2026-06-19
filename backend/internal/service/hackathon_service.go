@@ -89,37 +89,43 @@ func (s *HackathonService) GetHackathonByID(ctx context.Context, id string) (*mo
 	return h, nil
 }
 
-func (s *HackathonService) GetHackathons(ctx context.Context, onlyApproved bool) ([]models.Hackathon, error) {
-	cacheKey := cacheKeyHackathonsAll
-	if onlyApproved {
-		cacheKey = cacheKeyHackathonsApproved
-	}
+func (s *HackathonService) GetHackathons(ctx context.Context, onlyApproved bool, limit, offset *int, search, track *string) ([]models.Hackathon, int, error) {
+	// If pagination/search is used, bypass list cache to keep queries fresh and dynamic
+	if limit == nil && offset == nil && search == nil && track == nil {
+		cacheKey := cacheKeyHackathonsAll
+		if onlyApproved {
+			cacheKey = cacheKeyHackathonsApproved
+		}
 
-	// Try cache first
-	if s.cache != nil {
-		cached, err := s.cache.Get(ctx, cacheKey)
-		if err == nil && cached != "" {
-			var hackathons []models.Hackathon
-			if json.Unmarshal([]byte(cached), &hackathons) == nil {
-				log.Printf("[Cache HIT] %s (%d items)", cacheKey, len(hackathons))
-				return hackathons, nil
+		// Try cache first
+		if s.cache != nil {
+			cached, err := s.cache.Get(ctx, cacheKey)
+			if err == nil && cached != "" {
+				var hackathons []models.Hackathon
+				if json.Unmarshal([]byte(cached), &hackathons) == nil {
+					log.Printf("[Cache HIT] %s (%d items)", cacheKey, len(hackathons))
+					return hackathons, len(hackathons), nil
+				}
 			}
 		}
+
+		// Cache miss — fetch from DB
+		hackathons, totalCount, err := s.pgRepo.GetHackathons(ctx, onlyApproved, nil, nil, nil, nil)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		// Store in cache
+		if s.cache != nil {
+			_ = s.cache.Set(ctx, cacheKey, hackathons, hackathonCacheTTL)
+			log.Printf("[Cache MISS → SET] %s (%d items, TTL=%v)", cacheKey, len(hackathons), hackathonCacheTTL)
+		}
+
+		return hackathons, totalCount, nil
 	}
 
-	// Cache miss — fetch from DB
-	hackathons, err := s.pgRepo.GetHackathons(ctx, onlyApproved)
-	if err != nil {
-		return nil, err
-	}
-
-	// Store in cache
-	if s.cache != nil {
-		_ = s.cache.Set(ctx, cacheKey, hackathons, hackathonCacheTTL)
-		log.Printf("[Cache MISS → SET] %s (%d items, TTL=%v)", cacheKey, len(hackathons), hackathonCacheTTL)
-	}
-
-	return hackathons, nil
+	// Dynamic paginated / searched query
+	return s.pgRepo.GetHackathons(ctx, onlyApproved, limit, offset, search, track)
 }
 
 func (s *HackathonService) ApproveHackathon(ctx context.Context, id string) error {

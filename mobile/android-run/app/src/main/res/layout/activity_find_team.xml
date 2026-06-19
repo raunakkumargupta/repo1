@@ -461,6 +461,45 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"/>
+
+                <LinearLayout
+                    android:id="@+id/layout_team_pagination"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center"
+                    android:layout_marginTop="12dp"
+                    android:visibility="gone">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_team_prev"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Previous"
+                        android:textColor="@color/primaryAccent"
+                        android:textAllCaps="false"/>
+
+                    <TextView
+                        android:id="@+id/tv_team_page_num"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Page 1"
+                        android:textColor="@color/onPrimary"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="16dp"/>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_team_next"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Next"
+                        android:textColor="@color/primaryAccent"
+                        android:textAllCaps="false"/>
+                </LinearLayout>
             </LinearLayout>
 
         </LinearLayout>

@@ -194,25 +194,28 @@ public class LoginActivity extends AppCompatActivity {
 
                     if (jwt != null && !jwt.isEmpty()) {
                         securityManager.saveToken(jwt);
-                        
-                        // Register FCM token
-                        com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken()
-                                .addOnCompleteListener(task -> {
-                                    if (task.isSuccessful() && task.getResult() != null) {
-                                        String token = task.getResult();
-                                        api.registerDeviceToken(new com.matrix.app.models.DeviceTokenRequest(token))
-                                                .enqueue(new Callback<Void>() {
-                                                    @Override
-                                                    public void onResponse(Call<Void> call, Response<Void> response) {
-                                                        android.util.Log.d("LoginActivity", "FCM token registered");
-                                                    }
-                                                    @Override
-                                                    public void onFailure(Call<Void> call, Throwable t) {
-                                                        android.util.Log.e("LoginActivity", "FCM token registration failed", t);
-                                                    }
-                                                });
-                                    }
-                                });
+                        securityManager.saveEmail(email); // for CometChat re-login on cold start
+
+                        // Fetch the user's backend UUID (= CometChat UID) before init
+                        // The sync script creates CometChat users with u.ID (UUID), not email
+                        MatrixApi meApi = ApiClient.getClient(securityManager).create(MatrixApi.class);
+                        meApi.getMe().enqueue(new Callback<com.matrix.app.models.ApiUser>() {
+                            @Override
+                            public void onResponse(Call<com.matrix.app.models.ApiUser> c2,
+                                    Response<com.matrix.app.models.ApiUser> r2) {
+                                String cometChatUid = (r2.isSuccessful() && r2.body() != null)
+                                        ? r2.body().getId()
+                                        : CometChatManager.uidFromEmail(email); // fallback
+                                securityManager.saveUserId(cometChatUid);
+                                initAndLoginCometChat(cometChatUid);
+                            }
+                            @Override
+                            public void onFailure(Call<com.matrix.app.models.ApiUser> c2, Throwable t2) {
+                                // Fallback: derive from email
+                                String uid = CometChatManager.uidFromEmail(email);
+                                initAndLoginCometChat(uid);
+                            }
+                        });
 
                         Toast.makeText(LoginActivity.this, "Welcome back! 👋", Toast.LENGTH_SHORT).show();
                         navigateToDashboard();
@@ -241,6 +244,43 @@ public class LoginActivity extends AppCompatActivity {
                         .show();
             }
         });
+    }
+
+    private void initAndLoginCometChat(String uid) {
+        // Register FCM token with Matrix backend
+        com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful() && task.getResult() != null) {
+                        api.registerDeviceToken(new com.matrix.app.models.DeviceTokenRequest(task.getResult()))
+                                .enqueue(new Callback<Void>() {
+                                    @Override public void onResponse(Call<Void> c, Response<Void> r) {}
+                                    @Override public void onFailure(Call<Void> c, Throwable t) {}
+                                });
+                    }
+                });
+
+        // Init CometChat then login with the backend UUID
+        CometChatManager.getInstance().init(LoginActivity.this,
+                new CometChatManager.InitCallback() {
+                    @Override
+                    public void onSuccess() {
+                        CometChatManager.getInstance().loginAsUser(uid,
+                                new CometChatManager.LoginCallback() {
+                                    @Override
+                                    public void onSuccess(com.cometchat.chat.models.User user) {
+                                        android.util.Log.d("LoginActivity", "CometChat login OK: " + user.getUid());
+                                    }
+                                    @Override
+                                    public void onError(String message) {
+                                        android.util.Log.w("LoginActivity", "CometChat login failed: " + message);
+                                    }
+                                });
+                    }
+                    @Override
+                    public void onError(String message) {
+                        android.util.Log.w("LoginActivity", "CometChat init failed: " + message);
+                    }
+                });
     }
 
     private void setLoading(boolean loading) {

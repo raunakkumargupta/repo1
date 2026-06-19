@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { X, AlertCircle } from "lucide-react";
 import { CometChat } from "@cometchat/chat-sdk-javascript";
 import {
   CometChatMessageHeader,
@@ -9,6 +9,7 @@ import {
   CometChatMessageComposer,
 } from "@cometchat/chat-uikit-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useCometChat } from "@/components/providers/CometChatProvider";
 
 type ChatModalProps = {
   isOpen: boolean;
@@ -20,29 +21,57 @@ type ChatModalProps = {
 /**
  * 1-on-1 Chat Modal — used on the "Find a Team" page
  * to let hackers message each other directly.
+ *
+ * FIX: Prevents self-messaging by checking that targetUid ≠ logged-in UID.
+ *      Uses CometChat.getUser(targetUid) to fetch the correct CometChat.User
+ *      object that the UIKit components require for scoping the conversation.
  */
 export default function ChatModal({ isOpen, onClose, targetUid, targetName }: ChatModalProps) {
+  const { isLoggedIn } = useCometChat();
   const [user, setUser] = useState<CometChat.User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isOpen || !targetUid) return;
+    // Wait for CometChat login before querying — avoids "getAdminHost" errors.
+    if (!isOpen || !targetUid || !isLoggedIn) return;
 
     setLoading(true);
     setError(null);
+    setUser(null);
 
-    CometChat.getUser(targetUid)
-      .then((u) => {
-        setUser(u);
+    // Guard: prevent self-messaging
+    const selfCheck = async () => {
+      const loggedInUser = await CometChat.getLoggedInUser();
+      if (loggedInUser && loggedInUser.getUid() === targetUid) {
+        setError("You cannot message yourself.");
         setLoading(false);
-      })
-      .catch((err) => {
-        console.error("[ChatModal] Failed to fetch user:", err);
-        setError("Could not load user for chat. They may not be synced yet.");
-        setLoading(false);
-      });
-  }, [isOpen, targetUid]);
+        return;
+      }
+
+      CometChat.getUser(targetUid)
+        .then((u) => {
+          setUser(u);
+          setLoading(false);
+        })
+        .catch((err) => {
+          console.error("[ChatModal] Failed to fetch user:", err);
+          setError("Could not load user for chat. They may not be synced yet.");
+          setLoading(false);
+        });
+    };
+
+    selfCheck();
+  }, [isOpen, targetUid, isLoggedIn]);
+
+  // Reset state when modal closes so next open starts fresh
+  useEffect(() => {
+    if (!isOpen) {
+      setUser(null);
+      setError(null);
+      setLoading(true);
+    }
+  }, [isOpen]);
 
   return (
     <AnimatePresence>
@@ -61,6 +90,7 @@ export default function ChatModal({ isOpen, onClose, targetUid, targetName }: Ch
             transition={{ type: "spring", stiffness: 200, damping: 25 }}
             className="w-full max-w-2xl h-[70vh] bg-[#0B0F19] border border-white/10 rounded-2xl overflow-hidden flex flex-col shadow-2xl"
             onClick={(e) => e.stopPropagation()}
+            data-theme="dark"
           >
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-white/10">
@@ -89,23 +119,20 @@ export default function ChatModal({ isOpen, onClose, targetUid, targetName }: Ch
               )}
 
               {error && (
-                <div className="flex-1 flex items-center justify-center text-red-400 text-xs px-4 text-center">
+                <div className="flex-1 flex flex-col items-center justify-center text-red-400 text-xs px-4 text-center gap-2">
+                  <AlertCircle className="w-6 h-6 text-red-400" />
                   {error}
                 </div>
               )}
 
               {!loading && !error && user && (
-                <>
-                  <div className="border-b border-white/5">
-                    <CometChatMessageHeader user={user} />
-                  </div>
-                  <div className="flex-1 overflow-hidden">
+                <div className="flex-1 flex flex-col min-h-0">
+                  <CometChatMessageHeader user={user} />
+                  <div className="flex-1 min-h-0 flex flex-col">
                     <CometChatMessageList user={user} />
                   </div>
-                  <div className="border-t border-white/5">
-                    <CometChatMessageComposer user={user} />
-                  </div>
-                </>
+                  <CometChatMessageComposer user={user} />
+                </div>
               )}
             </div>
           </motion.div>

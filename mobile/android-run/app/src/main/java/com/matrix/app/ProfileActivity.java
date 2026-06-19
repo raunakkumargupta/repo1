@@ -14,6 +14,8 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.snackbar.Snackbar;
 import com.matrix.app.models.ApiUser;
 import com.matrix.app.models.HackerProfile;
+import com.matrix.app.chat.ConversationsActivity;
+import com.matrix.app.CometChatManager;
 
 
 import retrofit2.Call;
@@ -88,11 +90,19 @@ public class ProfileActivity extends AppCompatActivity {
             if (id == R.id.nav_explore) {
                 startActivity(new Intent(this, ExploreActivity.class));
                 overridePendingTransition(0, 0);
+                finish();
+                return true;
+            }
+            if (id == R.id.nav_chat) {
+                startActivity(new Intent(this, ConversationsActivity.class));
+                overridePendingTransition(0, 0);
+                finish();
                 return true;
             }
             if (id == R.id.nav_applications) {
                 startActivity(new Intent(this, ApplicationsActivity.class));
                 overridePendingTransition(0, 0);
+                finish();
                 return true;
             }
             return false;
@@ -203,7 +213,8 @@ public class ProfileActivity extends AppCompatActivity {
     }
 
     private void performSignOut() {
-        securityManager.clearToken();
+        CometChatManager.getInstance().logout();
+        securityManager.clearAll();
         ApiClient.reset();
 
         Intent intent = new Intent(this, LoginActivity.class);

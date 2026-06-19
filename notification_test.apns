@@ -1,5 +1,5 @@
 {
-    "Simulator Target Bundle": "comet.MatrixApp",
+    "Simulator Target Bundle": "com.cometchat.MatrixApp",
     "aps": {
         "alert": {
             "title": "Matrix Platform Notification",

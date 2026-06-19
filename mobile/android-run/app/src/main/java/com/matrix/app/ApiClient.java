@@ -15,8 +15,8 @@ import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 public class ApiClient {
-    // Deployed backend (HTTP) via Next.js proxy
-    private static final String BASE_URL = "https://matrix.cometchat-staging.com/api/";
+    // Local Docker backend — same as web on localhost:3000 (use PC WiFi IP for physical device)
+    private static final String BASE_URL = "http://192.168.29.115:3000/api/";
     private static Retrofit retrofit = null;
     private static SecurityManager appSecurityManager = null;
 

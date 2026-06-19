@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/raunakkumargupta/repo1/backend/internal/models"
@@ -88,6 +89,9 @@ func (s *TicketService) UpdateTicketStatus(ctx context.Context, ticketID, status
 		}
 	}
 
+	// Sync CometChat group asynchronously
+	go s.syncCometChatSupportGroup(context.Background(), ticketID, status, mentorID)
+
 	return nil
 }
 
@@ -95,3 +99,95 @@ func (s *TicketService) UpdateTicketStatus(ctx context.Context, ticketID, status
 func (s *TicketService) GetUnassignedTickets(ctx context.Context) ([]models.Ticket, error) {
 	return s.pgRepo.GetTicketsByQueue(ctx)
 }
+
+func (s *TicketService) ResolveOwnTicket(ctx context.Context, hackathonID, ticketID, userID string) error {
+	// 1. Get the ticket
+	tickets, err := s.pgRepo.GetTicketsByIDs(ctx, []string{ticketID})
+	if err != nil {
+		return fmt.Errorf("failed to fetch ticket: %w", err)
+	}
+	if len(tickets) == 0 {
+		return errors.New("ticket not found")
+	}
+	ticket := tickets[0]
+
+	// 2. Verify hackathon matches
+	if ticket.HackathonID != hackathonID {
+		return errors.New("ticket does not belong to this hackathon")
+	}
+
+	// 3. Get user's team
+	team, err := s.pgRepo.GetTeamByUserIDAndHackathon(ctx, userID, hackathonID)
+	if err != nil {
+		return fmt.Errorf("failed to verify team: %w", err)
+	}
+	if team == nil || team.ID != ticket.TeamID {
+		return errors.New("unauthorized: you do not have permission to resolve this ticket")
+	}
+
+	// 4. Update status to 'Resolved'
+	err = s.pgRepo.ResolveTicket(ctx, ticketID)
+	if err != nil {
+		return err
+	}
+
+	// Sync CometChat group asynchronously (delete group)
+	go s.syncCometChatSupportGroup(context.Background(), ticketID, "Resolved", "")
+
+	return nil
+}
+
+func (s *TicketService) syncCometChatSupportGroup(ctx context.Context, ticketID, status, mentorID string) {
+	ccService := NewCometChatService()
+
+	if status == "Active" {
+		// 1. Fetch ticket details
+		tickets, err := s.pgRepo.GetTicketsByIDs(ctx, []string{ticketID})
+		if err != nil || len(tickets) == 0 {
+			fmt.Printf("[CometChat Sync] Ticket not found: %s\n", ticketID)
+			return
+		}
+		ticket := tickets[0]
+
+		// 2. Fetch Team details
+		team, err := s.pgRepo.GetTeamByID(ctx, ticket.TeamID)
+		teamName := ""
+		if err == nil && team != nil {
+			teamName = team.TeamName
+		}
+		if teamName == "" {
+			teamName = fmt.Sprintf("Team %s", ticket.TeamID[:8])
+		}
+
+		// 3. Create CometChat Group
+		tags := []string{"hackathon:" + ticket.HackathonID, "support-ticket"}
+		groupName := fmt.Sprintf("Support Chat: %s", teamName)
+		err = ccService.CreateGroup(ctx, ticketID, groupName, mentorID, tags)
+		if err != nil {
+			fmt.Printf("[CometChat Sync] Failed to create support group %s: %v\n", ticketID, err)
+			return
+		}
+
+		// 4. Add mentor as participant
+		_ = ccService.AddMemberToGroup(ctx, ticketID, mentorID)
+
+		// 5. Get all team members and add them
+		members, err := s.pgRepo.GetTeamMembers(ctx, ticket.TeamID)
+		if err == nil {
+			for _, m := range members {
+				_ = ccService.AddMemberToGroup(ctx, ticketID, m.ID)
+			}
+		}
+	} else if status == "Resolved" {
+		// Delete support group when ticket is resolved
+		err := ccService.DeleteGroup(ctx, ticketID)
+		if err != nil {
+			fmt.Printf("[CometChat Sync] Failed to delete support group %s: %v\n", ticketID, err)
+		}
+	}
+}
+
+func (s *TicketService) GetResolvedTicketsByMentor(ctx context.Context, hackathonID, mentorID string) ([]models.Ticket, error) {
+	return s.pgRepo.GetResolvedTicketsByMentor(ctx, hackathonID, mentorID)
+}
+

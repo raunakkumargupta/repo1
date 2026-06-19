@@ -57,11 +57,15 @@ func (s *TeamService) CreateTeam(ctx context.Context, userID, hackathonID string
 
 	// Sync: Create CometChat Group with GUID = team.ID
 	go func() {
+		ctx := context.Background()
 		ccService := NewCometChatService()
 		tags := []string{"hackathon:" + hackathonID, "team"}
-		if err := ccService.CreateGroup(context.Background(), team.ID, req.TeamName, userID, tags); err != nil {
+		if err := ccService.CreateGroup(ctx, team.ID, req.TeamName, userID, tags); err != nil {
 			fmt.Printf("[CometChat Sync] Failed to create group %s: %v\n", team.ID, err)
+			return
 		}
+		// Explicitly add the team creator as a member of the group
+		s.syncAddMemberToGroup(ctx, team.ID, userID)
 	}()
 
 	return team, nil
@@ -78,12 +82,7 @@ func (s *TeamService) JoinTeam(ctx context.Context, userID, inviteCode string) (
 	go s.notifyTeamJoin(userID, team.ID)
 
 	// Sync: Add user to CometChat group
-	go func() {
-		ccService := NewCometChatService()
-		if err := ccService.AddMemberToGroup(context.Background(), team.ID, userID); err != nil {
-			fmt.Printf("[CometChat Sync] Failed to add member %s to group %s: %v\n", userID, team.ID, err)
-		}
-	}()
+	go s.syncAddMemberToGroup(context.Background(), team.ID, userID)
 
 	return team, nil
 }
@@ -132,8 +131,8 @@ func (s *TeamService) RemoveMember(ctx context.Context, teamID, memberID, reques
 	return s.pgRepo.RemoveUserFromTeam(ctx, teamID, memberID)
 }
 
-func (s *TeamService) GetPublicTeamsByHackathon(ctx context.Context, hackathonID string) ([]models.TeamWithMembers, error) {
-	return s.pgRepo.GetPublicTeamsByHackathon(ctx, hackathonID)
+func (s *TeamService) GetPublicTeamsByHackathon(ctx context.Context, hackathonID string, limit, offset *int, search *string) ([]models.TeamWithMembers, error) {
+	return s.pgRepo.GetPublicTeamsByHackathon(ctx, hackathonID, limit, offset, search)
 }
 
 // Requests
@@ -173,12 +172,7 @@ func (s *TeamService) ManageJoinRequest(ctx context.Context, reqID, status, requ
 		if err == nil {
 			go s.notifyTeamJoin(req.UserID, req.TeamID)
 			// Sync: Add accepted user to CometChat group
-			go func() {
-				ccService := NewCometChatService()
-				if err := ccService.AddMemberToGroup(context.Background(), req.TeamID, req.UserID); err != nil {
-					fmt.Printf("[CometChat Sync] Failed to add member %s to group %s: %v\n", req.UserID, req.TeamID, err)
-				}
-			}()
+			go s.syncAddMemberToGroup(context.Background(), req.TeamID, req.UserID)
 		}
 		return err
 	}
@@ -247,12 +241,7 @@ func (s *TeamService) ManageInvitation(ctx context.Context, invID, status, userI
 		if err == nil {
 			go s.notifyTeamJoin(inv.InviteeID, inv.TeamID)
 			// Sync: Add accepted invitee to CometChat group
-			go func() {
-				ccService := NewCometChatService()
-				if err := ccService.AddMemberToGroup(context.Background(), inv.TeamID, inv.InviteeID); err != nil {
-					fmt.Printf("[CometChat Sync] Failed to add member %s to group %s: %v\n", inv.InviteeID, inv.TeamID, err)
-				}
-			}()
+			go s.syncAddMemberToGroup(context.Background(), inv.TeamID, inv.InviteeID)
 		}
 		return err
 	}
@@ -297,5 +286,26 @@ func (s *TeamService) notifyTeamJoin(joiningUserID, teamID string) {
 				Body:   fmt.Sprintf("%s has joined your team %s!", user.Name, team.TeamName),
 			},
 		})
+	}
+}
+
+func (s *TeamService) syncAddMemberToGroup(ctx context.Context, teamID, userID string) {
+	ccService := NewCometChatService()
+	if err := ccService.AddMemberToGroup(ctx, teamID, userID); err != nil {
+		fmt.Printf("[CometChat Sync] AddMemberToGroup failed for %s to group %s: %v. Retrying after ensuring user exists in CometChat...\n", userID, teamID, err)
+		u, dbErr := s.pgRepo.GetUserByID(ctx, userID)
+		if dbErr != nil {
+			fmt.Printf("[CometChat Sync] Failed to get user %s from DB: %v\n", userID, dbErr)
+			return
+		}
+		if errCreate := ccService.CreateUser(ctx, u.ID, u.Name, u.Role); errCreate != nil {
+			fmt.Printf("[CometChat Sync] Failed to recreate user %s in CometChat: %v\n", userID, errCreate)
+			return
+		}
+		if errRetry := ccService.AddMemberToGroup(ctx, teamID, userID); errRetry != nil {
+			fmt.Printf("[CometChat Sync] Failed on retry to add member %s to group %s: %v\n", userID, teamID, errRetry)
+		} else {
+			fmt.Printf("[CometChat Sync] Successfully added member %s to group %s on retry\n", userID, teamID)
+		}
 	}
 }

@@ -56,8 +56,8 @@ func (s *RegistrationService) GetRegistrationByUserID(ctx context.Context, userI
 	return s.pgRepo.GetRegistrationByUserID(ctx, userID)
 }
 
-func (s *RegistrationService) ListByHackathon(ctx context.Context, hackathonID string) ([]models.RegistrationProfile, error) {
-	return s.pgRepo.GetRegistrationsByHackathon(ctx, hackathonID)
+func (s *RegistrationService) ListByHackathon(ctx context.Context, hackathonID string, limit, offset *int, approvalStatus, teamPreference, search, excludeUserID *string) ([]models.RegistrationProfile, int, error) {
+	return s.pgRepo.GetRegistrationsByHackathon(ctx, hackathonID, limit, offset, approvalStatus, teamPreference, search, excludeUserID)
 }
 
 func (s *RegistrationService) UpdateStatus(ctx context.Context, regID string, status string) error {

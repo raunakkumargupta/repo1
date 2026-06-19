@@ -1,5 +1,6 @@
 package com.matrix.app;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -47,6 +48,18 @@ public class FindTeamActivity extends BaseActivity {
     private LinearLayout sectionRequests;
     private LinearLayout sectionInvitations;
 
+    // Pagination & Search for Browse Open Teams
+    private int currentTeamsPage = 1;
+    private final int teamsPageSize = 10;
+    private boolean hasMoreTeams = false;
+    private String currentSearchQuery = "";
+    private int queryCounter = 0;
+
+    private LinearLayout layoutPagination;
+    private MaterialButton btnPrevPage;
+    private MaterialButton btnNextPage;
+    private TextView tvPageNum;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -61,6 +74,11 @@ public class FindTeamActivity extends BaseActivity {
         // Header
         TextView tvTitle = findViewById(R.id.tv_team_hub_title);
         if (hackathonTitle != null) tvTitle.setText("Team Hub · " + hackathonTitle);
+
+        View btnBack = findViewById(R.id.btn_back_team);
+        if (btnBack != null) {
+            btnBack.setOnClickListener(v -> finish());
+        }
 
         // Section references
         sectionMyTeam      = findViewById(R.id.section_my_team);
@@ -196,6 +214,17 @@ public class FindTeamActivity extends BaseActivity {
             setupInviteSection(team.getId());
             setupLeaderRequestsSection(team.getId());
         }
+
+        // --- CometChat Team Group Chat Button ---
+        MaterialButton btnTeamChat = new MaterialButton(this);
+        btnTeamChat.setText("💬 Team Chat");
+        btnTeamChat.setOnClickListener(v -> {
+            Intent intent = new Intent(this, com.matrix.app.chat.GroupChatActivity.class);
+            intent.putExtra("guid", team.getId());
+            intent.putExtra("name", team.getTeamName());
+            startActivity(intent);
+        });
+        memberContainer.addView(btnTeamChat);
     }
 
     private void removeMember(String teamId, String memberId) {
@@ -276,20 +305,85 @@ public class FindTeamActivity extends BaseActivity {
     // Browse Public Teams
     // ==========================================
     private void setupBrowseSection() {
-        LinearLayout container = findViewById(R.id.team_container);
         TextInputEditText etSearch = findViewById(R.id.et_team_search);
+
+        layoutPagination = findViewById(R.id.layout_team_pagination);
+        btnPrevPage = findViewById(R.id.btn_team_prev);
+        btnNextPage = findViewById(R.id.btn_team_next);
+        tvPageNum = findViewById(R.id.tv_team_page_num);
+
+        btnPrevPage.setOnClickListener(v -> {
+            if (currentTeamsPage > 1) {
+                currentTeamsPage--;
+                loadPublicTeams();
+            }
+        });
+
+        btnNextPage.setOnClickListener(v -> {
+            if (hasMoreTeams) {
+                currentTeamsPage++;
+                loadPublicTeams();
+            }
+        });
+
+        // Debounced universal search
+        etSearch.addTextChangedListener(new TextWatcher() {
+            private Runnable searchRunnable;
+            private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+
+            @Override public void beforeTextChanged(CharSequence s, int i, int i1, int i2) {}
+            @Override public void onTextChanged(CharSequence s, int i, int i1, int i2) {
+                if (searchRunnable != null) {
+                    handler.removeCallbacks(searchRunnable);
+                }
+                searchRunnable = () -> {
+                    currentSearchQuery = s.toString().trim();
+                    currentTeamsPage = 1;
+                    loadPublicTeams();
+                };
+                handler.postDelayed(searchRunnable, 300); // 300ms delay
+            }
+            @Override public void afterTextChanged(Editable s) {}
+        });
+
+        loadPublicTeams();
+    }
+
+    private void loadPublicTeams() {
+        LinearLayout container = findViewById(R.id.team_container);
         TextView tvSummary = findViewById(R.id.tv_team_summary);
 
-        api.getPublicTeams(hackathonId).enqueue(new Callback<List<Team>>() {
+        final int thisQueryId = ++queryCounter;
+        int offset = (currentTeamsPage - 1) * teamsPageSize;
+        String searchVal = currentSearchQuery.isEmpty() ? null : currentSearchQuery;
+
+        api.getPublicTeams(hackathonId, teamsPageSize, offset, searchVal).enqueue(new Callback<List<Team>>() {
             @Override
             public void onResponse(Call<List<Team>> call, Response<List<Team>> response) {
+                if (thisQueryId != queryCounter) return; // ignore stale query responses
+
                 container.removeAllViews();
                 List<Team> teams = response.body();
+
                 if (teams == null || teams.isEmpty()) {
-                    tvSummary.setText("No public teams yet. Create the first one!");
+                    tvSummary.setText(currentSearchQuery.isEmpty() ? "No public teams yet. Create the first one!" : "No matching teams found.");
+                    hasMoreTeams = false;
+                    layoutPagination.setVisibility(View.GONE);
                     return;
                 }
-                tvSummary.setText("Open teams: " + teams.size());
+
+                hasMoreTeams = teams.size() == teamsPageSize;
+
+                if (currentTeamsPage > 1 || hasMoreTeams) {
+                    layoutPagination.setVisibility(View.VISIBLE);
+                    tvPageNum.setText("Page " + currentTeamsPage);
+                    btnPrevPage.setEnabled(currentTeamsPage > 1);
+                    btnNextPage.setEnabled(hasMoreTeams);
+                } else {
+                    layoutPagination.setVisibility(View.GONE);
+                }
+
+                tvSummary.setText("Open teams: " + teams.size() + (currentSearchQuery.isEmpty() ? "" : " (filtered)"));
 
                 for (Team team : teams) {
                     View card = getLayoutInflater().inflate(R.layout.item_team_card, container, false);
@@ -316,22 +410,14 @@ public class FindTeamActivity extends BaseActivity {
                         });
                     }
                     container.addView(card);
-
-                    // Search filter
-                    etSearch.addTextChangedListener(new TextWatcher() {
-                        @Override public void beforeTextChanged(CharSequence s, int i, int i1, int i2) {}
-                        @Override public void onTextChanged(CharSequence s, int i, int i1, int i2) {
-                            String q = s.toString().toLowerCase();
-                            card.setVisibility(team.getTeamName().toLowerCase().contains(q) ? View.VISIBLE : View.GONE);
-                        }
-                        @Override public void afterTextChanged(Editable s) {}
-                    });
                 }
             }
 
             @Override
             public void onFailure(Call<List<Team>> call, Throwable t) {
+                if (thisQueryId != queryCounter) return;
                 tvSummary.setText("Unable to load public teams.");
+                layoutPagination.setVisibility(View.GONE);
             }
         });
     }

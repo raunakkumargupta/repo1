@@ -8,11 +8,14 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.matrix.app.chat.ConversationsActivity;
+
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.card.MaterialCardView;
 import com.matrix.app.models.ApiUser;
 import com.matrix.app.models.Hackathon;
 import com.matrix.app.models.Registration;
+import com.matrix.app.CometChatManager;
 
 
 
@@ -71,6 +74,11 @@ public class DashboardActivity extends AppCompatActivity {
                 overridePendingTransition(0, 0);
                 return true;
             }
+            if (id == R.id.nav_chat) {
+                startActivity(new Intent(this, ConversationsActivity.class));
+                overridePendingTransition(0, 0);
+                return true;
+            }
             if (id == R.id.nav_applications) {
                 startActivity(new Intent(this, ApplicationsActivity.class));
                 overridePendingTransition(0, 0);
@@ -103,7 +111,44 @@ public class DashboardActivity extends AppCompatActivity {
                     }
                 });
 
+        // Ensure CometChat is initialised and user is logged in (handles cold-start / session loss)
+        CometChatManager.getInstance().init(this, new CometChatManager.InitCallback() {
+            @Override
+            public void onSuccess() {
+                android.util.Log.d("DashboardActivity", "CometChat SDK ready");
+
+                String savedUserId = securityManager.getUserId();
+                if (savedUserId != null && !savedUserId.isEmpty()) {
+                    CometChatManager.getInstance().loginAsUser(savedUserId, new CometChatManager.LoginCallback() {
+                        @Override
+                        public void onSuccess(com.cometchat.chat.models.User user) {
+                            android.util.Log.d("DashboardActivity", "CometChat login/session verify success: " + user.getUid());
+                            registerFCMTokenWithCometChat();
+                        }
+                        @Override
+                        public void onError(String message) {
+                            android.util.Log.w("DashboardActivity", "CometChat login/session verify failed: " + message);
+                        }
+                    });
+                }
+            }
+            @Override
+            public void onError(String message) {
+                android.util.Log.w("DashboardActivity", "CometChat init warn: " + message);
+            }
+        });
+
         loadDashboard();
+    }
+
+    private void registerFCMTokenWithCometChat() {
+        com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful() && task.getResult() != null) {
+                        com.matrix.app.notifications.MyFirebaseMessagingService
+                                .registerTokenWithCometChat(task.getResult());
+                    }
+                });
     }
 
     private void loadDashboard() {

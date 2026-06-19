@@ -12,7 +12,7 @@ COPY . .
 
 # Build the main server binary and the seed binary using -mod=vendor (offline compile)
 RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -o server ./cmd/server
-RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -o seed seed.go
+RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -o seed scripts/seed.go
 
 # Run stage
 FROM alpine:latest

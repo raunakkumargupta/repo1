@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId 'com.matrix.app'
-        minSdk 24
+        minSdk 26
         targetSdk 35
         versionCode 1
         versionName '1.0'
@@ -52,4 +52,11 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'androidx.work:work-runtime:2.9.0'
     implementation 'com.google.firebase:firebase-messaging:23.4.1'
+
+    // CometChat UIKit v5 — includes Chat SDK transitively
+    implementation 'com.cometchat:chat-uikit-android:5.+'
+
+    // CometChat Calls SDK v5 — MUST match UIKit v5 which uses Calls SDK v5 APIs internally
+    // (v4.x has no login() method; UIKit v5's CometChatIncomingCall silently fails on accept/reject with v4)
+    implementation 'com.cometchat:calls-sdk-android:5.0.0'
 }

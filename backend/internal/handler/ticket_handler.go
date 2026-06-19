@@ -81,6 +81,32 @@ func (h *TicketHandler) GetQueue(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(tickets)
 }
 
+func (h *TicketHandler) GetResolvedTickets(w http.ResponseWriter, r *http.Request) {
+	hackathonID := chi.URLParam(r, "id")
+	if hackathonID == "" {
+		http.Error(w, "hackathon id is required", http.StatusBadRequest)
+		return
+	}
+
+	claims := middleware.GetUserClaims(r.Context())
+	if claims == nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	tickets, err := h.ticketService.GetResolvedTicketsByMentor(r.Context(), hackathonID, claims.UserID)
+	if err != nil {
+		http.Error(w, "failed to fetch resolved tickets", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if tickets == nil {
+		tickets = []models.Ticket{}
+	}
+	json.NewEncoder(w).Encode(tickets)
+}
+
 func (h *TicketHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	ticketID := chi.URLParam(r, "ticket_id")
 	if ticketID == "" {
@@ -114,3 +140,29 @@ func (h *TicketHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "ticket updated successfully"})
 }
+
+func (h *TicketHandler) ResolveOwnTicket(w http.ResponseWriter, r *http.Request) {
+	hackathonID := chi.URLParam(r, "id")
+	ticketID := chi.URLParam(r, "ticket_id")
+	if hackathonID == "" || ticketID == "" {
+		http.Error(w, "hackathon id and ticket id are required", http.StatusBadRequest)
+		return
+	}
+
+	claims := middleware.GetUserClaims(r.Context())
+	if claims == nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	err := h.ticketService.ResolveOwnTicket(r.Context(), hackathonID, ticketID, claims.UserID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Ticket resolved successfully!"})
+}
+

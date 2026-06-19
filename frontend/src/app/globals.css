@@ -103,3 +103,50 @@ select option {
   --cometchat-border-color-default: rgba(255, 255, 255, 0.08);
   --cometchat-border-color-light: rgba(255, 255, 255, 0.05);
 }
+
+/* ==========================================
+   CometChat Responsive Layout Overrides
+   ========================================== */
+
+/* Ensure audio message bubbles fit within mobile viewports */
+.cometchat-message-bubble__audio-message {
+  max-width: 100% !important;
+  min-width: 0 !important;
+  flex-shrink: 1 !important;
+  box-sizing: border-box !important;
+}
+
+/* Prevent internal audio player elements from overflowing the bubble */
+.cometchat-message-bubble__audio-message * {
+  max-width: 100% !important;
+  min-width: 0 !important;
+  flex-shrink: 1 !important;
+  box-sizing: border-box !important;
+}
+
+/* ==========================================
+   CometChat Calling UI Position Overrides
+   ========================================== */
+
+/* Position CometChat incoming call overlay at top right of the viewport */
+.cometchat-incoming-call {
+  position: fixed !important;
+  top: 24px !important;
+  right: 24px !important;
+  left: auto !important;
+  bottom: auto !important;
+  z-index: 99999 !important;
+}
+
+@media (max-width: 600px) {
+  .cometchat-incoming-call {
+    right: auto !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: calc(100vw - 32px) !important;
+    max-width: 360px !important;
+    top: 16px !important;
+  }
+}
+
+

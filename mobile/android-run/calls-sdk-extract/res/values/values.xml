@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ongoing_notification_action_hang_up">Hang Up</string>
+    <string name="ongoing_notification_action_mute">Mute</string>
+    <string name="ongoing_notification_action_unmute">Unmute</string>
+    <string name="ongoing_notification_channel_name">Call Notifications</string>
+    <string name="ongoing_notification_text">Tap to return to your call</string>
+    <string name="ongoing_notification_title">Ongoing Call</string>
+</resources>

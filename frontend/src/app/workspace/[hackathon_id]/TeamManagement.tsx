@@ -41,6 +41,9 @@ export default function TeamManagement({ hackathon_id, user_id, event }: { hacka
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]); // For leaders
   const [myRequests, setMyRequests] = useState<JoinRequest[]>([]);     // For non-team members
   const [myInvitations, setMyInvitations] = useState<Invitation[]>([]); // For non-team members
+  const [teamsOffset, setTeamsOffset] = useState(0);
+  const [hasMoreTeams, setHasMoreTeams] = useState(true);
+  const [isFetchingTeams, setIsFetchingTeams] = useState(false);
 
   // Forms
   const [createName, setCreateName] = useState("");
@@ -68,11 +71,13 @@ export default function TeamManagement({ hackathon_id, user_id, event }: { hacka
         setMyTeam(null);
         // Fetch public teams, my requests, my invites
         const [pub, reqs, invs] = await Promise.all([
-          fetchApi<Team[]>(`/hackathons/${hackathon_id}/teams/public`),
+          fetchApi<Team[]>(`/hackathons/${hackathon_id}/teams/public?limit=6&offset=0`),
           fetchApi<JoinRequest[]>(`/hackathons/${hackathon_id}/my-requests`),
           fetchApi<Invitation[]>(`/hackathons/${hackathon_id}/my-invitations`),
         ]);
         setPublicTeams(pub || []);
+        setHasMoreTeams((pub || []).length === 6);
+        setTeamsOffset((pub || []).length);
         setMyRequests(reqs || []);
         setMyInvitations(invs || []);
       }
@@ -83,9 +88,48 @@ export default function TeamManagement({ hackathon_id, user_id, event }: { hacka
     }
   };
 
+  const loadMoreTeams = async () => {
+    if (isFetchingTeams || !hasMoreTeams) return;
+    setIsFetchingTeams(true);
+    try {
+      const pub = await fetchApi<Team[]>(`/hackathons/${hackathon_id}/teams/public?limit=6&offset=${teamsOffset}`);
+      const data = pub || [];
+      setPublicTeams((prev) => {
+        const next = [...prev, ...data];
+        const seen = new Set();
+        return next.filter((t) => {
+          if (seen.has(t.id)) return false;
+          seen.add(t.id);
+          return true;
+        });
+      });
+      setHasMoreTeams(data.length === 6);
+      setTeamsOffset((prev) => prev + data.length);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsFetchingTeams(false);
+    }
+  };
+
   useEffect(() => {
     fetchTeamData();
   }, [hackathon_id]);
+
+  useEffect(() => {
+    if (!hasMoreTeams || isFetchingTeams || loading || myTeam) return;
+    const trigger = document.getElementById("teams-load-more-trigger");
+    if (!trigger) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        loadMoreTeams();
+      }
+    }, { threshold: 0.1 });
+
+    observer.observe(trigger);
+    return () => observer.disconnect();
+  }, [teamsOffset, hasMoreTeams, isFetchingTeams, loading, myTeam]);
 
   const showSuccess = (msg: string) => {
     setSuccessMsg(msg);
@@ -457,40 +501,47 @@ export default function TeamManagement({ hackathon_id, user_id, event }: { hacka
             {publicTeams.length === 0 ? (
               <p className="text-sm text-slate-500 text-center py-8">No public teams found for this hackathon yet.</p>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {publicTeams.map(team => {
-                  const isFull = team.members.length >= maxTeamSize;
-                  const hasRequested = myRequests.some(r => r.team_id === team.id);
-                  return (
-                    <motion.div key={team.id} whileHover={{ y: -2 }} className="p-5 bg-white/50 dark:bg-slate-900/40 border border-slate-200 dark:border-white/5 rounded-2xl flex flex-col justify-between h-full">
-                      <div>
-                        <h3 className="font-black text-lg text-slate-900 dark:text-white">{team.team_name}</h3>
-                        <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase">Members ({team.members.length}/{maxTeamSize})</p>
-                        <div className="flex flex-wrap gap-1.5 mt-3">
-                          {team.members.map(m => (
-                            <span key={m.id} className="text-[10px] px-2 py-1 bg-slate-200/50 dark:bg-slate-800 rounded font-semibold text-slate-700 dark:text-slate-300">
-                              {m.name.split(' ')[0]} {m.id === team.leader_id && "👑"}
-                            </span>
-                          ))}
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {publicTeams.map(team => {
+                    const isFull = team.members.length >= maxTeamSize;
+                    const hasRequested = myRequests.some(r => r.team_id === team.id);
+                    return (
+                      <motion.div key={team.id} whileHover={{ y: -2 }} className="p-5 bg-white/50 dark:bg-slate-900/40 border border-slate-200 dark:border-white/5 rounded-2xl flex flex-col justify-between h-full">
+                        <div>
+                          <h3 className="font-black text-lg text-slate-900 dark:text-white">{team.team_name}</h3>
+                          <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase">Members ({team.members.length}/{maxTeamSize})</p>
+                          <div className="flex flex-wrap gap-1.5 mt-3">
+                            {team.members.map(m => (
+                              <span key={m.id} className="text-[10px] px-2 py-1 bg-slate-200/50 dark:bg-slate-800 rounded font-semibold text-slate-700 dark:text-slate-300">
+                                {m.name.split(' ')[0]} {m.id === team.leader_id && "👑"}
+                              </span>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                      <div className="mt-5 pt-4 border-t border-slate-200/50 dark:border-white/5">
-                        <button
-                          disabled={actionLoading || isFull || hasRequested}
-                          onClick={() => handleRequestToJoin(team.id)}
-                          className={`w-full py-2.5 rounded-xl text-xs font-bold transition-colors ${
-                            hasRequested ? "bg-blue-500/10 text-blue-600 cursor-not-allowed" :
-                            isFull ? "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed" :
-                            "bg-blue-600 hover:bg-blue-500 text-white"
-                          }`}
-                        >
-                          {hasRequested ? "Request Sent" : isFull ? "Team Full" : "Request to Join"}
-                        </button>
-                      </div>
-                    </motion.div>
-                  )
-                })}
-              </div>
+                        <div className="mt-5 pt-4 border-t border-slate-200/50 dark:border-white/5">
+                          <button
+                            disabled={actionLoading || isFull || hasRequested}
+                            onClick={() => handleRequestToJoin(team.id)}
+                            className={`w-full py-2.5 rounded-xl text-xs font-bold transition-colors ${
+                              hasRequested ? "bg-blue-500/10 text-blue-600 cursor-not-allowed" :
+                              isFull ? "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed" :
+                              "bg-blue-600 hover:bg-blue-500 text-white"
+                            }`}
+                          >
+                            {hasRequested ? "Request Sent" : isFull ? "Team Full" : "Request to Join"}
+                          </button>
+                        </div>
+                      </motion.div>
+                    )
+                  })}
+                </div>
+                {hasMoreTeams && (
+                  <div id="teams-load-more-trigger" className="h-16 w-full flex items-center justify-center mt-6">
+                    <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

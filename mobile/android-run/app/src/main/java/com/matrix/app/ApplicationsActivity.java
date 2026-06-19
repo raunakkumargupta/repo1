@@ -13,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.matrix.app.models.Hackathon;
 import com.matrix.app.models.Registration;
+import com.matrix.app.chat.ConversationsActivity;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -49,11 +50,19 @@ public class ApplicationsActivity extends AppCompatActivity {
             if (id == R.id.nav_explore) {
                 startActivity(new Intent(this, ExploreActivity.class));
                 overridePendingTransition(0, 0);
+                finish();
+                return true;
+            }
+            if (id == R.id.nav_chat) {
+                startActivity(new Intent(this, ConversationsActivity.class));
+                overridePendingTransition(0, 0);
+                finish();
                 return true;
             }
             if (id == R.id.nav_profile) {
                 startActivity(new Intent(this, ProfileActivity.class));
                 overridePendingTransition(0, 0);
+                finish();
                 return true;
             }
             return false;

@@ -9,10 +9,12 @@ import {
   Sun, Moon, Compass, CalendarPlus, Settings, ShieldAlert, Layers
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useCometChat } from "@/components/providers/CometChatProvider";
 
 type NavItem = { name: string; href: string; icon: any };
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const { logoutUser } = useCometChat();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
   const [user, setUser] = useState<{ id: string; role: string } | null | undefined>(undefined);
@@ -118,6 +120,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
+    try {
+      await logoutUser();
+    } catch (e) {
+      console.error("CometChat logout error:", e);
+    }
     setUser(null);
     router.push("/login");
   };

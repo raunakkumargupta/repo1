@@ -11,8 +11,10 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 import com.matrix.app.models.Hackathon;
+import com.matrix.app.chat.ConversationsActivity;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,7 +26,19 @@ import retrofit2.Response;
 public class ExploreActivity extends AppCompatActivity {
 
     private LinearLayout container;
-    private List<Hackathon> allHackathons = new ArrayList<>();
+    private MatrixApi api;
+
+    // Pagination & Search
+    private int currentPage = 1;
+    private final int pageSize = 10;
+    private boolean hasMore = false;
+    private String currentSearchQuery = "";
+    private int queryCounter = 0;
+
+    private LinearLayout layoutPagination;
+    private MaterialButton btnPrevPage;
+    private MaterialButton btnNextPage;
+    private TextView tvPageNum;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -34,7 +48,12 @@ public class ExploreActivity extends AppCompatActivity {
         container = findViewById(R.id.hackathon_container);
         TextInputEditText etSearch = findViewById(R.id.et_search);
 
-        MatrixApi api = ApiClient.getClient(new SecurityManager(this)).create(MatrixApi.class);
+        layoutPagination = findViewById(R.id.layout_hackathon_pagination);
+        btnPrevPage = findViewById(R.id.btn_hackathon_prev);
+        btnNextPage = findViewById(R.id.btn_hackathon_next);
+        tvPageNum = findViewById(R.id.tv_hackathon_page_num);
+
+        api = ApiClient.getClient(new SecurityManager(this)).create(MatrixApi.class);
 
         // Bottom nav
         BottomNavigationView bottomNav = findViewById(R.id.bottom_nav);
@@ -48,59 +67,107 @@ public class ExploreActivity extends AppCompatActivity {
                 finish();
                 return true;
             }
+            if (id == R.id.nav_chat) {
+                startActivity(new Intent(this, ConversationsActivity.class));
+                overridePendingTransition(0, 0);
+                finish();
+                return true;
+            }
             if (id == R.id.nav_applications) {
                 startActivity(new Intent(this, ApplicationsActivity.class));
                 overridePendingTransition(0, 0);
+                finish();
                 return true;
             }
             if (id == R.id.nav_profile) {
                 startActivity(new Intent(this, ProfileActivity.class));
                 overridePendingTransition(0, 0);
+                finish();
                 return true;
             }
             return false;
         });
 
-        // Load hackathons
-        api.listHackathons().enqueue(new Callback<List<Hackathon>>() {
-            @Override
-            public void onResponse(Call<List<Hackathon>> call, Response<List<Hackathon>> response) {
-                if (response.body() == null || response.body().isEmpty()) {
-                    showEmpty("No hackathons found.");
-                    return;
-                }
-                allHackathons = response.body();
-                renderList(allHackathons);
-            }
-            @Override
-            public void onFailure(Call<List<Hackathon>> call, Throwable t) {
-                showEmpty("Failed to load hackathons. Check your connection.");
+        // Pagination buttons
+        btnPrevPage.setOnClickListener(v -> {
+            if (currentPage > 1) {
+                currentPage--;
+                loadHackathons();
             }
         });
 
-        // Live search filter
+        btnNextPage.setOnClickListener(v -> {
+            if (hasMore) {
+                currentPage++;
+                loadHackathons();
+            }
+        });
+
+        // Debounced universal search
         etSearch.addTextChangedListener(new TextWatcher() {
+            private Runnable searchRunnable;
+            private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+
             @Override public void beforeTextChanged(CharSequence s, int i, int i1, int i2) {}
             @Override public void onTextChanged(CharSequence s, int i, int i1, int i2) {
-                String q = s.toString().toLowerCase().trim();
-                if (q.isEmpty()) { renderList(allHackathons); return; }
-                List<Hackathon> filtered = new ArrayList<>();
-                for (Hackathon h : allHackathons) {
-                    if (h.getTitle().toLowerCase().contains(q)
-                            || (h.getDescription() != null && h.getDescription().toLowerCase().contains(q))) {
-                        filtered.add(h);
-                    }
+                if (searchRunnable != null) {
+                    handler.removeCallbacks(searchRunnable);
                 }
-                renderList(filtered);
+                searchRunnable = () -> {
+                    currentSearchQuery = s.toString().trim();
+                    currentPage = 1;
+                    loadHackathons();
+                };
+                handler.postDelayed(searchRunnable, 300); // 300ms delay
             }
             @Override public void afterTextChanged(Editable s) {}
+        });
+
+        loadHackathons();
+    }
+
+    private void loadHackathons() {
+        final int thisQueryId = ++queryCounter;
+        int offset = (currentPage - 1) * pageSize;
+        String searchVal = currentSearchQuery.isEmpty() ? null : currentSearchQuery;
+
+        api.searchHackathons(pageSize, offset, searchVal).enqueue(new Callback<List<Hackathon>>() {
+            @Override
+            public void onResponse(Call<List<Hackathon>> call, Response<List<Hackathon>> response) {
+                if (thisQueryId != queryCounter) return; // ignore stale query responses
+
+                List<Hackathon> list = response.body();
+                if (list == null || list.isEmpty()) {
+                    showEmpty(currentSearchQuery.isEmpty() ? "No hackathons found." : "No matching hackathons.");
+                    hasMore = false;
+                    layoutPagination.setVisibility(View.GONE);
+                    return;
+                }
+
+                hasMore = list.size() == pageSize;
+                renderList(list);
+
+                if (currentPage > 1 || hasMore) {
+                    layoutPagination.setVisibility(View.VISIBLE);
+                    tvPageNum.setText("Page " + currentPage);
+                    btnPrevPage.setEnabled(currentPage > 1);
+                    btnNextPage.setEnabled(hasMore);
+                } else {
+                    layoutPagination.setVisibility(View.GONE);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<Hackathon>> call, Throwable t) {
+                if (thisQueryId != queryCounter) return;
+                showEmpty("Failed to load hackathons. Check your connection.");
+                layoutPagination.setVisibility(View.GONE);
+            }
         });
     }
 
     private void renderList(List<Hackathon> list) {
         container.removeAllViews();
-        if (list.isEmpty()) { showEmpty("No matching hackathons."); return; }
-
         for (Hackathon h : list) {
             View card = getLayoutInflater().inflate(R.layout.item_hackathon_card, container, false);
             TextView tvTitle  = card.findViewById(R.id.card_title);

@@ -1,5 +1,5 @@
 <resources>
-    <style name="Theme.MatrixApp" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="Theme.MatrixApp" parent="CometChatTheme.DayNight">
         <item name="colorPrimary">@color/primaryAccent</item>
         <item name="colorPrimaryVariant">@color/primaryAccentDark</item>
         <item name="colorOnPrimary">@color/onPrimary</item>

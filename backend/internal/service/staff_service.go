@@ -101,3 +101,8 @@ func (s *StaffService) GetStaffHackathons(ctx context.Context, userID string) ([
 func (s *StaffService) GetHackathonStaffList(ctx context.Context, hackathonID string) ([]models.HackathonStaffResponse, error) {
 	return s.pgRepo.GetHackathonStaffList(ctx, hackathonID)
 }
+
+func (s *StaffService) RemoveStaff(ctx context.Context, hackathonID, userID string) error {
+	return s.pgRepo.RemoveStaff(ctx, hackathonID, userID)
+}
+

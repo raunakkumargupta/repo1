@@ -388,6 +388,7 @@ export default function OrganizerDashboard({ params }: Props) {
   // Data states
   const [applications, setApplications] = useState<Application[]>([]);
   const [submissions, setSubmissions] = useState<TeamSubmission[]>([]);
+  const [staffList, setStaffList] = useState<any[]>([]);
   const [stats, setStats] = useState({ pending: 0, accepted: 0, teams: 0, submissions: 0 });
 
   // Profile modal states
@@ -562,6 +563,8 @@ export default function OrganizerDashboard({ params }: Props) {
       setApplications(apps);
       const subs = await fetch(`/api/hackathons/${hackathon_id}/submissions`).then((r) => r.ok ? r.json() : []);
       setSubmissions(subs);
+      const staff = await fetch(`/api/hackathons/${hackathon_id}/staff`).then((r) => r.ok ? r.json() : []);
+      setStaffList(staff || []);
       setStats({
         pending: apps.filter((a: any) => a.approval_status === "Pending").length,
         accepted: apps.filter((a: any) => a.approval_status === "Accepted").length,
@@ -600,7 +603,24 @@ export default function OrganizerDashboard({ params }: Props) {
       }
       setStaffMsg("Staff assigned successfully!");
       setStaffEmail("");
+      await fetchData();
     } catch (err: any) { setStaffMsg(`Error: ${err.message || "Failed"}`); }
+  };
+
+  const handleRemoveStaff = async (userId: string) => {
+    if (!confirm("Are you sure you want to remove this staff member? They will lose staff privileges for this event.")) return;
+    try {
+      const res = await fetch(`/api/hackathons/${hackathon_id}/staff/${userId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to remove staff member");
+      }
+      await fetchData();
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    }
   };
 
   const handleSendBroadcast = async () => {
@@ -1432,26 +1452,84 @@ export default function OrganizerDashboard({ params }: Props) {
                   <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">Event Staff Assignment</h1>
                   <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">Assign invited users to Mentor or Judge roles for this hackathon.</p>
                 </header>
-                <form onSubmit={handleInviteStaff} className="glass border border-slate-200/60 dark:border-white/10 rounded-2xl p-6 max-w-md space-y-4">
-                  <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-200/60 dark:border-white/10">
-                    <Mail className="w-4 h-4 text-blue-500" />
-                    <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Add Staff Member</h2>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                  {/* Form to Add Staff */}
+                  <div className="lg:col-span-1">
+                    <form onSubmit={handleInviteStaff} className="glass border border-slate-200/60 dark:border-white/10 rounded-2xl p-6 space-y-4">
+                      <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-200/60 dark:border-white/10">
+                        <Mail className="w-4 h-4 text-blue-500" />
+                        <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Add Staff Member</h2>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Email Address</label>
+                        <input type="email" required placeholder="staff@hackathon.com" value={staffEmail} onChange={(e) => setStaffEmail(e.target.value)} className="w-full px-3.5 py-2.5 bg-white/50 dark:bg-slate-950/40 border border-slate-200 dark:border-white/10 rounded-xl text-xs focus:outline-none focus:border-blue-500 text-slate-900 dark:text-white" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Role Assign</label>
+                        <div className="flex gap-2">
+                          {["Mentor", "Judge"].map((r) => (
+                            <button key={r} type="button" onClick={() => setStaffRole(r)} className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all border cursor-pointer ${staffRole === r ? "border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400" : "border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5"}`}>{r}</button>
+                          ))}
+                        </div>
+                      </div>
+                      {staffMsg && <div className={`p-3 rounded-xl text-xs font-semibold ${staffMsg.includes("Error") ? "bg-red-500/10 text-red-600 border border-red-500/25" : "bg-green-500/10 text-green-600 border border-green-500/25"}`}>{staffMsg}</div>}
+                      <button type="submit" disabled={!staffEmail.trim()} className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs uppercase tracking-wider cursor-pointer shadow-md disabled:opacity-50 transition-all">Assign Staff Member</button>
+                    </form>
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Email Address</label>
-                    <input type="email" required placeholder="staff@hackathon.com" value={staffEmail} onChange={(e) => setStaffEmail(e.target.value)} className="w-full px-3.5 py-2.5 bg-white/50 dark:bg-slate-950/40 border border-slate-200 dark:border-white/10 rounded-xl text-xs focus:outline-none focus:border-blue-500 text-slate-900 dark:text-white" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Role Assign</label>
-                    <div className="flex gap-2">
-                      {["Mentor", "Judge"].map((r) => (
-                        <button key={r} type="button" onClick={() => setStaffRole(r)} className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all border cursor-pointer ${staffRole === r ? "border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400" : "border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5"}`}>{r}</button>
-                      ))}
+
+                  {/* List of Assigned Staff */}
+                  <div className="lg:col-span-2 space-y-4">
+                    <div className="glass border border-slate-200/60 dark:border-white/10 rounded-2xl p-6">
+                      <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-200/60 dark:border-white/10">
+                        <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Assigned Staff ({staffList.length})</h2>
+                      </div>
+                      
+                      {staffList.length === 0 ? (
+                        <p className="text-xs text-slate-500 italic py-4 text-center">No staff members assigned to this hackathon yet.</p>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="border-b border-slate-200/60 dark:border-white/10 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest font-mono">
+                                <th className="py-2.5">Name</th>
+                                <th className="py-2.5">Email</th>
+                                <th className="py-2.5">Role</th>
+                                <th className="py-2.5 text-right">Action</th>
+                              </tr>
+                            </thead>
+                            <tbody className="text-xs divide-y divide-slate-200/40 dark:divide-white/5 font-semibold text-slate-800 dark:text-slate-200">
+                              {staffList.map((staffMember) => (
+                                <tr key={staffMember.user_id} className="hover:bg-slate-50/50 dark:hover:bg-white/2 transition-colors">
+                                  <td className="py-3 font-extrabold text-slate-900 dark:text-white">{staffMember.name || "Placeholder Name"}</td>
+                                  <td className="py-3 font-mono text-slate-500 dark:text-slate-400">{staffMember.email}</td>
+                                  <td className="py-3">
+                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border font-mono ${
+                                      staffMember.role === "Mentor" 
+                                        ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20" 
+                                        : "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20"
+                                    }`}>
+                                      {staffMember.role}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 text-right">
+                                    <button
+                                      onClick={() => handleRemoveStaff(staffMember.user_id)}
+                                      className="p-1 text-rose-500 hover:bg-rose-500/15 border border-transparent hover:border-rose-500/20 rounded-lg cursor-pointer transition-all"
+                                      title="Remove Staff Member"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  {staffMsg && <div className={`p-3 rounded-xl text-xs font-semibold ${staffMsg.includes("Error") ? "bg-red-500/10 text-red-600 border border-red-500/25" : "bg-green-500/10 text-green-600 border border-green-500/25"}`}>{staffMsg}</div>}
-                  <button type="submit" disabled={!staffEmail.trim()} className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs uppercase tracking-wider cursor-pointer shadow-md disabled:opacity-50 transition-all">Assign Staff Member</button>
-                </form>
+                </div>
               </div>
             )}
 

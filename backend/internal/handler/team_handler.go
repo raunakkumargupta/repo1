@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/raunakkumargupta/repo1/backend/internal/middleware"
@@ -185,7 +186,25 @@ func (h *TeamHandler) RemoveMember(w http.ResponseWriter, r *http.Request) {
 
 func (h *TeamHandler) GetPublicTeams(w http.ResponseWriter, r *http.Request) {
 	hackathonID := chi.URLParam(r, "id")
-	teams, err := h.teamService.GetPublicTeamsByHackathon(r.Context(), hackathonID)
+
+	var limitPtr, offsetPtr *int
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if limit, err := strconv.Atoi(limitStr); err == nil {
+			limitPtr = &limit
+		}
+	}
+	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
+		if offset, err := strconv.Atoi(offsetStr); err == nil {
+			offsetPtr = &offset
+		}
+	}
+
+	var searchPtr *string
+	if searchStr := r.URL.Query().Get("search"); searchStr != "" {
+		searchPtr = &searchStr
+	}
+
+	teams, err := h.teamService.GetPublicTeamsByHackathon(r.Context(), hackathonID, limitPtr, offsetPtr, searchPtr)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

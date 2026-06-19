@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/raunakkumargupta/repo1/backend/internal/middleware"
@@ -74,12 +75,39 @@ func (h *RegistrationHandler) ListByHackathon(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	list, err := h.regService.ListByHackathon(r.Context(), hackathonID)
+	var limitPtr, offsetPtr *int
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if limit, err := strconv.Atoi(limitStr); err == nil {
+			limitPtr = &limit
+		}
+	}
+	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
+		if offset, err := strconv.Atoi(offsetStr); err == nil {
+			offsetPtr = &offset
+		}
+	}
+
+	var approvalStatusPtr, teamPreferencePtr, searchPtr, excludeUserIDPtr *string
+	if status := r.URL.Query().Get("approval_status"); status != "" {
+		approvalStatusPtr = &status
+	}
+	if preference := r.URL.Query().Get("team_preference"); preference != "" {
+		teamPreferencePtr = &preference
+	}
+	if search := r.URL.Query().Get("search"); search != "" {
+		searchPtr = &search
+	}
+	if excludeUserID := r.URL.Query().Get("exclude_user_id"); excludeUserID != "" {
+		excludeUserIDPtr = &excludeUserID
+	}
+
+	list, total, err := h.regService.ListByHackathon(r.Context(), hackathonID, limitPtr, offsetPtr, approvalStatusPtr, teamPreferencePtr, searchPtr, excludeUserIDPtr)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	w.Header().Set("X-Total-Count", strconv.Itoa(total))
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(list)
 }

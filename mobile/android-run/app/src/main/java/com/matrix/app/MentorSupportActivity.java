@@ -1,5 +1,6 @@
 package com.matrix.app;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.widget.Toast;
 
@@ -62,6 +63,13 @@ public class MentorSupportActivity extends AppCompatActivity {
                                 if (res.isSuccessful()) {
                                     Toast.makeText(MentorSupportActivity.this, "Ticket submitted! A mentor will respond shortly.", Toast.LENGTH_SHORT).show();
                                     description.setText("");
+
+                                    // Open CometChat group for this ticket so the hacker can chat with their mentor
+                                    // The GUID convention: "ticket-<teamId>" (set by sync-cometchat-groups backend script)
+                                    Intent chatIntent = new Intent(MentorSupportActivity.this, com.matrix.app.chat.GroupChatActivity.class);
+                                    chatIntent.putExtra("guid", "ticket-" + teamId);
+                                    chatIntent.putExtra("name", "Mentor Support");
+                                    startActivity(chatIntent);
                                 } else {
                                     Toast.makeText(MentorSupportActivity.this, "Submission failed (check registration status)", Toast.LENGTH_SHORT).show();
                                 }

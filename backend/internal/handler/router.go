@@ -130,6 +130,7 @@ func NewRouter(
 			// Tickets
 			r.Post("/api/hackathons/{id}/tickets", ticketHandler.CreateTicket)
 			r.Get("/api/hackathons/{id}/my-tickets", ticketHandler.GetMyTickets)
+			r.Put("/api/hackathons/{id}/tickets/{ticket_id}/resolve", ticketHandler.ResolveOwnTicket)
 			
 			// Broadcast announcements history
 			r.Get("/api/hackathons/{id}/broadcasts", announcementHandler.List)
@@ -151,6 +152,7 @@ func NewRouter(
 			// Staffing
 			r.Post("/api/hackathons/{id}/staff", staffHandler.Assign)
 			r.Get("/api/hackathons/{id}/staff", staffHandler.GetStaffList)
+			r.Delete("/api/hackathons/{id}/staff/{userId}", staffHandler.Remove)
 			
 			// Broadcast announcements
 			r.Post("/api/hackathons/{id}/broadcasts", announcementHandler.Create)
@@ -169,6 +171,7 @@ func NewRouter(
 			r.Use(middleware.RequireRole(models.RoleMentor, models.RoleAgent, models.RoleOrganizer, models.RoleAdmin, models.RoleSuperAdmin))
 			
 			r.Get("/api/hackathons/{id}/tickets", ticketHandler.GetQueue)
+			r.Get("/api/hackathons/{id}/tickets/resolved", ticketHandler.GetResolvedTickets)
 			r.Put("/api/tickets/{ticket_id}/status", ticketHandler.UpdateStatus)
 		})
 

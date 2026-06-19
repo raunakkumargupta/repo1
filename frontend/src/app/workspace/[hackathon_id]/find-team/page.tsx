@@ -35,9 +35,14 @@ type HackerProfile = {
 
 export default function FindTeamPage({ params }: Props) {
   const { hackathon_id } = use(params);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [isSearching, setIsSearching] = useState(false);
   const [profiles, setProfiles] = useState<HackerProfile[]>([]);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
 
   // CometChat integration
   const { isInitialized, loginUser } = useCometChat();
@@ -51,33 +56,57 @@ export default function FindTeamPage({ params }: Props) {
     }
   }, [isInitialized, user?.id, loginUser]);
 
+  // Debounce search input
   useEffect(() => {
-    // Fetch all registrations for this hackathon
-    fetch(`/api/hackathons/${hackathon_id}/applications`)
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data: HackerProfile[]) => {
-        // Filter: only show accepted hackers looking for team
-        const filtered = data.filter(
-          (p) => p.approval_status === "Accepted" && p.team_preference === "Looking for Team"
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [search]);
+
+  // Reset page to 1 on search queries
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      setIsSearching(true);
+      try {
+        const excludeParam = user?.id ? `&exclude_user_id=${user.id}` : "";
+        const res = await fetch(
+          `/api/hackathons/${hackathon_id}/applications?limit=10&offset=${(page - 1) * 10}&approval_status=Accepted&team_preference=Looking for Team&search=${encodeURIComponent(debouncedSearch)}${excludeParam}`
         );
-        setProfiles(filtered);
-      })
-      .catch((err) => console.error(err))
-      .finally(() => setLoading(false));
-  }, [hackathon_id]);
+        const data = res.ok ? await res.json() : [];
+        if (!active) return;
+        setProfiles(data);
+        const totalHeader = res.headers.get("X-Total-Count");
+        const total = totalHeader ? parseInt(totalHeader, 10) : 0;
+        const computedTotalPages = Math.max(Math.ceil(total / 10), 1);
+        setTotalPages(computedTotalPages);
+        setHasMore(page < computedTotalPages);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (active) {
+          setIsSearching(false);
+          setInitialLoading(false);
+        }
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [page, debouncedSearch, hackathon_id, user?.id]);
 
-  const filtered = profiles.filter((p) => {
-    const term = search.toLowerCase();
-    const matchesName = p.user_name.toLowerCase().includes(term);
-    let skillsArr: string[] = [];
-    try {
-      skillsArr = JSON.parse(p.skills);
-    } catch(e) {}
-    const matchesSkill = skillsArr.some((s) => s.toLowerCase().includes(term));
-    return matchesName || matchesSkill;
-  });
+  const filtered = profiles;
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
         <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
@@ -110,8 +139,11 @@ export default function FindTeamPage({ params }: Props) {
               placeholder="Search by name or skill..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-white/60 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+              className="w-full pl-9 pr-8 py-2 bg-white/60 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
             />
+            {isSearching && (
+              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-slate-500" />
+            )}
           </div>
         </header>
 
@@ -194,6 +226,29 @@ export default function FindTeamPage({ params }: Props) {
                 </motion.div>
               );
             })}
+          </div>
+        )}
+
+        {/* Pagination Controls */}
+        {(profiles.length > 0 || page > 1) && (
+          <div className="flex items-center justify-between border-t border-slate-200/40 dark:border-white/5 pt-6 mt-8">
+            <button
+              onClick={() => setPage(p => Math.max(p - 1, 1))}
+              disabled={page === 1}
+              className="px-4 py-2 bg-white/60 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+            >
+              Previous
+            </button>
+            <span className="text-xs font-semibold text-slate-500">
+              Page {page} of {totalPages}
+            </span>
+            <button
+              onClick={() => setPage(p => p + 1)}
+              disabled={!hasMore}
+              className="px-4 py-2 bg-white/60 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+            >
+              Next
+            </button>
           </div>
         )}
 

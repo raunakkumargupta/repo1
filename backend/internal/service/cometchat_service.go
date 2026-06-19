@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 )
 
 // CometChatService handles all interactions with the CometChat REST API.
@@ -55,7 +56,7 @@ func (s *CometChatService) CreateUser(ctx context.Context, uid, name, role strin
 	payload := CometChatUserPayload{
 		UID:  uid,
 		Name: name,
-		Role: role,
+		Role: "default",
 		Tags: []string{role},
 		Metadata: map[string]interface{}{
 			"app_role": role,
@@ -78,18 +79,31 @@ func (s *CometChatService) CreateUser(ctx context.Context, uid, name, role strin
 	}
 	defer resp.Body.Close()
 
+	respBody, _ := io.ReadAll(resp.Body)
+
 	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
 		log.Printf("[CometChat] User created: UID=%s Name=%s Role=%s", uid, name, role)
 		return nil
 	}
 
-	// If user already exists (409), that's fine — treat as success for idempotency
+	// Treat conflict (409) or 400 Bad Request with ERR_UID_ALREADY_EXISTS code as success for idempotency
 	if resp.StatusCode == http.StatusConflict {
-		log.Printf("[CometChat] User already exists: UID=%s — skipping", uid)
+		log.Printf("[CometChat] User already exists (409): UID=%s — skipping", uid)
 		return nil
 	}
 
-	respBody, _ := io.ReadAll(resp.Body)
+	var errResp struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(respBody, &errResp); err == nil {
+		if errResp.Error.Code == "ERR_UID_ALREADY_EXISTS" {
+			log.Printf("[CometChat] User already exists: UID=%s — skipping", uid)
+			return nil
+		}
+	}
+
 	return fmt.Errorf("cometchat: create-user failed (status %d): %s", resp.StatusCode, string(respBody))
 }
 
@@ -200,27 +214,38 @@ func (s *CometChatService) CreateGroup(ctx context.Context, guid, name, ownerUID
 	}
 	defer resp.Body.Close()
 
+	respBody, _ := io.ReadAll(resp.Body)
+
 	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
 		log.Printf("[CometChat] Group created: GUID=%s Name=%s", guid, name)
 		return nil
 	}
 
-	// 409 = already exists — idempotent
+	// Treat conflict (409) or 400 Bad Request with ERR_GUID_ALREADY_EXISTS code as success for idempotency
 	if resp.StatusCode == http.StatusConflict {
-		log.Printf("[CometChat] Group already exists: GUID=%s — skipping", guid)
+		log.Printf("[CometChat] Group already exists (409): GUID=%s — skipping", guid)
 		return nil
 	}
 
-	respBody, _ := io.ReadAll(resp.Body)
+	var errResp struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(respBody, &errResp); err == nil {
+		if errResp.Error.Code == "ERR_GUID_ALREADY_EXISTS" {
+			log.Printf("[CometChat] Group already exists: GUID=%s — skipping", guid)
+			return nil
+		}
+	}
+
 	return fmt.Errorf("cometchat: create-group failed (status %d): %s", resp.StatusCode, string(respBody))
 }
 
 // AddMemberToGroup adds a user to a CometChat group.
 func (s *CometChatService) AddMemberToGroup(ctx context.Context, guid, uid string) error {
 	payload := map[string]interface{}{
-		"participants": []map[string]string{
-			{"uid": uid},
-		},
+		"participants": []string{uid},
 	}
 
 	body, _ := json.Marshal(payload)
@@ -232,7 +257,6 @@ func (s *CometChatService) AddMemberToGroup(ctx context.Context, guid, uid strin
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("apikey", s.apiKey)
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("onBehalfOf", uid)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -240,13 +264,89 @@ func (s *CometChatService) AddMemberToGroup(ctx context.Context, guid, uid strin
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
-		log.Printf("[CometChat] Member added to group: GUID=%s UID=%s", guid, uid)
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("cometchat: failed to read add-member response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("cometchat: add-member HTTP failure (status %d): %s", resp.StatusCode, string(respBody))
+	}
+
+	// Parse the response body to check for user success
+	var result struct {
+		Data struct {
+			Participants map[string]struct {
+				Success bool `json:"success"`
+				Error   *struct {
+					Code    string `json:"code"`
+					Message string `json:"message"`
+				} `json:"error"`
+			} `json:"participants"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return fmt.Errorf("cometchat: failed to parse add-member JSON response: %w", err)
+	}
+
+	pResult, exists := result.Data.Participants[uid]
+	if !exists {
+		for k, v := range result.Data.Participants {
+			if strings.EqualFold(k, uid) {
+				pResult = v
+				exists = true
+				break
+			}
+		}
+	}
+
+	if !exists {
+		return fmt.Errorf("cometchat: add-member response did not contain status for UID %s: %s", uid, string(respBody))
+	}
+
+	if !pResult.Success {
+		if pResult.Error != nil {
+			code := pResult.Error.Code
+			// If user is already in the group (or is the group owner/already has this scope), treat as success
+			if code == "ERR_GROUP_OWNER_DEMOTE_FORBIDDEN" || code == "ERR_SAME_SCOPE" || code == "ERR_ALREADY_JOINED" {
+				log.Printf("[CometChat] Member %s already in group %s (code: %s) — skipping", uid, guid, code)
+				return nil
+			}
+			return fmt.Errorf("cometchat: add-member failed for UID %s: %s (code: %s)", uid, pResult.Error.Message, pResult.Error.Code)
+		}
+		return fmt.Errorf("cometchat: add-member failed for UID %s: success was false", uid)
+	}
+
+	log.Printf("[CometChat] Member added to group: GUID=%s UID=%s", guid, uid)
+	return nil
+}
+
+// DeleteGroup deletes a CometChat group.
+func (s *CometChatService) DeleteGroup(ctx context.Context, guid string) error {
+	req, err := http.NewRequestWithContext(ctx, "DELETE", s.baseURL+"/groups/"+guid, nil)
+	if err != nil {
+		return fmt.Errorf("cometchat: failed to build delete-group request: %w", err)
+	}
+	req.Header.Set("apikey", s.apiKey)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("cometchat: delete-group HTTP error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		log.Printf("[CometChat] Group deleted: GUID=%s", guid)
 		return nil
 	}
 
 	respBody, _ := io.ReadAll(resp.Body)
-	log.Printf("[CometChat] Add member response (status %d): %s", resp.StatusCode, string(respBody))
-	// Non-fatal — member might already be in the group
-	return nil
+	// If the group is already gone (404), return nil for idempotency
+	if resp.StatusCode == http.StatusNotFound {
+		log.Printf("[CometChat] Group already deleted (404): GUID=%s — skipping", guid)
+		return nil
+	}
+	return fmt.Errorf("cometchat: delete-group failed (status %d): %s", resp.StatusCode, string(respBody))
 }

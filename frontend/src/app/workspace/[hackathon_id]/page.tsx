@@ -1,10 +1,19 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, use, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import TeamManagement from "./TeamManagement";
+import { useCometChat } from "@/components/providers/CometChatProvider";
+import { useAuth } from "@/lib/auth";
+
+// Dynamic import with ssr:false — CometChat UI Kit is browser-only.
+const TeamGroupChat = dynamic(() => import("@/components/chat/TeamGroupChat"), {
+  ssr: false,
+});
+
 
 type ScheduleItem = {
   time: string;
@@ -74,7 +83,8 @@ import {
   Medal,
   Star,
   Layers,
-  Award
+  Award,
+  MessageSquare
 } from "lucide-react";
 import { fetchApi } from "@/lib/api";
 
@@ -641,6 +651,67 @@ export default function WorkspacePage({ params }: Props) {
   const [myTickets, setMyTickets] = useState<any[]>([]);
   const [fullProfile, setFullProfile] = useState<any>(null);
 
+  // Support Chat GUID (team_id)
+  const [showSupportChatTeamId, setShowSupportChatTeamId] = useState<string | null>(null);
+
+  // Custom Toasts State
+  const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: "info" | "success" | "error" }>>([]);
+
+  // Ref for tracking previous tickets to detect status changes
+  const prevTicketsRef = useRef<any[]>([]);
+
+  // CometChat integration
+  const { isInitialized, loginUser } = useCometChat();
+  const { user: authUser } = useAuth();
+
+  // Auto-login to CometChat when user is authenticated
+  useEffect(() => {
+    if (isInitialized && authUser?.id) {
+      loginUser(authUser.id);
+    }
+  }, [isInitialized, authUser]);
+
+  // Request browser notification permission on mount
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+    }
+  }, []);
+
+  // Show a custom Toast
+  const showToast = (message: string, type: "info" | "success" | "error" = "info") => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 5000);
+  };
+
+  // Trigger notification when a mentor claims a ticket
+  const triggerMentorJoinedNotification = (ticket: any) => {
+    // 1. App toast
+    showToast("🔧 A mentor has joined your chat!", "success");
+
+    // 2. Web/Desktop push notification
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "granted") {
+        new Notification("Mentor Assigned!", {
+          body: "A mentor has claimed your support ticket and joined the chat.",
+        });
+      } else if (Notification.permission !== "denied") {
+        Notification.requestPermission().then((permission) => {
+          if (permission === "granted") {
+            new Notification("Mentor Assigned!", {
+              body: "A mentor has claimed your support ticket and joined the chat.",
+            });
+          }
+        });
+      }
+    }
+  };
+
   useEffect(() => {
     // 1. Fetch Event details
     fetch(`/api/hackathons/${hackathon_id}`)
@@ -679,6 +750,12 @@ export default function WorkspacePage({ params }: Props) {
 
     // Fetch my team's tickets
     fetchMyTickets();
+
+    const interval = setInterval(() => {
+      fetchMyTickets();
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, [hackathon_id]);
 
   const handleApply = async (e: React.FormEvent) => {
@@ -779,9 +856,30 @@ export default function WorkspacePage({ params }: Props) {
       // Refresh my tickets list
       fetchMyTickets(teamID);
     } catch (err: any) {
-      setTicketMsg(`Error: ${err.message || "Failed to create ticket"}`);
+      if (err.message && (err.message.includes("Conflict") || err.message.includes("already has an open ticket") || err.message.includes("already has an active support request"))) {
+        setTicketMsg("Your team already has an active support request. You can resolve it below if you no longer need assistance.");
+      } else {
+        setTicketMsg(`Error: ${err.message || "Failed to create ticket"}`);
+      }
     } finally {
       setTicketSubmitting(false);
+    }
+  };
+
+  const handleHackerResolveTicket = async (ticketId: string) => {
+    try {
+      const res = await fetch(`/api/hackathons/${hackathon_id}/tickets/${ticketId}/resolve`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to resolve ticket");
+      }
+      showToast("Ticket marked as resolved!", "success");
+      fetchMyTickets();
+    } catch (err: any) {
+      showToast(err.message || "Failed to resolve ticket", "error");
     }
   };
 
@@ -794,8 +892,23 @@ export default function WorkspacePage({ params }: Props) {
       }
       if (!tid) return;
       const data = await fetch(`/api/hackathons/${hackathon_id}/my-tickets?team_id=${tid}`).then(r => r.ok ? r.json() : []);
-      setMyTickets(data || []);
-    } catch { setMyTickets([]); }
+      const newTickets = data || [];
+
+      // Check transitions: Open -> Active (In Progress)
+      if (prevTicketsRef.current && prevTicketsRef.current.length > 0) {
+        newTickets.forEach((newT: any) => {
+          const oldT = prevTicketsRef.current.find((t: any) => t.id === newT.id);
+          // If status transitioned from Open (or missing) to Active
+          if (newT.status === "Active" && (!oldT || oldT.status === "Open")) {
+            triggerMentorJoinedNotification(newT);
+          }
+        });
+      }
+      prevTicketsRef.current = newTickets;
+      setMyTickets(newTickets);
+    } catch { 
+      setMyTickets([]); 
+    }
   };
 
   if (loading) {
@@ -1306,11 +1419,50 @@ export default function WorkspacePage({ params }: Props) {
                           }`}>
                             {t.status === "Open" ? "⏳ Open" : t.status === "Active" ? "🔧 In Progress" : "✅ Resolved"}
                           </span>
-                          <span className="text-[10px] text-slate-400">
-                            {new Date(t.created_at).toLocaleDateString()}
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {new Date(t.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2">{t.description}</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 mb-2">{t.description}</p>
+                        
+                        {t.status === "Active" && (
+                          <div className="text-[10px] font-bold text-blue-400 mb-3 flex items-center gap-1.5 bg-blue-500/10 p-2 rounded-lg border border-blue-500/20">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                            👨‍🏫 Mentor has joined your chat!
+                          </div>
+                        )}
+
+                        {t.status === "Open" && (
+                          <div className="flex gap-2 mt-2">
+                            <button
+                              type="button"
+                              onClick={() => handleHackerResolveTicket(t.id)}
+                              className="px-3 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/30 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                            >
+                              Cancel Request
+                            </button>
+                          </div>
+                        )}
+
+                        {t.status === "Active" && (
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            <button
+                              type="button"
+                              onClick={() => setShowSupportChatTeamId(t.id)}
+                              className="flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer shadow-sm shadow-blue-600/20"
+                            >
+                              <MessageSquare className="w-3 h-3" />
+                              Join Live Chat
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleHackerResolveTicket(t.id)}
+                              className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer shadow-sm shadow-emerald-600/20"
+                            >
+                              Query Resolved
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1321,6 +1473,71 @@ export default function WorkspacePage({ params }: Props) {
 
         </div>
         )}
+      </div>
+
+      {/* Dynamic CometChat Support Chat Modal Overlay */}
+      {showSupportChatTeamId && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="bg-[#0B0F19] border border-white/10 w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-slate-950/40">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-blue-500" />
+                <h3 className="text-sm font-extrabold text-white uppercase tracking-wider">Live Mentor Chat</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSupportChatTeamId(null)}
+                className="text-slate-400 hover:text-white transition-colors p-1.5 hover:bg-white/10 rounded-lg cursor-pointer text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6 flex-1 overflow-y-auto min-h-0 bg-[#0B0F19]">
+              <TeamGroupChat teamId={showSupportChatTeamId} teamName="Mentor Support" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Top-Right Toast Notifications Container */}
+      <div className="fixed top-6 right-6 z-[9999] flex flex-col gap-3 pointer-events-none w-full max-w-sm">
+        <AnimatePresence>
+          {toasts.map((toast) => (
+            <motion.div
+              key={toast.id}
+              initial={{ opacity: 0, y: -20, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.85, transition: { duration: 0.2 } }}
+              className={`pointer-events-auto p-4 rounded-2xl border backdrop-blur-md shadow-2xl flex items-start gap-3 ${
+                toast.type === "success"
+                  ? "bg-emerald-950/90 border-emerald-500/30 text-emerald-200"
+                  : toast.type === "error"
+                  ? "bg-red-950/90 border-red-500/30 text-red-200"
+                  : "bg-slate-900/90 border-white/10 text-slate-200"
+              }`}
+            >
+              <div className="mt-0.5 shrink-0">
+                {toast.type === "success" ? (
+                  <span className="text-emerald-400 text-sm">✅</span>
+                ) : toast.type === "error" ? (
+                  <span className="text-red-400 text-sm">⚠️</span>
+                ) : (
+                  <span className="text-blue-400 text-sm">ℹ️</span>
+                )}
+              </div>
+              <div className="flex-1 text-xs font-semibold leading-relaxed">
+                {toast.message}
+              </div>
+              <button
+                type="button"
+                onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
+                className="text-slate-400 hover:text-white transition-colors cursor-pointer text-[10px] font-bold"
+              >
+                ✕
+              </button>
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
     </div>
   );

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
+    android:background="@android:color/black">
+
+    <!--
+        CometChatIncomingCall is a View (not an Activity).
+        We host it inside this Activity so it can be launched via Intent.
+        The Call object is set programmatically via setCall() in IncomingCallActivity.
+    -->
+    <com.cometchat.chatuikit.calls.incomingcall.CometChatIncomingCall
+        android:id="@+id/incoming_call_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+</FrameLayout>

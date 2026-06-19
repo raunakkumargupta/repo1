@@ -108,3 +108,23 @@ func (h *StaffHandler) GetStaffList(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewEncoder(w).Encode(staffList)
 }
+
+func (h *StaffHandler) Remove(w http.ResponseWriter, r *http.Request) {
+	hackathonID := chi.URLParam(r, "id")
+	userID := chi.URLParam(r, "userId")
+	if hackathonID == "" || userID == "" {
+		http.Error(w, "hackathon id and user id are required", http.StatusBadRequest)
+		return
+	}
+
+	err := h.staffService.RemoveStaff(r.Context(), hackathonID, userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Staff member removed successfully!"})
+}
+

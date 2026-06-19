@@ -91,11 +91,32 @@ It iterates every user and calls `CreateUser`. The call is idempotent — users 
 |---|---|---|
 | 1-on-1 chat | `/workspace/[id]/find-team` → "Message" button | `ChatModal` → `CometChatMessageHeader/List/Composer` with `user` |
 | Group chat | `/workspace/[id]/project` (team members) | `TeamGroupChat` → same components with `group` (guid = team_id) |
+| Voice & Video Calling | Chat bubbles / headers (1-on-1 & Group) | Managed by `@cometchat/calls-sdk-javascript` & `<CometChatIncomingCall />` |
+| Top-Right / Desktop Ringing Sound | Browser | Custom call event listener playing dual-frequency phone tone (440Hz + 480Hz) |
 | Typing indicators, presence, read receipts | Built into the UI Kit | enabled via `subscribePresenceForAllUsers()` |
 
-Messages, typing indicators, presence, and read receipts are all handled by the UI Kit out of the box once the SDK is initialized and the user is logged in.
+Messages, typing indicators, presence, and read receipts are all handled by the UI Kit out of the box once the SDK is initialized and the user is logged in. When rendering headers (such as `CometChatMessageHeader`), the UI Kit automatically detects Calls SDK status and attaches Voice + Video calling buttons.
 
-## 5. Authentication Model
+## 5. Role-Based Access Control (RBAC) & Group Scopes Mapping
+
+The system maps application roles and restrictions to CometChat using a multi-tiered approach:
+
+### User Roles (App-Level Roles)
+- **Role Sync**: When registering a new user, they are assigned the default CometChat role (`"default"`), and their specific platform role (`Hacker`, `Mentor`, `Organizer`, etc.) is set in user **Tags** and user **Metadata** (`app_role: role`). When a user's role is updated (e.g. from Hacker to Mentor), the backend calls `UpdateUser` to sync the `"role"` field directly to CometChat.
+- **Why this approach?** App Roles in CometChat require manual setup in the console first. By mapping platform roles to CometChat user tags and metadata, the integration is plug-and-play and works out-of-the-box on new CometChat apps, while still allowing operators to create matching console roles later.
+
+### Group Member Scopes (Group-Level Access Control)
+Within CometChat group communications, we leverage CometChat's native group scopes (`owner`/`admin`/`participant` roles):
+- **Team Chat**: The team leader (who creates the team) is designated as the group **Owner/Admin** in CometChat. Other team members are added as standard **Members**.
+- **Support Chat (Tickets)**: The mentor who claims the help ticket is set as the group **Owner/Admin** (since they create the support session). The requesting hackers are added as standard **Members**. This guarantees that mentors retain administrative authority over the help group, preventing hackers from changing group settings or removing the mentor.
+
+### Group-Level Access Control (Private Groups)
+- All team chats and support ticket chats are created as **Private Groups** in CometChat.
+- Because they are private, these groups are hidden from search and cannot be joined using standard SDK queries. A user must be explicitly added by the Go backend (via `AddMemberToGroup` REST call) upon team creation, membership approval, or ticket claiming. This enforces strict isolation—hackers cannot view, listen to, or message other teams' conversations or support desks.
+
+---
+
+## 6. Authentication Model
 
 The app keeps its existing JWT auth. CometChat login is **silent and automatic**:
 1. User logs into the app (existing flow) — JWT cookie set.

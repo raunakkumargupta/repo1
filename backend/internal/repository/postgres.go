@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -143,38 +144,78 @@ func (r *PostgresRepo) GetHackathonByID(ctx context.Context, id string) (*models
 	return h, nil
 }
 
-func (r *PostgresRepo) GetHackathons(ctx context.Context, onlyApproved bool) ([]models.Hackathon, error) {
+func (r *PostgresRepo) GetHackathons(ctx context.Context, onlyApproved bool, limit, offset *int, search, track *string) ([]models.Hackathon, int, error) {
 	var query string
+	var args []interface{}
+	placeholderIdx := 1
+
 	if onlyApproved {
 		query = `SELECT id, organizer_id, title, COALESCE(description, ''), COALESCE(cover_image, ''), tracks, start_date, end_date, registration_status, is_approved, created_at,
-		                COALESCE(problem_statement, ''), COALESCE(prizes, ''), COALESCE(schedule, ''), COALESCE(sponsors, ''), COALESCE(min_team_size, 1), COALESCE(max_team_size, 4), COALESCE(registration_fee, 'Free'), COALESCE(rounds, '')
-		         FROM hackathons WHERE is_approved = true ORDER BY start_date ASC`
+		                COALESCE(problem_statement, ''), COALESCE(prizes, ''), COALESCE(schedule, ''), COALESCE(sponsors, ''), COALESCE(min_team_size, 1), COALESCE(max_team_size, 4), COALESCE(registration_fee, 'Free'), COALESCE(rounds, ''),
+		                COUNT(*) OVER() as total_count
+		         FROM hackathons WHERE is_approved = true`
 	} else {
 		query = `SELECT id, organizer_id, title, COALESCE(description, ''), COALESCE(cover_image, ''), tracks, start_date, end_date, registration_status, is_approved, created_at,
-		                COALESCE(problem_statement, ''), COALESCE(prizes, ''), COALESCE(schedule, ''), COALESCE(sponsors, ''), COALESCE(min_team_size, 1), COALESCE(max_team_size, 4), COALESCE(registration_fee, 'Free'), COALESCE(rounds, '')
-		         FROM hackathons ORDER BY created_at DESC`
+		                COALESCE(problem_statement, ''), COALESCE(prizes, ''), COALESCE(schedule, ''), COALESCE(sponsors, ''), COALESCE(min_team_size, 1), COALESCE(max_team_size, 4), COALESCE(registration_fee, 'Free'), COALESCE(rounds, ''),
+		                COUNT(*) OVER() as total_count
+		         FROM hackathons WHERE true`
 	}
 
-	rows, err := r.pool.Query(ctx, query)
+	if search != nil && *search != "" {
+		query += fmt.Sprintf(" AND (title ILIKE $%d OR description ILIKE $%d)", placeholderIdx, placeholderIdx+1)
+		searchPattern := "%" + *search + "%"
+		args = append(args, searchPattern, searchPattern)
+		placeholderIdx += 2
+	}
+
+	if track != nil && *track != "" && *track != "All" {
+		query += fmt.Sprintf(" AND tracks ILIKE $%d", placeholderIdx)
+		args = append(args, `%"`+*track+`"%`)
+		placeholderIdx++
+	}
+
+	if onlyApproved {
+		query += " ORDER BY start_date ASC"
+	} else {
+		query += " ORDER BY created_at DESC"
+	}
+
+	if limit != nil {
+		query += fmt.Sprintf(" LIMIT $%d", placeholderIdx)
+		args = append(args, *limit)
+		placeholderIdx++
+	}
+
+	if offset != nil {
+		query += fmt.Sprintf(" OFFSET $%d", placeholderIdx)
+		args = append(args, *offset)
+		placeholderIdx++
+	}
+
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
 	var list []models.Hackathon
+	totalCount := 0
 	for rows.Next() {
 		var h models.Hackathon
+		var count int
 		err := rows.Scan(
 			&h.ID, &h.OrganizerID, &h.Title, &h.Description, &h.CoverImage, &h.Tracks,
 			&h.StartDate, &h.EndDate, &h.RegistrationStatus, &h.IsApproved, &h.CreatedAt,
 			&h.ProblemStatement, &h.Prizes, &h.Schedule, &h.Sponsors, &h.MinTeamSize, &h.MaxTeamSize, &h.RegistrationFee, &h.Rounds,
+			&count,
 		)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
+		totalCount = count
 		list = append(list, h)
 	}
-	return list, rows.Err()
+	return list, totalCount, rows.Err()
 }
 
 func (r *PostgresRepo) DeleteHackathon(ctx context.Context, id string) error {
@@ -283,35 +324,79 @@ func (r *PostgresRepo) GetRegistrationByUserAndHackathon(ctx context.Context, us
 	return reg, nil
 }
 
-func (r *PostgresRepo) GetRegistrationsByHackathon(ctx context.Context, hackathonID string) ([]models.RegistrationProfile, error) {
+func (r *PostgresRepo) GetRegistrationsByHackathon(ctx context.Context, hackathonID string, limit, offset *int, approvalStatus, teamPreference, search, excludeUserID *string) ([]models.RegistrationProfile, int, error) {
 	query := `
-		SELECT r.id, r.user_id, r.hackathon_id, r.github_url, r.linkedin_url, r.skills, r.team_preference, r.approval_status, r.resume_url, r.created_at, u.name, u.email, hp.bio, hp.readme_md
+		SELECT r.id, r.user_id, r.hackathon_id, r.github_url, r.linkedin_url, r.skills, r.team_preference, r.approval_status, r.resume_url, r.created_at, u.name, u.email, hp.bio, hp.readme_md, COUNT(*) OVER() as total_count
 		FROM registrations r
 		JOIN users u ON r.user_id = u.id
 		LEFT JOIN hacker_profiles hp ON r.user_id = hp.user_id
 		WHERE r.hackathon_id = $1
-		ORDER BY r.created_at DESC
 	`
-	rows, err := r.pool.Query(ctx, query, hackathonID)
+	args := []interface{}{hackathonID}
+	placeholderIdx := 2
+
+	if approvalStatus != nil && *approvalStatus != "" {
+		query += fmt.Sprintf(" AND r.approval_status = $%d", placeholderIdx)
+		args = append(args, *approvalStatus)
+		placeholderIdx++
+	}
+
+	if teamPreference != nil && *teamPreference != "" {
+		query += fmt.Sprintf(" AND r.team_preference = $%d", placeholderIdx)
+		args = append(args, *teamPreference)
+		placeholderIdx++
+	}
+
+	if search != nil && *search != "" {
+		query += fmt.Sprintf(" AND (u.name ILIKE $%d OR u.email ILIKE $%d OR r.skills::text ILIKE $%d)", placeholderIdx, placeholderIdx+1, placeholderIdx+2)
+		searchPattern := "%" + *search + "%"
+		args = append(args, searchPattern, searchPattern, searchPattern)
+		placeholderIdx += 3
+	}
+
+	if excludeUserID != nil && *excludeUserID != "" {
+		query += fmt.Sprintf(" AND r.user_id != $%d", placeholderIdx)
+		args = append(args, *excludeUserID)
+		placeholderIdx++
+	}
+
+	query += " ORDER BY r.created_at DESC"
+
+	if limit != nil {
+		query += fmt.Sprintf(" LIMIT $%d", placeholderIdx)
+		args = append(args, *limit)
+		placeholderIdx++
+	}
+
+	if offset != nil {
+		query += fmt.Sprintf(" OFFSET $%d", placeholderIdx)
+		args = append(args, *offset)
+		placeholderIdx++
+	}
+
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
 	list := []models.RegistrationProfile{}
+	totalCount := 0
 	for rows.Next() {
 		var rp models.RegistrationProfile
+		var count int
 		err := rows.Scan(
 			&rp.ID, &rp.UserID, &rp.HackathonID, &rp.GithubURL, &rp.LinkedinURL, &rp.Skills,
 			&rp.TeamPreference, &rp.ApprovalStatus, &rp.ResumeURL, &rp.CreatedAt, &rp.UserName, &rp.UserEmail,
-			&rp.Bio, &rp.ReadmeMd,
+			&rp.Bio, &rp.ReadmeMd, &count,
 		)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
+		totalCount = count
 		list = append(list, rp)
 	}
-	return list, rows.Err()
+	return list, totalCount, rows.Err()
 }
 
 func (r *PostgresRepo) UpdateRegistrationStatus(ctx context.Context, regID string, status string) error {
@@ -476,10 +561,32 @@ func (r *PostgresRepo) RemoveUserFromTeam(ctx context.Context, teamID, userID st
 	return err
 }
 
-func (r *PostgresRepo) GetPublicTeamsByHackathon(ctx context.Context, hackathonID string) ([]models.TeamWithMembers, error) {
-	// First get all teams
-	query := `SELECT id, hackathon_id, team_name, invite_code, repository_url, is_submitted, is_winner, created_at, leader_id FROM teams WHERE hackathon_id = $1 ORDER BY created_at DESC`
-	rows, err := r.pool.Query(ctx, query, hackathonID)
+func (r *PostgresRepo) GetPublicTeamsByHackathon(ctx context.Context, hackathonID string, limit, offset *int, search *string) ([]models.TeamWithMembers, error) {
+	query := `SELECT id, hackathon_id, team_name, invite_code, repository_url, is_submitted, is_winner, created_at, leader_id FROM teams WHERE hackathon_id = $1`
+	args := []interface{}{hackathonID}
+	placeholderIdx := 2
+
+	if search != nil && *search != "" {
+		query += fmt.Sprintf(" AND team_name ILIKE $%d", placeholderIdx)
+		args = append(args, "%"+*search+"%")
+		placeholderIdx++
+	}
+
+	query += " ORDER BY created_at DESC"
+
+	if limit != nil {
+		query += fmt.Sprintf(" LIMIT $%d", placeholderIdx)
+		args = append(args, *limit)
+		placeholderIdx++
+	}
+
+	if offset != nil {
+		query += fmt.Sprintf(" OFFSET $%d", placeholderIdx)
+		args = append(args, *offset)
+		placeholderIdx++
+	}
+
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -655,6 +762,13 @@ func (r *PostgresRepo) UpdateTicketStatus(ctx context.Context, ticketID, status,
 	return err
 }
 
+func (r *PostgresRepo) ResolveTicket(ctx context.Context, ticketID string) error {
+	query := `UPDATE tickets SET status = 'Resolved', resolved_at = NOW() WHERE id = $1`
+	_, err := r.pool.Exec(ctx, query, ticketID)
+	return err
+}
+
+
 func (r *PostgresRepo) GetTicketsByIDs(ctx context.Context, ids []string) ([]models.Ticket, error) {
 	if len(ids) == 0 {
 		return []models.Ticket{}, nil
@@ -825,6 +939,12 @@ func (r *PostgresRepo) GetHackathonStaffList(ctx context.Context, hackathonID st
 		staff = append(staff, s)
 	}
 	return staff, rows.Err()
+}
+
+func (r *PostgresRepo) RemoveStaff(ctx context.Context, hackathonID, userID string) error {
+	query := `DELETE FROM hackathon_staff WHERE hackathon_id = $1 AND user_id = $2`
+	_, err := r.pool.Exec(ctx, query, hackathonID, userID)
+	return err
 }
 
 // ==========================================
@@ -1148,6 +1268,9 @@ func (r *PostgresRepo) GetModerationLogs(ctx context.Context, flaggedOnly bool) 
 		}
 		logs = append(logs, map[string]interface{}{
 			"id":            id,
+			"user_id":       senderUID, // Frontend compatibility
+			"content":       msgText,   // Frontend compatibility
+			"timestamp":     createdAt, // Frontend compatibility
 			"event_type":    eventType,
 			"sender_uid":    senderUID,
 			"sender_name":   senderName,
@@ -1164,6 +1287,34 @@ func (r *PostgresRepo) GetModerationLogs(ctx context.Context, flaggedOnly bool) 
 		logs = []map[string]interface{}{}
 	}
 	return logs, rows.Err()
+}
+
+func (r *PostgresRepo) GetResolvedTicketsByMentor(ctx context.Context, hackathonID, mentorID string) ([]models.Ticket, error) {
+	query := `
+		SELECT t.id, t.hackathon_id, t.team_id, t.assigned_mentor_id, t.description, t.status, t.created_at, t.resolved_at,
+			   COALESCE(tm.team_name, 'Unknown Team') as team_name
+		FROM tickets t
+		LEFT JOIN teams tm ON tm.id = t.team_id
+		WHERE t.hackathon_id = $1 AND t.assigned_mentor_id = $2 AND t.status = 'Resolved'
+		ORDER BY t.resolved_at DESC
+	`
+	rows, err := r.pool.Query(ctx, query, hackathonID, mentorID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tickets []models.Ticket
+	for rows.Next() {
+		var t models.Ticket
+		var teamName string
+		if err := rows.Scan(&t.ID, &t.HackathonID, &t.TeamID, &t.AssignedMentorID, &t.Description, &t.Status, &t.CreatedAt, &t.ResolvedAt, &teamName); err != nil {
+			return nil, err
+		}
+		t.TeamName = teamName
+		tickets = append(tickets, t)
+	}
+	return tickets, rows.Err()
 }
 
 

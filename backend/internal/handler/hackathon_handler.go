@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/raunakkumargupta/repo1/backend/internal/middleware"
@@ -59,24 +60,72 @@ func (h *HackathonHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HackathonHandler) ListApproved(w http.ResponseWriter, r *http.Request) {
-	list, err := h.hackService.GetHackathons(r.Context(), true)
+	var limitPtr, offsetPtr *int
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if limit, err := strconv.Atoi(limitStr); err == nil {
+			limitPtr = &limit
+		}
+	}
+	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
+		if offset, err := strconv.Atoi(offsetStr); err == nil {
+			offsetPtr = &offset
+		}
+	}
+
+	var searchPtr *string
+	if searchStr := r.URL.Query().Get("search"); searchStr != "" {
+		searchPtr = &searchStr
+	}
+
+	var trackPtr *string
+	if trackStr := r.URL.Query().Get("track"); trackStr != "" {
+		trackPtr = &trackStr
+	}
+
+	list, totalCount, err := h.hackService.GetHackathons(r.Context(), true, limitPtr, offsetPtr, searchPtr, trackPtr)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Total-Count", strconv.Itoa(totalCount))
+	w.Header().Set("Access-Control-Expose-Headers", "X-Total-Count")
 	json.NewEncoder(w).Encode(list)
 }
 
 func (h *HackathonHandler) ListAll(w http.ResponseWriter, r *http.Request) {
-	list, err := h.hackService.GetHackathons(r.Context(), false)
+	var limitPtr, offsetPtr *int
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if limit, err := strconv.Atoi(limitStr); err == nil {
+			limitPtr = &limit
+		}
+	}
+	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
+		if offset, err := strconv.Atoi(offsetStr); err == nil {
+			offsetPtr = &offset
+		}
+	}
+
+	var searchPtr *string
+	if searchStr := r.URL.Query().Get("search"); searchStr != "" {
+		searchPtr = &searchStr
+	}
+
+	var trackPtr *string
+	if trackStr := r.URL.Query().Get("track"); trackStr != "" {
+		trackPtr = &trackStr
+	}
+
+	list, totalCount, err := h.hackService.GetHackathons(r.Context(), false, limitPtr, offsetPtr, searchPtr, trackPtr)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Total-Count", strconv.Itoa(totalCount))
+	w.Header().Set("Access-Control-Expose-Headers", "X-Total-Count")
 	json.NewEncoder(w).Encode(list)
 }
 

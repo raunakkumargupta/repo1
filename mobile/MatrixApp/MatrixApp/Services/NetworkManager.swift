@@ -19,13 +19,40 @@ final class NetworkManager {
     static let shared = NetworkManager()
     
     // Connect to the deployed staging backend
-    private let baseURL = "http://192.168.1.152:8080/api"
+    private let baseURL = "http://192.168.29.115:8080/api"
     
     private let decoder: JSONDecoder = {
         let dec = JSONDecoder()
         dec.keyDecodingStrategy = .convertFromSnakeCase
         return dec
     }()
+    
+    private func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
+        do {
+            return try decoder.decode(type, from: data)
+        } catch let error as DecodingError {
+            print("--- DECODING ERROR ---")
+            switch error {
+            case .typeMismatch(let type, let context):
+                print("Type mismatch: \(type) at \(context.codingPath.map { $0.stringValue }.joined(separator: ".")) - Description: \(context.debugDescription)")
+            case .valueNotFound(let type, let context):
+                print("Value not found: \(type) at \(context.codingPath.map { $0.stringValue }.joined(separator: ".")) - Description: \(context.debugDescription)")
+            case .keyNotFound(let key, let context):
+                print("Key not found: '\(key.stringValue)' at \(context.codingPath.map { $0.stringValue }.joined(separator: ".")) - Description: \(context.debugDescription)")
+            case .dataCorrupted(let context):
+                print("Data corrupted at \(context.codingPath.map { $0.stringValue }.joined(separator: ".")) - Description: \(context.debugDescription)")
+            @unknown default:
+                print("Unknown decoding error: \(error)")
+            }
+            if let jsonString = String(data: data, encoding: .utf8) {
+                print("JSON string: \(jsonString)")
+            }
+            throw error
+        } catch {
+            print("Decoding failed: \(error)")
+            throw error
+        }
+    }
     
     private let encoder: JSONEncoder = {
         let enc = JSONEncoder()
@@ -69,7 +96,7 @@ final class NetworkManager {
         let (data, response) = try await URLSession.shared.data(for: request)
         try checkResponse(response, data: data)
         
-        return try decoder.decode(LoginResponse.self, from: data).token
+        return try decode(LoginResponse.self, from: data).token
     }
 
     func register(name: String, email: String, password: String) async throws {
@@ -101,7 +128,7 @@ final class NetworkManager {
         let (data, response) = try await URLSession.shared.data(for: request)
         try checkResponse(response, data: data)
         
-        return try decoder.decode([Hackathon].self, from: data)
+        return try decode([Hackathon].self, from: data)
     }
 
     func fetchAnnouncements(for hackathonId: String) async throws -> [Announcement] {
@@ -111,7 +138,7 @@ final class NetworkManager {
         let (data, response) = try await URLSession.shared.data(for: request)
         try checkResponse(response, data: data)
         
-        return try decoder.decode([Announcement].self, from: data)
+        return try decode([Announcement].self, from: data)
     }
 
     func fetchMyTeam(for hackathonId: String) async throws -> TeamStatusResponse? {
@@ -131,7 +158,7 @@ final class NetworkManager {
         }
         
         do {
-            return try decoder.decode(TeamStatusResponse.self, from: data)
+            return try decode(TeamStatusResponse.self, from: data)
         } catch {
             return nil
         }
@@ -154,7 +181,7 @@ final class NetworkManager {
         }
         
         do {
-            return try decoder.decode(Registration.self, from: data)
+            return try decode(Registration.self, from: data)
         } catch {
             return nil
         }
@@ -203,7 +230,7 @@ final class NetworkManager {
         let (data, response) = try await URLSession.shared.data(for: request)
         try checkResponse(response, data: data)
         
-        return try decoder.decode(User.self, from: data)
+        return try decode(User.self, from: data)
     }
 
     func fetchMyProfile() async throws -> HackerProfile {
@@ -213,7 +240,7 @@ final class NetworkManager {
         let (data, response) = try await URLSession.shared.data(for: request)
         try checkResponse(response, data: data)
         
-        return try decoder.decode(HackerProfile.self, from: data)
+        return try decode(HackerProfile.self, from: data)
     }
 
     func updateProfile(_ profile: HackerProfile) async throws {
@@ -248,7 +275,7 @@ final class NetworkManager {
         let request = authenticatedRequest(url: url, method: "GET")
         let (data, response) = try await URLSession.shared.data(for: request)
         try checkResponse(response, data: data)
-        return try decoder.decode([Team].self, from: data)
+        return try decode([Team].self, from: data)
     }
 
     func requestToJoinTeam(hackathonId: String, teamId: String) async throws {
@@ -278,7 +305,7 @@ final class NetworkManager {
         let request = authenticatedRequest(url: url, method: "GET")
         let (data, response) = try await URLSession.shared.data(for: request)
         try checkResponse(response, data: data)
-        return try decoder.decode([TeamJoinRequest].self, from: data)
+        return try decode([TeamJoinRequest].self, from: data)
     }
 
     func fetchMyRequests(hackathonId: String) async throws -> [TeamJoinRequest] {
@@ -286,7 +313,7 @@ final class NetworkManager {
         let request = authenticatedRequest(url: url, method: "GET")
         let (data, response) = try await URLSession.shared.data(for: request)
         try checkResponse(response, data: data)
-        return try decoder.decode([TeamJoinRequest].self, from: data)
+        return try decode([TeamJoinRequest].self, from: data)
     }
 
     func manageTeamRequest(hackathonId: String, requestId: String, status: String) async throws {
@@ -305,7 +332,7 @@ final class NetworkManager {
             return []
         }
         try checkResponse(response, data: data)
-        return try decoder.decode([TeamInvitation].self, from: data)
+        return try decode([TeamInvitation].self, from: data)
     }
 
     func manageInvitation(hackathonId: String, invitationId: String, status: String) async throws {

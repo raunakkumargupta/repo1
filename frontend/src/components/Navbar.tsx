@@ -22,12 +22,14 @@ import {
 	Award
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useCometChat } from "@/components/providers/CometChatProvider";
 
 type UserSession = { id: string; role: string } | null;
 
 const AUTH_PAGES = ["/login", "/register", "/forget-password"];
 
 export default function Navbar() {
+	const { logoutUser } = useCometChat();
 	const [isOpen, setIsOpen] = useState(false);
 	const [user, setUser] = useState<UserSession>(undefined as any);
 	const [theme, setTheme] = useState<"light" | "dark">("dark");
@@ -105,6 +107,11 @@ export default function Navbar() {
 
 	const logout = async () => {
 		await fetch("/api/auth/logout", { method: "POST" });
+		try {
+			await logoutUser();
+		} catch (e) {
+			console.error("CometChat logout error:", e);
+		}
 		setUser(null);
 		router.push("/login");
 		router.refresh();

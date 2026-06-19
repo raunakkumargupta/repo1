@@ -30,6 +30,7 @@ import retrofit2.http.GET;
 import retrofit2.http.POST;
 import retrofit2.http.PUT;
 import retrofit2.http.Path;
+import retrofit2.http.Query;
 
 public interface MatrixApi {
 
@@ -47,6 +48,12 @@ public interface MatrixApi {
     @GET("hackathons")
     Call<List<Hackathon>> listHackathons();
 
+    @GET("hackathons")
+    Call<List<Hackathon>> searchHackathons(
+            @Query("limit") Integer limit,
+            @Query("offset") Integer offset,
+            @Query("search") String search);
+
     // ---- Registration ----
     @GET("hackathons/{id}/my-registration")
     Call<Registration> getMyRegistration(@Path("id") String hackathonId);
@@ -63,7 +70,11 @@ public interface MatrixApi {
 
     // ---- Teams ----
     @GET("hackathons/{id}/teams/public")
-    Call<List<Team>> getPublicTeams(@Path("id") String hackathonId);
+    Call<List<Team>> getPublicTeams(
+            @Path("id") String hackathonId,
+            @Query("limit") Integer limit,
+            @Query("offset") Integer offset,
+            @Query("search") String search);
 
     @GET("hackathons/{id}/my-team")
     Call<TeamDetails> getMyTeam(@Path("id") String hackathonId);

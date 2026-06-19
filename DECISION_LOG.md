@@ -178,12 +178,15 @@ Tags must be kept in sync on role change (handled by `UpdateUser`).
 
 ## Decision 14: Role-Based Access Control Design
 ### Selected Approach
-App JWT remains the authority for who can *reach* a chat surface; CometChat tags + group membership enforce who can *participate*. Team group membership mirrors PostgreSQL team membership exactly.
+1. **App JWT & Custom Go Middleware** gates initial access to platform routes and dashboards (Hacker panel vs Mentor queue).
+2. **CometChat App Roles & Tags Mapping**: Platform roles (Hacker, Mentor, etc.) are synced as Tags and metadata on user creation, and mapped to the `"role"` field during user profile updates.
+3. **CometChat Group Scopes**: For group communication access control, the system uses group scopes. In support sessions, the technical Mentor is assigned as the group **Owner/Admin** to retain administrative control, and Hackers are added as standard **Members/Participants**.
+4. **CometChat Private Groups**: Team and ticket groups are set to `"private"`, restricting access to explicitly added members.
 ### Alternate Options Considered
 1. CometChat-only RBAC.
 2. App-only RBAC with open CometChat.
 ### Why This Was Chosen
-Defence in depth: the app gates UI/route access (existing `useAuth` + Go `RequireRole`), while CometChat group membership ensures a user can only read/post in groups they actually belong to. Neither layer alone is sufficient.
+Defence in depth: the app gates UI/route access (existing `useAuth` + Go `RequireRole`), while CometChat private group status and scopes mapping ensure a user can only read/post in groups they actually belong to, and mentors maintain control. Neither layer alone is sufficient.
 ### Trade-offs
 Two systems to keep aligned; mitigated by syncing membership at the same point as the DB write.
 

@@ -3,8 +3,16 @@
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, HelpCircle, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import { Loader2, HelpCircle, CheckCircle, Clock, AlertCircle, ChevronLeft } from "lucide-react";
 import { fetchApi } from "@/lib/api";
+import dynamic from "next/dynamic";
+import { useCometChat } from "@/components/providers/CometChatProvider";
+import { useAuth } from "@/lib/auth";
+
+const TeamGroupChat = dynamic(() => import("@/components/chat/TeamGroupChat"), {
+  ssr: false,
+});
+
 
 type Props = {
   params: Promise<{ hackathon_id: string }>;
@@ -26,9 +34,22 @@ export default function MentorTerminal({ params }: Props) {
 
   const [loading, setLoading] = useState(true);
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [resolvedTickets, setResolvedTickets] = useState<Ticket[]>([]);
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null);
   const [user, setUser] = useState<any>(null);
   const [authorized, setAuthorized] = useState<boolean | null>(null);
+  const [showChat, setShowChat] = useState(false);
+
+  // CometChat integration
+  const { isInitialized, loginUser } = useCometChat();
+  const { user: authUser } = useAuth();
+
+  // Auto-login to CometChat when user is authenticated
+  useEffect(() => {
+    if (isInitialized && authUser?.id) {
+      loginUser(authUser.id);
+    }
+  }, [isInitialized, authUser]);
 
   // Route guard: check if user is assigned as Mentor for this hackathon
   useEffect(() => {
@@ -59,6 +80,10 @@ export default function MentorTerminal({ params }: Props) {
       }));
 
       setTickets(ticketsWithTeams);
+
+      // Fetch resolved tickets assigned to this mentor
+      const resolvedData = await fetch(`/api/hackathons/${hackathon_id}/tickets/resolved`).then((r) => r.ok ? r.json() : []);
+      setResolvedTickets(resolvedData || []);
 
       // Find if this mentor already has an active ticket assigned to them
       if (u) {
@@ -100,6 +125,7 @@ export default function MentorTerminal({ params }: Props) {
         body: JSON.stringify({ status: "Resolved" }),
       });
       setActiveTicket(null);
+      setShowChat(false);
       await fetchTickets();
     } catch (err: any) {
       alert(`Failed to resolve ticket: ${err.message}`);
@@ -147,6 +173,15 @@ export default function MentorTerminal({ params }: Props) {
     <div className="min-h-screen bg-background text-foreground pt-24 pb-12 px-6 transition-colors duration-200">
       <div className="max-w-5xl mx-auto space-y-8">
         
+        {/* Back to Dashboard button */}
+        <Link 
+          href="/dashboard" 
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-500 transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Back to Dashboard
+        </Link>
+
         <header className="flex justify-between items-center border-b border-slate-200/60 dark:border-white/5 pb-6">
           <div>
             <div className="flex items-center gap-2">
@@ -241,7 +276,7 @@ export default function MentorTerminal({ params }: Props) {
 
                 <div className="pt-2 border-t border-slate-200/50 dark:border-white/5 space-y-2">
                   <button
-                    onClick={() => alert("CometChat 1-on-1 chat/video widget will programmatically spawn here in Step 2!")}
+                    onClick={() => setShowChat(true)}
                     className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
                   >
                     Open Live Hacker Chat
@@ -262,10 +297,60 @@ export default function MentorTerminal({ params }: Props) {
                 <p className="text-[10px] text-slate-500 leading-relaxed">Accept an unassigned ticket from the queue on the left to begin resolving.</p>
               </div>
             )}
+
+            {/* Resolved Tickets History */}
+            <div className="glass border border-slate-200/60 dark:border-white/10 rounded-2xl p-6 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200/50 dark:border-white/5">
+                <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Resolved Tickets</h3>
+                <span className="text-[10px] font-black uppercase tracking-widest bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-md border border-emerald-500/30">
+                  {resolvedTickets.length} Total
+                </span>
+              </div>
+              
+              {resolvedTickets.length === 0 ? (
+                <p className="text-[10px] text-slate-500 text-center py-4">No tickets resolved yet in this hackathon.</p>
+              ) : (
+                <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+                  {resolvedTickets.map((t) => (
+                    <div key={t.id} className="p-3 bg-white/30 dark:bg-slate-900/30 border border-slate-200/40 dark:border-white/5 rounded-lg text-left space-y-1">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300">{t.team_name}</span>
+                        <span className="text-[8px] text-emerald-500 font-bold uppercase">Resolved</span>
+                      </div>
+                      <p className="text-[10px] text-slate-600 dark:text-slate-400 line-clamp-2">{t.description}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
         </div>
       </div>
+
+      {showChat && activeTicket && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowChat(false)}>
+          <div className="w-full max-w-3xl h-[80vh] bg-[#0B0F19] border border-white/10 rounded-2xl overflow-hidden flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-white/10 bg-slate-900/50">
+              <div>
+                <h3 className="text-sm font-bold text-white">
+                  Support Chat — {activeTicket.team_name || "Team"}
+                </h3>
+                <p className="text-[10px] text-slate-400 mt-0.5">Live help session chat</p>
+              </div>
+              <button
+                onClick={() => setShowChat(false)}
+                className="px-3 py-1.5 border border-slate-200 dark:border-white/10 text-[10px] font-bold rounded-lg bg-white/5 hover:bg-white/10 text-white transition-colors cursor-pointer"
+              >
+                Close Chat
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <TeamGroupChat teamId={activeTicket.id} teamName={`${activeTicket.team_name} Support`} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

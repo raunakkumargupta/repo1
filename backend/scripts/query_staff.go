@@ -23,7 +23,7 @@ func main() {
 	}
 	defer pool.Close()
 
-	rows, err := pool.Query(context.Background(), "SELECT id, email, role FROM users WHERE email = 'raunak.gupta@somaiya.edu'")
+	rows, err := pool.Query(context.Background(), "SELECT id, email, role, fcm_token, apns_token FROM users WHERE email = 'R@gmail.co'")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -31,8 +31,19 @@ func main() {
 
 	for rows.Next() {
 		var id, email, role string
-		rows.Scan(&id, &email, &role)
+		var fcm, apns *string
+		rows.Scan(&id, &email, &role, &fcm, &apns)
 		fmt.Printf("ID: %s, Email: %s, Role: %s\n", id, email, role)
+		if fcm != nil {
+			fmt.Printf("  FCM: %s\n", *fcm)
+		} else {
+			fmt.Println("  FCM: nil")
+		}
+		if apns != nil {
+			fmt.Printf("  APNs: %s\n", *apns)
+		} else {
+			fmt.Println("  APNs: nil")
+		}
 	}
 	fmt.Println("Done.")
 }

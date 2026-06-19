@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { 
@@ -71,97 +71,83 @@ function TiltCard({ children, className }: { children: React.ReactNode, classNam
 export default function ExplorePage() {
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeTrack, setActiveTrack] = useState<string>("All");
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [availableTracks, setAvailableTracks] = useState<string[]>(["All"]);
 
-  const ITEMS_PER_PAGE = 10;
-
-  // Fetch live approved hackathons
+  // Fetch all approved hackathons once on mount just to build the filter tracks list
   useEffect(() => {
     fetch("/api/hackathons")
       .then((res) => (res.ok ? res.json() : []))
-      .then((data) => setHackathons(data || []))
-      .catch((err) => console.error("Error fetching hackathons", err))
-      .finally(() => setLoading(false));
+      .then((data: Hackathon[]) => {
+        const trackSet = new Set<string>();
+        data.forEach((h) => {
+          try {
+            const arr = JSON.parse(h.tracks) as string[];
+            arr.forEach((t) => trackSet.add(t));
+          } catch (e) {}
+        });
+        setAvailableTracks(["All", ...Array.from(trackSet).sort()]);
+      })
+      .catch((err) => console.error("Error fetching tracks", err));
   }, []);
+
+  // Debounce search input to prevent database queries overload
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchQuery]);
 
   // Reset page to 1 when search query or track filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, activeTrack]);
+  }, [debouncedSearch, activeTrack]);
 
-  const mockHackathons: Hackathon[] = [
-    {
-      id: "hack-1",
-      title: "Global AI Hackathon 2026",
-      description: "Build cutting-edge intelligence systems and decentralized agents using latest Large Language Models.",
-      cover_image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=60",
-      tracks: JSON.stringify(["AI", "Web3"]),
-      start_date: "2026-06-15T10:00:00Z",
-      end_date: "2026-06-17T18:00:00Z",
-      registration_status: "open",
-    },
-    {
-      id: "hack-2",
-      title: "Obsidian Web3 build-athon",
-      description: "Develop high-performance decentralised applications and smart contracts for scalable blockchain ecosystems.",
-      cover_image: "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&auto=format&fit=crop&q=60",
-      tracks: JSON.stringify(["Web3", "Mobile"]),
-      start_date: "2026-07-01T09:00:00Z",
-      end_date: "2026-07-04T18:00:00Z",
-      registration_status: "open",
-    },
-    {
-      id: "hack-3",
-      title: "Quantum Computing Sprint",
-      description: "Tackle real-world mathematical optimization and cryptography challenges on simulation hardware.",
-      cover_image: "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=800&auto=format&fit=crop&q=60",
-      tracks: JSON.stringify(["QC", "AI"]),
-      start_date: "2026-07-20T10:00:00Z",
-      end_date: "2026-07-22T17:00:00Z",
-      registration_status: "open",
-    }
-  ];
+  // Load paginated & filtered hackathons
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    const trackParam = activeTrack !== "All" ? `&track=${encodeURIComponent(activeTrack)}` : "";
+    const searchParam = debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : "";
 
-  const allHackathons = hackathons.length > 0 ? hackathons : mockHackathons;
+    fetch(`/api/hackathons?limit=10&offset=${(currentPage - 1) * 10}${searchParam}${trackParam}`)
+      .then((res) => {
+        if (!res.ok) return [];
+        const totalHeader = res.headers.get("X-Total-Count");
+        const total = totalHeader ? parseInt(totalHeader, 10) : 0;
+        const computedTotalPages = Math.max(Math.ceil(total / 10), 1);
+        if (active) {
+          setTotalPages(computedTotalPages);
+        }
+        return res.json();
+      })
+      .then((data) => {
+        if (active) {
+          setHackathons(data || []);
+        }
+      })
+      .catch((err) => console.error(err))
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
 
-  // Dynamically build the track filter list from actual hackathon data
-  const availableTracks = useMemo(() => {
-    const trackSet = new Set<string>();
-    allHackathons.forEach((h) => {
-      try {
-        const arr = JSON.parse(h.tracks) as string[];
-        arr.forEach((t) => trackSet.add(t));
-      } catch (e) {}
-    });
-    return ["All", ...Array.from(trackSet).sort()];
-  }, [allHackathons]);
+    return () => {
+      active = false;
+    };
+  }, [currentPage, debouncedSearch, activeTrack]);
 
-  // Filter hackathons correctly (fixing legacy empty DB fallback bugs)
-  const filteredHackathons = allHackathons.filter((h) => {
-    const matchesSearch = h.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          h.description.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    let matchesTrack = true;
-    if (activeTrack !== "All") {
-      try {
-        const tracksArr = JSON.parse(h.tracks) as string[];
-        matchesTrack = tracksArr.some(
-          (t) => t.toLowerCase() === activeTrack.toLowerCase()
-        );
-      } catch (e) {
-        matchesTrack = false;
-      }
-    }
-    return matchesSearch && matchesTrack;
-  });
-
-  const totalPages = Math.ceil(filteredHackathons.length / ITEMS_PER_PAGE);
-  const paginatedHackathons = filteredHackathons.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
+  const filteredHackathons = hackathons;
+  const paginatedHackathons = hackathons;
 
 
   return (
