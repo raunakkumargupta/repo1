@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 import UserNotifications
+import CometChatSDK
 
 @MainActor
 final class AppViewModel: ObservableObject {
@@ -24,6 +25,23 @@ final class AppViewModel: ObservableObject {
     @Published var myOutgoingRequests: [TeamJoinRequest] = []
     @Published var myIncomingInvitations: [TeamInvitation] = []
     @Published var incomingTeamRequests: [TeamJoinRequest] = []
+    
+    // MARK: - Explore/Discover Tab Paginated State
+    @Published var exploreHackathons: [Hackathon] = []
+    @Published var exploreSearchText = ""
+    @Published var exploreCurrentPage = 1
+    @Published var exploreHasMore = false
+    private let explorePageSize = 10
+    
+    // MARK: - Public Teams Paginated State
+    @Published var publicTeamsSearchText = ""
+    @Published var publicTeamsCurrentPage = 1
+    @Published var publicTeamsHasMore = false
+    private let publicTeamsPageSize = 10
+    
+    // MARK: - Calling State
+    @Published var incomingCall: Call?
+    @Published var ongoingCallSessionID: String?
     
     // MARK: - Selected Hackathon Details State
     @Published var selectedHackathon: Hackathon? {
@@ -55,6 +73,19 @@ final class AppViewModel: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+            
+        // Bind CometChat call events to SwiftUI state
+        CometChatManager.shared.onIncomingCallReceived = { [weak self] call in
+            self?.incomingCall = call
+        }
+        CometChatManager.shared.onOutgoingCallAccepted = { [weak self] call in
+            self?.incomingCall = nil
+            self?.ongoingCallSessionID = call.sessionID
+        }
+        CometChatManager.shared.onCallEnded = { [weak self] in
+            self?.incomingCall = nil
+            self?.ongoingCallSessionID = nil
+        }
     }
 
     func bootstrap() {
@@ -73,6 +104,18 @@ final class AppViewModel: ObservableObject {
             Task {
                 await loadCurrentProfile()
                 await loadHackathons()
+                
+                // CometChat auto-login
+                if let email = currentUser?.email {
+                    let ccUid = CometChatManager.uidFromEmail(email)
+                    CometChatManager.shared.login(uid: ccUid) { user, error in
+                        if let user = user {
+                            print("CometChat auto-login success: \(user.uid) ✓")
+                        } else if let error = error {
+                            print("CometChat auto-login failed: \(error.errorDescription)")
+                        }
+                    }
+                }
             }
         }
         #endif
@@ -101,6 +144,15 @@ final class AppViewModel: ObservableObject {
         selectedAnnouncements = []
         hackathons = []
         isLoggedIn = false
+        
+        // CometChat Logout
+        CometChatManager.shared.logout { success, error in
+            if success {
+                print("CometChat logged out successfully ✓")
+            } else if let error = error {
+                print("CometChat logout failed: \(error.errorDescription)")
+            }
+        }
     }
 
     func saveProfile(profile: HackerProfile) async {
@@ -129,6 +181,19 @@ final class AppViewModel: ObservableObject {
             
             await loadCurrentProfile()
             await loadHackathons()
+            
+            // CometChat Login
+            let ccUid = CometChatManager.uidFromEmail(email.trimmingCharacters(in: .whitespacesAndNewlines))
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                CometChatManager.shared.login(uid: ccUid) { user, error in
+                    if let user = user {
+                        print("CometChat logged in as user: \(user.uid) ✓")
+                    } else if let error = error {
+                        print("CometChat login failed: \(error.errorDescription)")
+                    }
+                    continuation.resume()
+                }
+            }
             
             // Auto-select first hackathon if available
             if let first = hackathons.first {
@@ -204,14 +269,17 @@ final class AppViewModel: ObservableObject {
                     self.myOutgoingRequests = []
                     self.myIncomingInvitations = []
                 } else {
-                    async let pub = NetworkManager.shared.fetchPublicTeams(for: id)
                     async let out = NetworkManager.shared.fetchMyRequests(hackathonId: id)
                     async let inv = NetworkManager.shared.fetchMyInvitations(hackathonId: id)
                     
-                    self.publicTeams = (try? await pub) ?? []
                     self.myOutgoingRequests = (try? await out) ?? []
                     self.myIncomingInvitations = (try? await inv) ?? []
                     self.incomingTeamRequests = []
+                    
+                    // Reset pagination parameters and load first page of public teams
+                    self.publicTeamsCurrentPage = 1
+                    self.publicTeamsSearchText = ""
+                    await self.loadPublicTeams()
                 }
             } else {
                 self.publicTeams = []
@@ -370,6 +438,79 @@ final class AppViewModel: ObservableObject {
             await refreshSelectedHackathon()
         } catch {
             print("Respond to invitation failed: \(error)")
+        }
+    }
+
+    // MARK: - Explore Hackathons Pagination
+    func loadExploreHackathons() async {
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            let offset = (exploreCurrentPage - 1) * explorePageSize
+            let query = exploreSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let searchParam = query.isEmpty ? nil : query
+            
+            let list = try await NetworkManager.shared.fetchHackathons(
+                limit: explorePageSize,
+                offset: offset,
+                search: searchParam,
+                track: nil
+            )
+            self.exploreHackathons = list
+            self.exploreHasMore = list.count == explorePageSize
+        } catch {
+            print("Failed to load explore hackathons: \(error)")
+        }
+    }
+    
+    private var exploreSearchTask: Task<Void, Never>?
+    
+    func updateExploreSearch(_ search: String) {
+        exploreSearchText = search
+        exploreCurrentPage = 1
+        
+        exploreSearchTask?.cancel()
+        exploreSearchTask = Task {
+            try? await Task.sleep(nanoseconds: 300_000_000) // 300ms debounce
+            if Task.isCancelled { return }
+            await loadExploreHackathons()
+        }
+    }
+    
+    // MARK: - Public Teams Pagination
+    func loadPublicTeams() async {
+        guard let hackathonId = selectedHackathon?.id else { return }
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            let offset = (publicTeamsCurrentPage - 1) * publicTeamsPageSize
+            let query = publicTeamsSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let searchParam = query.isEmpty ? nil : query
+            
+            let teams = try await NetworkManager.shared.fetchPublicTeams(
+                for: hackathonId,
+                limit: publicTeamsPageSize,
+                offset: offset,
+                search: searchParam
+            )
+            self.publicTeams = teams
+            self.publicTeamsHasMore = teams.count == publicTeamsPageSize
+        } catch {
+            print("Failed to load public teams: \(error)")
+        }
+    }
+    
+    private var publicTeamsSearchTask: Task<Void, Never>?
+    
+    func updateTeamSearch(_ search: String) {
+        publicTeamsSearchText = search
+        publicTeamsCurrentPage = 1
+        
+        publicTeamsSearchTask?.cancel()
+        publicTeamsSearchTask = Task {
+            try? await Task.sleep(nanoseconds: 300_000_000) // 300ms debounce
+            if Task.isCancelled { return }
+            await loadPublicTeams()
         }
     }
 }

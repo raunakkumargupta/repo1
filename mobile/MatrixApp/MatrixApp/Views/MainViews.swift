@@ -289,9 +289,13 @@ struct DashboardView: View {
                 .tabItem { Label("Team", systemImage: "person.3.fill") }
                 .tag(2)
             
+            CometChatConversationsView()
+                .tabItem { Label("Chat", systemImage: "message.fill") }
+                .tag(3)
+            
             ProfileView()
                 .tabItem { Label("Profile", systemImage: "person.crop.circle.fill") }
-                .tag(3)
+                .tag(4)
         }
         .tint(vm.activeTheme.primaryAccent)
     }
@@ -610,14 +614,6 @@ struct HackathonsView: View {
     @EnvironmentObject var vm: AppViewModel
     @State private var searchText = ""
     
-    private var filtered: [Hackathon] {
-        guard !searchText.trimmingCharacters(in: .whitespaces).isEmpty else { return vm.hackathons }
-        return vm.hackathons.filter {
-            $0.title.localizedCaseInsensitiveContains(searchText) ||
-            $0.description.localizedCaseInsensitiveContains(searchText)
-        }
-    }
-    
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
@@ -647,7 +643,7 @@ struct HackathonsView: View {
                     )
                     .padding(.top, 4)
                     
-                    if vm.isLoading && vm.hackathons.isEmpty {
+                    if vm.isLoading && vm.exploreHackathons.isEmpty {
                         VStack(spacing: 16) {
                             ForEach(0..<3, id: \.self) { _ in
                                 RoundedRectangle(cornerRadius: 24)
@@ -656,7 +652,7 @@ struct HackathonsView: View {
                                     .overlay(ProgressView().tint(vm.activeTheme.primaryAccent))
                             }
                         }
-                    } else if filtered.isEmpty {
+                    } else if vm.exploreHackathons.isEmpty {
                         VStack(spacing: 20) {
                             ZStack {
                                 Circle()
@@ -679,7 +675,7 @@ struct HackathonsView: View {
                         .padding(40)
                     } else {
                         LazyVStack(spacing: 20) {
-                            ForEach(filtered) { hack in
+                            ForEach(vm.exploreHackathons) { hack in
                                 NavigationLink(destination: HackathonDetailView(hackathon: hack).onAppear {
                                     vm.selectedHackathon = hack
                                 }) {
@@ -688,6 +684,55 @@ struct HackathonsView: View {
                                 .buttonStyle(ScaleButtonStyle())
                             }
                         }
+                        
+                        // Pagination Footer Controls
+                        if vm.exploreCurrentPage > 1 || vm.exploreHasMore {
+                            HStack(spacing: 20) {
+                                Button {
+                                    if vm.exploreCurrentPage > 1 {
+                                        vm.exploreCurrentPage -= 1
+                                        Task { await vm.loadExploreHackathons() }
+                                    }
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "chevron.left")
+                                        Text("Previous")
+                                    }
+                                    .font(.subheadline.bold())
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 10)
+                                    .background(vm.exploreCurrentPage > 1 ? vm.activeTheme.primaryAccent : vm.activeTheme.surfaceVariant.opacity(0.3))
+                                    .foregroundColor(vm.exploreCurrentPage > 1 ? vm.activeTheme.onPrimary : vm.activeTheme.textSecondary)
+                                    .cornerRadius(10)
+                                }
+                                .disabled(vm.exploreCurrentPage <= 1)
+                                
+                                Text("Page \(vm.exploreCurrentPage)")
+                                    .font(.subheadline.bold())
+                                    .foregroundColor(vm.activeTheme.textPrimary)
+                                
+                                Button {
+                                    if vm.exploreHasMore {
+                                        vm.exploreCurrentPage += 1
+                                        Task { await vm.loadExploreHackathons() }
+                                    }
+                                } label: {
+                                    HStack {
+                                        Text("Next")
+                                        Image(systemName: "chevron.right")
+                                    }
+                                    .font(.subheadline.bold())
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 10)
+                                    .background(vm.exploreHasMore ? vm.activeTheme.primaryAccent : vm.activeTheme.surfaceVariant.opacity(0.3))
+                                    .foregroundColor(vm.exploreHasMore ? vm.activeTheme.onPrimary : vm.activeTheme.textSecondary)
+                                    .cornerRadius(10)
+                                }
+                                .disabled(!vm.exploreHasMore)
+                            }
+                            .padding(.vertical, 16)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                        }
                     }
                 }
                 .padding(.horizontal, 16)
@@ -695,7 +740,18 @@ struct HackathonsView: View {
             }
             .matrixBackground(theme: vm.activeTheme)
             .navigationTitle("Discover Events")
-            .refreshable { await vm.loadHackathons() }
+            .refreshable {
+                vm.exploreCurrentPage = 1
+                await vm.loadExploreHackathons()
+            }
+            .task {
+                if vm.exploreHackathons.isEmpty {
+                    await vm.loadExploreHackathons()
+                }
+            }
+            .onChange(of: searchText) { newValue in
+                vm.updateExploreSearch(newValue)
+            }
         }
     }
 }
@@ -1535,22 +1591,13 @@ struct HackathonTeamSectionView: View {
                     .background(vm.activeTheme.surfaceVariant.opacity(0.5))
                     .cornerRadius(12)
                     
-                    let filteredTeams = vm.publicTeams.filter { team in
-                        teamSearchText.isEmpty || team.teamName.localizedCaseInsensitiveContains(teamSearchText)
-                    }
-                    
                     if vm.publicTeams.isEmpty {
-                        Text("No open teams registered yet. Be the first to create one!")
-                            .font(.caption)
-                            .foregroundColor(vm.activeTheme.textSecondary)
-                            .padding(.top, 4)
-                    } else if filteredTeams.isEmpty {
-                        Text("No matching open teams found.")
+                        Text(teamSearchText.isEmpty ? "No open teams registered yet. Be the first to create one!" : "No matching open teams found.")
                             .font(.caption)
                             .foregroundColor(vm.activeTheme.textSecondary)
                             .padding(.top, 4)
                     } else {
-                        ForEach(filteredTeams) { team in
+                        ForEach(vm.publicTeams) { team in
                             HStack {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(team.teamName)
@@ -1583,9 +1630,61 @@ struct HackathonTeamSectionView: View {
                             .padding()
                             .glassCardStyle(theme: vm.activeTheme)
                         }
+                        
+                        // Pagination Footer Controls for Public Teams
+                        if vm.publicTeamsCurrentPage > 1 || vm.publicTeamsHasMore {
+                            HStack(spacing: 20) {
+                                Button {
+                                    if vm.publicTeamsCurrentPage > 1 {
+                                        vm.publicTeamsCurrentPage -= 1
+                                        Task { await vm.loadPublicTeams() }
+                                    }
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "chevron.left")
+                                        Text("Previous")
+                                    }
+                                    .font(.caption.bold())
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(vm.publicTeamsCurrentPage > 1 ? vm.activeTheme.primaryAccent : vm.activeTheme.surfaceVariant.opacity(0.3))
+                                    .foregroundColor(vm.publicTeamsCurrentPage > 1 ? vm.activeTheme.onPrimary : vm.activeTheme.textSecondary)
+                                    .cornerRadius(8)
+                                }
+                                .disabled(vm.publicTeamsCurrentPage <= 1)
+                                
+                                Text("Page \(vm.publicTeamsCurrentPage)")
+                                    .font(.caption.bold())
+                                    .foregroundColor(vm.activeTheme.textPrimary)
+                                
+                                Button {
+                                    if vm.publicTeamsHasMore {
+                                        vm.publicTeamsCurrentPage += 1
+                                        Task { await vm.loadPublicTeams() }
+                                    }
+                                } label: {
+                                    HStack {
+                                        Text("Next")
+                                        Image(systemName: "chevron.right")
+                                    }
+                                    .font(.caption.bold())
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(vm.publicTeamsHasMore ? vm.activeTheme.primaryAccent : vm.activeTheme.surfaceVariant.opacity(0.3))
+                                    .foregroundColor(vm.publicTeamsHasMore ? vm.activeTheme.onPrimary : vm.activeTheme.textSecondary)
+                                    .cornerRadius(8)
+                                }
+                                .disabled(!vm.publicTeamsHasMore)
+                            }
+                            .padding(.vertical, 8)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                        }
                     }
                 }
                 .padding(.top, 10)
+                .onChange(of: teamSearchText) { newValue in
+                    vm.updateTeamSearch(newValue)
+                }
             }
         }
         .sheet(isPresented: $showCreateTeam) {

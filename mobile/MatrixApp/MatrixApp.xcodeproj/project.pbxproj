@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		842C30AF2FDC077C00305507 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 84FC00022FD93EC100305507 /* FirebaseMessaging */; };
+		84CC00052FD93EC100305507 /* CometChatUIKitSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 84CC00022FD93EC100305507 /* CometChatUIKitSwift */; };
+		84CC00062FD93EC100305507 /* CometChatCallsSDK in Frameworks */ = {isa = PBXBuildFile; productRef = 84CC00042FD93EC100305507 /* CometChatCallsSDK */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,6 +30,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				842C30AF2FDC077C00305507 /* FirebaseMessaging in Frameworks */,
+				84CC00052FD93EC100305507 /* CometChatUIKitSwift in Frameworks */,
+				84CC00062FD93EC100305507 /* CometChatCallsSDK in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -71,6 +75,8 @@
 			name = MatrixApp;
 			packageProductDependencies = (
 				84FC00022FD93EC100305507 /* FirebaseMessaging */,
+				84CC00022FD93EC100305507 /* CometChatUIKitSwift */,
+				84CC00042FD93EC100305507 /* CometChatCallsSDK */,
 			);
 			productName = MatrixApp;
 			productReference = 842C30712FD93EC100305507 /* MatrixApp.app */;
@@ -102,6 +108,8 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				84FC00012FD93EC100305507 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				84CC00012FD93EC100305507 /* XCRemoteSwiftPackageReference "cometchat-uikit-ios" */,
+				84CC00032FD93EC100305507 /* XCRemoteSwiftPackageReference "cometchat-calls-sdk-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 842C30722FD93EC100305507 /* Products */;
@@ -353,6 +361,22 @@
 				minimumVersion = 10.0.0;
 			};
 		};
+		84CC00012FD93EC100305507 /* XCRemoteSwiftPackageReference "cometchat-uikit-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/cometchat/cometchat-uikit-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.0.0;
+			};
+		};
+		84CC00032FD93EC100305507 /* XCRemoteSwiftPackageReference "cometchat-calls-sdk-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/cometchat/cometchat-calls-sdk-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -360,6 +384,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 84FC00012FD93EC100305507 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseMessaging;
+		};
+		84CC00022FD93EC100305507 /* CometChatUIKitSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84CC00012FD93EC100305507 /* XCRemoteSwiftPackageReference "cometchat-uikit-ios" */;
+			productName = CometChatUIKitSwift;
+		};
+		84CC00042FD93EC100305507 /* CometChatCallsSDK */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84CC00032FD93EC100305507 /* XCRemoteSwiftPackageReference "cometchat-calls-sdk-ios" */;
+			productName = CometChatCallsSDK;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

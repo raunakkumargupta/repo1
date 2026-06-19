@@ -8,6 +8,17 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
         FirebaseApp.configure()
         
+        // Initialize CometChat SDK
+        Task { @MainActor in
+            CometChatManager.shared.initialize { success, error in
+                if success {
+                    print("CometChat initialized from AppDelegate ✓")
+                } else if let error = error {
+                    print("CometChat failed to initialize: \(error.errorDescription)")
+                }
+            }
+        }
+        
         UNUserNotificationCenter.current().delegate = self
         Messaging.messaging().delegate = self
         

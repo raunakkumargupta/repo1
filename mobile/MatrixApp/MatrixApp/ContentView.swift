@@ -1,4 +1,5 @@
 import SwiftUI
+import CometChatSDK
 
 struct RootView: View {
     @StateObject private var vm = AppViewModel()
@@ -15,6 +16,20 @@ struct RootView: View {
             }
         }
         .preferredColorScheme(vm.activeTheme == .appleClean ? .light : .dark)
+        .fullScreenCover(item: Binding<IdentifiableCall?>(
+            get: { vm.incomingCall.map { IdentifiableCall(id: $0.sessionID ?? UUID().uuidString, call: $0) } },
+            set: { vm.incomingCall = $0?.call }
+        )) { wrap in
+            CometChatIncomingCallView(call: wrap.call)
+                .environmentObject(vm)
+        }
+        .fullScreenCover(item: Binding<IdentifiableSession?>(
+            get: { vm.ongoingCallSessionID.map { IdentifiableSession(id: $0) } },
+            set: { vm.ongoingCallSessionID = $0?.id }
+        )) { wrap in
+            CometChatOngoingCallView(sessionID: wrap.id)
+                .environmentObject(vm)
+        }
         .task {
             vm.bootstrap()
         }

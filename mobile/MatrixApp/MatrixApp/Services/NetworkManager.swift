@@ -121,8 +121,27 @@ final class NetworkManager {
         try checkResponse(response, data: data)
     }
 
-    func fetchHackathons() async throws -> [Hackathon] {
-        let url = URL(string: "\(baseURL)/hackathons")!
+    func fetchHackathons(limit: Int? = nil, offset: Int? = nil, search: String? = nil, track: String? = nil) async throws -> [Hackathon] {
+        var components = URLComponents(string: "\(baseURL)/hackathons")!
+        var queryItems = [URLQueryItem]()
+        if let limit = limit {
+            queryItems.append(URLQueryItem(name: "limit", value: String(limit)))
+        }
+        if let offset = offset {
+            queryItems.append(URLQueryItem(name: "offset", value: String(offset)))
+        }
+        if let search = search, !search.isEmpty {
+            queryItems.append(URLQueryItem(name: "search", value: search))
+        }
+        if let track = track, !track.isEmpty {
+            queryItems.append(URLQueryItem(name: "track", value: track))
+        }
+        if !queryItems.isEmpty {
+            components.queryItems = queryItems
+        }
+        guard let url = components.url else {
+            throw APIError.invalidResponse
+        }
         let request = authenticatedRequest(url: url, method: "GET")
         
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -270,8 +289,24 @@ final class NetworkManager {
         try checkResponse(response, data: data)
     }
 
-    func fetchPublicTeams(for hackathonId: String) async throws -> [Team] {
-        let url = URL(string: "\(baseURL)/hackathons/\(hackathonId)/teams/public")!
+    func fetchPublicTeams(for hackathonId: String, limit: Int? = nil, offset: Int? = nil, search: String? = nil) async throws -> [Team] {
+        var components = URLComponents(string: "\(baseURL)/hackathons/\(hackathonId)/teams/public")!
+        var queryItems = [URLQueryItem]()
+        if let limit = limit {
+            queryItems.append(URLQueryItem(name: "limit", value: String(limit)))
+        }
+        if let offset = offset {
+            queryItems.append(URLQueryItem(name: "offset", value: String(offset)))
+        }
+        if let search = search, !search.isEmpty {
+            queryItems.append(URLQueryItem(name: "search", value: search))
+        }
+        if !queryItems.isEmpty {
+            components.queryItems = queryItems
+        }
+        guard let url = components.url else {
+            throw APIError.invalidResponse
+        }
         let request = authenticatedRequest(url: url, method: "GET")
         let (data, response) = try await URLSession.shared.data(for: request)
         try checkResponse(response, data: data)
