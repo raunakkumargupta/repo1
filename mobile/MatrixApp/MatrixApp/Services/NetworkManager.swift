@@ -121,6 +121,49 @@ final class NetworkManager {
         try checkResponse(response, data: data)
     }
 
+    struct HackathonPageResult {
+        let hackathons: [Hackathon]
+        let totalCount: Int
+    }
+    
+    func fetchHackathonsPaginated(limit: Int? = nil, offset: Int? = nil, search: String? = nil, track: String? = nil) async throws -> HackathonPageResult {
+        var components = URLComponents(string: "\(baseURL)/hackathons")!
+        var queryItems = [URLQueryItem]()
+        if let limit = limit {
+            queryItems.append(URLQueryItem(name: "limit", value: String(limit)))
+        }
+        if let offset = offset {
+            queryItems.append(URLQueryItem(name: "offset", value: String(offset)))
+        }
+        if let search = search, !search.isEmpty {
+            queryItems.append(URLQueryItem(name: "search", value: search))
+        }
+        if let track = track, !track.isEmpty {
+            queryItems.append(URLQueryItem(name: "track", value: track))
+        }
+        if !queryItems.isEmpty {
+            components.queryItems = queryItems
+        }
+        guard let url = components.url else {
+            throw APIError.invalidResponse
+        }
+        let request = authenticatedRequest(url: url, method: "GET")
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try checkResponse(response, data: data)
+        
+        let hackathons = try decode([Hackathon].self, from: data)
+        
+        var totalCount = hackathons.count
+        if let httpResponse = response as? HTTPURLResponse,
+           let totalStr = httpResponse.value(forHTTPHeaderField: "X-Total-Count"),
+           let total = Int(totalStr) {
+            totalCount = total
+        }
+        
+        return HackathonPageResult(hackathons: hackathons, totalCount: totalCount)
+    }
+
     func fetchHackathons(limit: Int? = nil, offset: Int? = nil, search: String? = nil, track: String? = nil) async throws -> [Hackathon] {
         var components = URLComponents(string: "\(baseURL)/hackathons")!
         var queryItems = [URLQueryItem]()

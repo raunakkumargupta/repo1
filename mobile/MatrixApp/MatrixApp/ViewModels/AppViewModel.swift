@@ -14,6 +14,14 @@ final class AppViewModel: ObservableObject {
     @Published var currentUser: User?
     @Published var currentProfile: HackerProfile?
     @Published var allRegistrations: [Registration] = []
+    
+    // MARK: - My Hackathons Pagination State
+    @Published var myHackathonsPage = 1
+    @Published var myHackathonsHasMore = false
+    @Published var isLoadingMoreHackathons = false
+    @Published var totalHackathonCount = 0
+    @Published var totalRegistrationStats: (total: Int, accepted: Int, pending: Int) = (0, 0, 0)
+    private let myHackathonsPageSize = 10
     @Published var activeTheme: AppTheme = .norseObsidian {
         didSet {
             if let encoded = try? JSONEncoder().encode(activeTheme) {
@@ -31,6 +39,7 @@ final class AppViewModel: ObservableObject {
     @Published var exploreSearchText = ""
     @Published var exploreCurrentPage = 1
     @Published var exploreHasMore = false
+    @Published var isLoadingMoreExplore = false
     private let explorePageSize = 10
     
     // MARK: - Public Teams Paginated State
@@ -105,12 +114,11 @@ final class AppViewModel: ObservableObject {
                 await loadCurrentProfile()
                 await loadHackathons()
                 
-                // CometChat auto-login
-                if let email = currentUser?.email {
-                    let ccUid = CometChatManager.uidFromEmail(email)
-                    CometChatManager.shared.login(uid: ccUid) { user, error in
+                // CometChat auto-login — use backend user ID (UUID) as CometChat UID
+                if let userId = currentUser?.id {
+                    CometChatManager.shared.login(uid: userId) { user, error in
                         if let user = user {
-                            print("CometChat auto-login success: \(user.uid) ✓")
+                            print("CometChat auto-login success: \(user.uid ?? "") ✓")
                         } else if let error = error {
                             print("CometChat auto-login failed: \(error.errorDescription)")
                         }
@@ -182,12 +190,13 @@ final class AppViewModel: ObservableObject {
             await loadCurrentProfile()
             await loadHackathons()
             
-            // CometChat Login
-            let ccUid = CometChatManager.uidFromEmail(email.trimmingCharacters(in: .whitespacesAndNewlines))
+            // CometChat Login — use backend user ID (UUID) as CometChat UID
+            // The sync script creates CometChat users with the backend UUID, not email
+            let ccUid = currentUser?.id ?? CometChatManager.uidFromEmail(email.trimmingCharacters(in: .whitespacesAndNewlines))
             await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
                 CometChatManager.shared.login(uid: ccUid) { user, error in
                     if let user = user {
-                        print("CometChat logged in as user: \(user.uid) ✓")
+                        print("CometChat logged in as user: \(user.uid ?? "") ✓")
                     } else if let error = error {
                         print("CometChat login failed: \(error.errorDescription)")
                     }
@@ -213,29 +222,100 @@ final class AppViewModel: ObservableObject {
         isLoading = true
         defer { isLoading = false }
         do {
-            hackathons = try await NetworkManager.shared.fetchHackathons()
-            if selectedHackathon == nil, let first = hackathons.first {
+            // Reset pagination state
+            myHackathonsPage = 1
+            
+            let result = try await NetworkManager.shared.fetchHackathonsPaginated(limit: myHackathonsPageSize, offset: 0)
+            hackathons = result.hackathons
+            totalHackathonCount = result.totalCount
+            myHackathonsHasMore = result.hackathons.count >= myHackathonsPageSize
+            
+            if selectedHackathon == nil, let first = result.hackathons.first {
                 selectedHackathon = first
             }
             
-            // Parallel load registrations for dashboard stats
-            var regs: [Registration] = []
+            // Load registrations for the displayed page
+            let regs = await fetchRegistrations(for: result.hackathons)
+            self.allRegistrations = regs
+            
+            // Fetch full registration stats in the background (lightweight - no hackathon details)
+            Task { await loadRegistrationStats() }
+        } catch {
+            authError = "Failed to load hackathons: \(error.localizedDescription)"
+        }
+    }
+    
+    func loadMoreHackathons() async {
+        guard myHackathonsHasMore, !isLoadingMoreHackathons else { return }
+        isLoadingMoreHackathons = true
+        defer { isLoadingMoreHackathons = false }
+        do {
+            let offset = myHackathonsPage * myHackathonsPageSize
+            let result = try await NetworkManager.shared.fetchHackathonsPaginated(limit: myHackathonsPageSize, offset: offset)
+            
+            myHackathonsHasMore = result.hackathons.count >= myHackathonsPageSize
+            myHackathonsPage += 1
+            
+            hackathons.append(contentsOf: result.hackathons)
+            
+            // Load registrations for the new page
+            let newRegs = await fetchRegistrations(for: result.hackathons)
+            self.allRegistrations.append(contentsOf: newRegs)
+        } catch {
+            print("Failed to load more hackathons: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Fetches registration status for ALL hackathons to compute accurate stats.
+    /// This runs in the background and only updates the stats counters.
+    private func loadRegistrationStats() async {
+        do {
+            // Fetch all hackathon IDs (use no limit to get them all — just IDs for stat counting)
+            let allHacks = try await NetworkManager.shared.fetchHackathons()
+            
+            var total = 0
+            var accepted = 0
+            var pending = 0
+            
             await withTaskGroup(of: Registration?.self) { group in
-                for hack in hackathons {
+                for hack in allHacks {
                     group.addTask {
                         try? await NetworkManager.shared.fetchRegistrationStatus(for: hack.id)
                     }
                 }
                 for await reg in group {
                     if let reg = reg {
-                        regs.append(reg)
+                        total += 1
+                        switch reg.approvalStatus.lowercased() {
+                        case "accepted": accepted += 1
+                        case "pending": pending += 1
+                        default: break
+                        }
                     }
                 }
             }
-            self.allRegistrations = regs
+            
+            self.totalRegistrationStats = (total, accepted, pending)
         } catch {
-            authError = "Failed to load hackathons: \(error.localizedDescription)"
+            print("Failed to load registration stats: \(error.localizedDescription)")
         }
+    }
+    
+    private func fetchRegistrations(for hackathonList: [Hackathon]) async -> [Registration] {
+        var regs: [Registration] = []
+        await withTaskGroup(of: Registration?.self) { group in
+            for hack in hackathonList {
+                group.addTask {
+                    try? await NetworkManager.shared.fetchRegistrationStatus(for: hack.id)
+                }
+            }
+            for await reg in group {
+                if let reg = reg {
+                    regs.append(reg)
+                }
+            }
+        }
+        return regs
     }
 
     func loadSelectedHackathonDetails(id: String) async {
@@ -456,10 +536,39 @@ final class AppViewModel: ObservableObject {
                 search: searchParam,
                 track: nil
             )
-            self.exploreHackathons = list
+            
+            if exploreCurrentPage == 1 {
+                self.exploreHackathons = list
+            } else {
+                self.exploreHackathons.append(contentsOf: list)
+            }
             self.exploreHasMore = list.count == explorePageSize
         } catch {
             print("Failed to load explore hackathons: \(error)")
+        }
+    }
+    
+    func loadMoreExploreHackathons() async {
+        guard exploreHasMore, !isLoadingMoreExplore else { return }
+        isLoadingMoreExplore = true
+        defer { isLoadingMoreExplore = false }
+        exploreCurrentPage += 1
+        do {
+            let offset = (exploreCurrentPage - 1) * explorePageSize
+            let query = exploreSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let searchParam = query.isEmpty ? nil : query
+            
+            let list = try await NetworkManager.shared.fetchHackathons(
+                limit: explorePageSize,
+                offset: offset,
+                search: searchParam,
+                track: nil
+            )
+            self.exploreHackathons.append(contentsOf: list)
+            self.exploreHasMore = list.count == explorePageSize
+        } catch {
+            print("Failed to load more explore hackathons: \(error)")
+            exploreCurrentPage -= 1
         }
     }
     
@@ -468,6 +577,7 @@ final class AppViewModel: ObservableObject {
     func updateExploreSearch(_ search: String) {
         exploreSearchText = search
         exploreCurrentPage = 1
+        exploreHackathons = []
         
         exploreSearchTask?.cancel()
         exploreSearchTask = Task {

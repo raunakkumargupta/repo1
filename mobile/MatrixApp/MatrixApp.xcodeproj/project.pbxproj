@@ -10,6 +10,8 @@
 		842C30AF2FDC077C00305507 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 84FC00022FD93EC100305507 /* FirebaseMessaging */; };
 		84CC00052FD93EC100305507 /* CometChatUIKitSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 84CC00022FD93EC100305507 /* CometChatUIKitSwift */; };
 		84CC00062FD93EC100305507 /* CometChatCallsSDK in Frameworks */ = {isa = PBXBuildFile; productRef = 84CC00042FD93EC100305507 /* CometChatCallsSDK */; };
+		84CC00072FD93EC100305507 /* CometChatSDK in Frameworks */ = {isa = PBXBuildFile; productRef = 84CC00082FD93EC100305507 /* CometChatSDK */; };
+		84CC00092FD93EC100305507 /* CometChatCardsSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 84CC000A2FD93EC100305507 /* CometChatCardsSwift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,6 +34,8 @@
 				842C30AF2FDC077C00305507 /* FirebaseMessaging in Frameworks */,
 				84CC00052FD93EC100305507 /* CometChatUIKitSwift in Frameworks */,
 				84CC00062FD93EC100305507 /* CometChatCallsSDK in Frameworks */,
+				84CC00072FD93EC100305507 /* CometChatSDK in Frameworks */,
+				84CC00092FD93EC100305507 /* CometChatCardsSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -77,6 +81,8 @@
 				84FC00022FD93EC100305507 /* FirebaseMessaging */,
 				84CC00022FD93EC100305507 /* CometChatUIKitSwift */,
 				84CC00042FD93EC100305507 /* CometChatCallsSDK */,
+				84CC00082FD93EC100305507 /* CometChatSDK */,
+				84CC000A2FD93EC100305507 /* CometChatCardsSwift */,
 			);
 			productName = MatrixApp;
 			productReference = 842C30712FD93EC100305507 /* MatrixApp.app */;
@@ -109,7 +115,9 @@
 			packageReferences = (
 				84FC00012FD93EC100305507 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				84CC00012FD93EC100305507 /* XCRemoteSwiftPackageReference "cometchat-uikit-ios" */,
-				84CC00032FD93EC100305507 /* XCRemoteSwiftPackageReference "cometchat-calls-sdk-ios" */,
+				84CC00032FD93EC100305507 /* XCRemoteSwiftPackageReference "calls-sdk-ios" */,
+				84CC000B2FD93EC100305507 /* XCRemoteSwiftPackageReference "chat-sdk-ios" */,
+				84CC000C2FD93EC100305507 /* XCRemoteSwiftPackageReference "cards-sdk-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 842C30722FD93EC100305507 /* Products */;
@@ -179,7 +187,7 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -242,7 +250,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -369,12 +377,28 @@
 				minimumVersion = 5.0.0;
 			};
 		};
-		84CC00032FD93EC100305507 /* XCRemoteSwiftPackageReference "cometchat-calls-sdk-ios" */ = {
+		84CC00032FD93EC100305507 /* XCRemoteSwiftPackageReference "calls-sdk-ios" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/cometchat/cometchat-calls-sdk-ios.git";
+			repositoryURL = "https://github.com/cometchat/calls-sdk-ios.git";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 5.0.0;
+			};
+		};
+		84CC000B2FD93EC100305507 /* XCRemoteSwiftPackageReference "chat-sdk-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/cometchat/chat-sdk-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.0.0;
+			};
+		};
+		84CC000C2FD93EC100305507 /* XCRemoteSwiftPackageReference "cards-sdk-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/cometchat/cards-sdk-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -392,8 +416,18 @@
 		};
 		84CC00042FD93EC100305507 /* CometChatCallsSDK */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 84CC00032FD93EC100305507 /* XCRemoteSwiftPackageReference "cometchat-calls-sdk-ios" */;
+			package = 84CC00032FD93EC100305507 /* XCRemoteSwiftPackageReference "calls-sdk-ios" */;
 			productName = CometChatCallsSDK;
+		};
+		84CC00082FD93EC100305507 /* CometChatSDK */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84CC000B2FD93EC100305507 /* XCRemoteSwiftPackageReference "chat-sdk-ios" */;
+			productName = CometChatSDK;
+		};
+		84CC000A2FD93EC100305507 /* CometChatCardsSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 84CC000C2FD93EC100305507 /* XCRemoteSwiftPackageReference "cards-sdk-ios" */;
+			productName = CometChatCardsSwift;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

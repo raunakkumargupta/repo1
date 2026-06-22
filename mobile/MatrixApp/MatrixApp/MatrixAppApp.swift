@@ -2,6 +2,7 @@ import SwiftUI
 import FirebaseCore
 import FirebaseMessaging
 import UserNotifications
+import CometChatSDK
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
     func application(_ application: UIApplication,

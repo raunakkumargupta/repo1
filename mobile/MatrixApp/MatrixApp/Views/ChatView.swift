@@ -14,9 +14,9 @@ struct CometChatConversationsView: UIViewControllerRepresentable {
         
         conversationsVC.set(onItemClick: { [weak navController] conversation, indexPath in
             let messagesVC = MessagesVC()
-            if let group = conversation.conversationWith as? Group {
+            if let group = conversation.conversationWith as? CometChatSDK.Group {
                 messagesVC.group = group
-            } else if let user = conversation.conversationWith as? User {
+            } else if let user = conversation.conversationWith as? CometChatSDK.User {
                 messagesVC.user = user
             }
             messagesVC.hidesBottomBarWhenPushed = true
@@ -31,8 +31,8 @@ struct CometChatConversationsView: UIViewControllerRepresentable {
 
 // MARK: - Custom Messages View Controller (Header + List + Composer)
 class MessagesVC: UIViewController {
-    var user: User?
-    var group: Group?
+    var user: CometChatSDK.User?
+    var group: CometChatSDK.Group?
     
     private lazy var headerView: CometChatMessageHeader = {
         let view = CometChatMessageHeader()
@@ -116,18 +116,18 @@ struct CometChatIncomingCallView: UIViewControllerRepresentable {
         let vc = CometChatIncomingCall()
         vc.set(call: call)
         
-        vc.setOnAccept { acceptedCall in
+        vc.set(onAcceptClick: { acceptedCall, controller in
             DispatchQueue.main.async {
                 vm.incomingCall = nil
                 vm.ongoingCallSessionID = call.sessionID
             }
-        }
+        })
         
-        vc.setOnDecline { rejectedCall in
+        vc.set(onError: { error in
             DispatchQueue.main.async {
                 vm.incomingCall = nil
             }
-        }
+        })
         
         return vc
     }
@@ -142,7 +142,7 @@ struct CometChatOngoingCallView: UIViewControllerRepresentable {
     
     func makeUIViewController(context: Context) -> CometChatOngoingCall {
         let vc = CometChatOngoingCall()
-        vc.set(sessionID: sessionID)
+        vc.set(sessionId: sessionID)
         return vc
     }
     

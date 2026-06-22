@@ -14,7 +14,7 @@ final class CometChatManager: NSObject {
     let authKey = "c973c5607c75f3dbebe07a8845e6fa7a7cddfab7"
     
     private(set) var isInitialized = false
-    private(set) var currentUser: User?
+    private(set) var currentUser: CometChatSDK.User?
     
     // Callbacks to bridge signaling states to the ViewModel
     var onIncomingCallReceived: ((Call) -> Void)?
@@ -40,32 +40,29 @@ final class CometChatManager: NSObject {
         
         CometChatUIKit.init(uiKitSettings: uiKitSettings) { [weak self] result in
             DispatchQueue.main.async {
+                guard let strongSelf = self as? CometChatManager else { return }
                 switch result {
                 case .success(let success):
-                    self?.isInitialized = success
-                    self?.currentUser = CometChatUIKit.getLoggedInUser()
+                    strongSelf.isInitialized = success
+                    strongSelf.currentUser = CometChatUIKit.getLoggedInUser()
                     
                     // Register Call Listener
-                    if let self = self {
-                        CometChat.addCallListener("AppCallListener", self)
-                    }
+                    CometChat.addCallListener("AppCallListener", strongSelf)
                     
                     // Initialize Calls SDK here, AFTER Chat SDK
                     let callAppSettings = CallAppSettingsBuilder()
-                        .setAppId(self?.appID ?? "")
-                        .setRegion(self?.region ?? "")
+                        .setAppId(strongSelf.appID)
+                        .setRegion(strongSelf.region)
                         .build()
                     
-                    CometChatCalls.init(callsAppSettings: callAppSettings) { error in
-                        if let error = error {
-                            print("CometChatCalls SDK init failed: \(error.errorDescription)")
-                            // We still report success for chat initialization
-                            completion(success, nil)
-                        } else {
-                            print("CometChatCalls SDK initialized successfully ✓")
-                            completion(success, nil)
-                        }
-                    }
+                    CometChatCalls.init(callsAppSettings: callAppSettings, onSuccess: { _ in
+                        print("CometChatCalls SDK initialized successfully ✓")
+                        completion(success, nil)
+                    }, onError: { error in
+                        print("CometChatCalls SDK init failed: \(error?.errorDescription ?? "unknown")")
+                        // We still report success for chat initialization
+                        completion(success, nil)
+                    })
                 case .failure(let error):
                     print("CometChat init failed: \(error.localizedDescription)")
                     completion(false, error as? CometChatException)
@@ -74,7 +71,7 @@ final class CometChatManager: NSObject {
         }
     }
     
-    func login(uid: String, completion: @escaping (User?, CometChatException?) -> Void) {
+    func login(uid: String, completion: @escaping (CometChatSDK.User?, CometChatException?) -> Void) {
         guard isInitialized else {
             print("CometChat not initialized")
             completion(nil, nil)
@@ -82,6 +79,8 @@ final class CometChatManager: NSObject {
         }
         
         if let user = currentUser, user.uid == uid {
+            // Already logged in — ensure Calls SDK is also logged in
+            loginCallsSDK(uid: uid)
             completion(user, nil)
             return
         }
@@ -91,7 +90,14 @@ final class CometChatManager: NSObject {
                 switch result {
                 case .success(let user):
                     self?.currentUser = user
-                    print("CometChat logged in successfully: \(user.uid)")
+                    print("CometChat logged in successfully: \(user.uid ?? "unknown")")
+                    
+                    // CRITICAL: Login to Calls SDK after Chat SDK login
+                    // Without this, calling features won't work
+                    if let uid = user.uid {
+                        self?.loginCallsSDK(uid: uid)
+                    }
+                    
                     completion(user, nil)
                 case .onError(let error):
                     print("CometChat login failed for UID=\(uid): \(error.errorDescription)")
@@ -101,6 +107,17 @@ final class CometChatManager: NSObject {
                 }
             }
         }
+    }
+    
+    /// Login to CometChatCalls SDK — required for accept/reject calls to work.
+    /// Must be called after Chat SDK login succeeds.
+    private func loginCallsSDK(uid: String) {
+        CometChatCalls.login(UID: uid, authKey: authKey, onSuccess: { _ in
+            print("CometChatCalls SDK logged in for UID=\(uid) ✓")
+        }, onError: { error in
+            // ERR_ALREADY_LOGGED_IN is fine — just means we're already logged in
+            print("CometChatCalls SDK login result: \(error.errorDescription) — calls may still work")
+        })
     }
     
     func logout(completion: @escaping (Bool, CometChatException?) -> Void) {

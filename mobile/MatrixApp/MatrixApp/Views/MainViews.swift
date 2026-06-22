@@ -400,8 +400,9 @@ struct HomeDashboardView: View {
                     .shadow(color: vm.activeTheme.primaryAccent.opacity(0.35), radius: 12, x: 0, y: 6)
 
                     // Quick Stats grid
-                    let acceptedCount = vm.allRegistrations.filter { $0.approvalStatus.lowercased() == "accepted" }.count
-                    let pendingCount = vm.allRegistrations.filter { $0.approvalStatus.lowercased() == "pending" }.count
+                    let acceptedCount = vm.totalRegistrationStats.accepted
+                    let pendingCount = vm.totalRegistrationStats.pending
+                    let totalCount = vm.totalRegistrationStats.total
                     
                     VStack(alignment: .leading, spacing: 10) {
                         Text("My Statistics")
@@ -411,7 +412,7 @@ struct HomeDashboardView: View {
                         HStack(spacing: 12) {
                             DashboardMetricCard(
                                 title: "Total Apps",
-                                value: "\(vm.allRegistrations.count)",
+                                value: "\(totalCount)",
                                 icon: "doc.text.fill",
                                 color: vm.activeTheme.primaryAccent,
                                 theme: vm.activeTheme
@@ -546,6 +547,28 @@ struct HomeDashboardView: View {
                                 }
                                 .buttonStyle(PlainButtonStyle())
                                 .glassCardStyle(theme: vm.activeTheme)
+                            }
+                            
+                            // Load More button
+                            if vm.myHackathonsHasMore {
+                                Button {
+                                    Task { await vm.loadMoreHackathons() }
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        if vm.isLoadingMoreHackathons {
+                                            ProgressView()
+                                                .tint(vm.activeTheme.primaryAccent)
+                                        }
+                                        Text(vm.isLoadingMoreHackathons ? "Loading..." : "Load More")
+                                            .font(.subheadline.bold())
+                                            .foregroundColor(vm.activeTheme.primaryAccent)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .glassCardStyle(theme: vm.activeTheme)
+                                }
+                                .disabled(vm.isLoadingMoreHackathons)
+                                .buttonStyle(PlainButtonStyle())
                             }
                         }
                     }
@@ -682,56 +705,32 @@ struct HackathonsView: View {
                                     HackathonRowCard(hackathon: hack)
                                 }
                                 .buttonStyle(ScaleButtonStyle())
+                                .onAppear {
+                                    // Trigger load more when reaching the last 3 items
+                                    if hack.id == vm.exploreHackathons.suffix(3).first?.id {
+                                        Task { await vm.loadMoreExploreHackathons() }
+                                    }
+                                }
                             }
                         }
                         
-                        // Pagination Footer Controls
-                        if vm.exploreCurrentPage > 1 || vm.exploreHasMore {
-                            HStack(spacing: 20) {
-                                Button {
-                                    if vm.exploreCurrentPage > 1 {
-                                        vm.exploreCurrentPage -= 1
-                                        Task { await vm.loadExploreHackathons() }
-                                    }
-                                } label: {
-                                    HStack {
-                                        Image(systemName: "chevron.left")
-                                        Text("Previous")
-                                    }
-                                    .font(.subheadline.bold())
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 10)
-                                    .background(vm.exploreCurrentPage > 1 ? vm.activeTheme.primaryAccent : vm.activeTheme.surfaceVariant.opacity(0.3))
-                                    .foregroundColor(vm.exploreCurrentPage > 1 ? vm.activeTheme.onPrimary : vm.activeTheme.textSecondary)
-                                    .cornerRadius(10)
-                                }
-                                .disabled(vm.exploreCurrentPage <= 1)
-                                
-                                Text("Page \(vm.exploreCurrentPage)")
-                                    .font(.subheadline.bold())
-                                    .foregroundColor(vm.activeTheme.textPrimary)
-                                
-                                Button {
-                                    if vm.exploreHasMore {
-                                        vm.exploreCurrentPage += 1
-                                        Task { await vm.loadExploreHackathons() }
-                                    }
-                                } label: {
-                                    HStack {
-                                        Text("Next")
-                                        Image(systemName: "chevron.right")
-                                    }
-                                    .font(.subheadline.bold())
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 10)
-                                    .background(vm.exploreHasMore ? vm.activeTheme.primaryAccent : vm.activeTheme.surfaceVariant.opacity(0.3))
-                                    .foregroundColor(vm.exploreHasMore ? vm.activeTheme.onPrimary : vm.activeTheme.textSecondary)
-                                    .cornerRadius(10)
-                                }
-                                .disabled(!vm.exploreHasMore)
+                        // Loading indicator at the bottom
+                        if vm.isLoadingMoreExplore {
+                            HStack(spacing: 10) {
+                                ProgressView()
+                                    .tint(vm.activeTheme.primaryAccent)
+                                Text("Loading more...")
+                                    .font(.subheadline)
+                                    .foregroundColor(vm.activeTheme.textSecondary)
                             }
                             .padding(.vertical, 16)
                             .frame(maxWidth: .infinity, alignment: .center)
+                        } else if !vm.exploreHasMore && vm.exploreHackathons.count > 0 {
+                            Text("You've reached the end")
+                                .font(.caption)
+                                .foregroundColor(vm.activeTheme.textSecondary)
+                                .padding(.vertical, 16)
+                                .frame(maxWidth: .infinity, alignment: .center)
                         }
                     }
                 }
@@ -742,6 +741,7 @@ struct HackathonsView: View {
             .navigationTitle("Discover Events")
             .refreshable {
                 vm.exploreCurrentPage = 1
+                vm.exploreHackathons = []
                 await vm.loadExploreHackathons()
             }
             .task {
