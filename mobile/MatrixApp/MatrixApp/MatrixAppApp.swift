@@ -5,6 +5,18 @@ import UserNotifications
 import CometChatSDK
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
+    // Required by CometChatCallsSDK (React Native internals access this via [UIApplication.delegate window])
+    // Returns the active key window from the connected scene
+    @objc var window: UIWindow? {
+        get {
+            UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .flatMap { $0.windows }
+                .first { $0.isKeyWindow }
+        }
+        set { }
+    }
+    
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
         FirebaseApp.configure()

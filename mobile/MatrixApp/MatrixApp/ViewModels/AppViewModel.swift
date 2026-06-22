@@ -103,10 +103,26 @@ final class AppViewModel: ObservableObject {
             activeTheme = decoded
         }
         #if DEBUG
-        // In debug mode, we can clear to allow testing fresh login states easily
-        // If you want persistent logins, comment out clear()
-        KeychainHelper.shared.clear()
-        isLoggedIn = false
+        // In debug mode, check if we have a valid token for persistent login
+        // Remove the clear() call so calls don't redirect to login on end
+        isLoggedIn = KeychainHelper.shared.read() != nil
+        if isLoggedIn {
+            Task {
+                await loadCurrentProfile()
+                await loadHackathons()
+                
+                // CometChat auto-login
+                if let userId = currentUser?.id {
+                    CometChatManager.shared.login(uid: userId) { user, error in
+                        if let user = user {
+                            print("CometChat auto-login success: \(user.uid ?? "") ✓")
+                        } else if let error = error {
+                            print("CometChat auto-login failed: \(error.errorDescription)")
+                        }
+                    }
+                }
+            }
+        }
         #else
         isLoggedIn = KeychainHelper.shared.read() != nil
         if isLoggedIn {

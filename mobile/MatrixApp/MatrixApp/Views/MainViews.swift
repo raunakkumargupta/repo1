@@ -1296,6 +1296,18 @@ struct HackathonTeamSectionView: View {
                                 }
                                 Spacer()
                                 
+                                // Direct Message button (skip for self)
+                                if member.id != vm.currentUser?.id {
+                                    NavigationLink(destination: DirectMessageView(uid: member.id, name: member.name)) {
+                                        Image(systemName: "message.fill")
+                                            .font(.footnote)
+                                            .foregroundColor(vm.activeTheme.primaryAccent)
+                                            .padding(8)
+                                            .background(vm.activeTheme.primaryAccent.opacity(0.12))
+                                            .clipShape(Circle())
+                                    }
+                                }
+                                
                                 if member.id == activeTeam.team.leaderId {
                                     Text("Leader ★")
                                         .font(.caption.bold())

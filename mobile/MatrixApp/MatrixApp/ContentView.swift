@@ -29,6 +29,7 @@ struct RootView: View {
         )) { wrap in
             CometChatOngoingCallView(sessionID: wrap.id)
                 .environmentObject(vm)
+                .ignoresSafeArea()
         }
         .task {
             vm.bootstrap()

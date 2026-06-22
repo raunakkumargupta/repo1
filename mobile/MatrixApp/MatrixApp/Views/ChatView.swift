@@ -105,6 +105,19 @@ class MessagesVC: UIViewController {
             composerView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
         ])
     }
+    
+    /// Reload chat components after user/group is set asynchronously
+    func reloadChatComponents() {
+        if let user = user {
+            headerView.set(user: user)
+            messageListView.set(user: user)
+            composerView.set(user: user)
+        } else if let group = group {
+            headerView.set(group: group)
+            messageListView.set(group: group)
+            composerView.set(group: group)
+        }
+    }
 }
 
 // MARK: - SwiftUI Incoming Call Representable
@@ -114,6 +127,13 @@ struct CometChatIncomingCallView: UIViewControllerRepresentable {
     
     func makeUIViewController(context: Context) -> CometChatIncomingCall {
         let vc = CometChatIncomingCall()
+        
+        // CRITICAL: Ensure Calls SDK is logged in before binding the call
+        // Without this, accept/reject signals don't reach the caller
+        if let uid = CometChat.getLoggedInUser()?.uid {
+            CometChatManager.shared.loginCallsSDK(uid: uid)
+        }
+        
         vc.set(call: call)
         
         vc.set(onAcceptClick: { acceptedCall, controller in
@@ -149,6 +169,12 @@ struct CometChatOngoingCallView: UIViewControllerRepresentable {
     func updateUIViewController(_ vc: CometChatOngoingCall, context: Context) {}
 }
 
+/// Container that hides the status bar during calls
+class CallContainerViewController: UIViewController {
+    override var prefersStatusBarHidden: Bool { true }
+    override var preferredStatusBarUpdateAnimation: UIStatusBarAnimation { .fade }
+}
+
 // MARK: - Helpers for SwiftUI fullScreenCover Identification
 struct IdentifiableCall: Identifiable {
     let id: String
@@ -157,4 +183,31 @@ struct IdentifiableCall: Identifiable {
 
 struct IdentifiableSession: Identifiable {
     let id: String
+}
+
+// MARK: - Direct Message View (1-on-1 chat by UID)
+struct DirectMessageView: UIViewControllerRepresentable {
+    let uid: String
+    let name: String
+    
+    func makeUIViewController(context: Context) -> UINavigationController {
+        let messagesVC = MessagesVC()
+        
+        // Fetch the CometChat user by UID and set on the MessagesVC
+        CometChat.getUser(UID: uid) { user in
+            DispatchQueue.main.async {
+                if let user = user {
+                    messagesVC.user = user
+                    messagesVC.reloadChatComponents()
+                }
+            }
+        } onError: { error in
+            print("Failed to fetch CometChat user \(uid): \(error?.errorDescription ?? "")")
+        }
+        
+        let nav = UINavigationController(rootViewController: messagesVC)
+        return nav
+    }
+    
+    func updateUIViewController(_ uiViewController: UINavigationController, context: Context) {}
 }

@@ -111,7 +111,7 @@ final class CometChatManager: NSObject {
     
     /// Login to CometChatCalls SDK — required for accept/reject calls to work.
     /// Must be called after Chat SDK login succeeds.
-    private func loginCallsSDK(uid: String) {
+    func loginCallsSDK(uid: String) {
         CometChatCalls.login(UID: uid, authKey: authKey, onSuccess: { _ in
             print("CometChatCalls SDK logged in for UID=\(uid) ✓")
         }, onError: { error in
