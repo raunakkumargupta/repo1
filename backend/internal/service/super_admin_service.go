@@ -20,7 +20,7 @@ func NewSuperAdminService(pgRepo *repository.PostgresRepo, wp *worker.WorkerPool
 }
 
 func (s *SuperAdminService) ListPendingHackathons(ctx context.Context) ([]models.Hackathon, error) {
-	list, _, err := s.pgRepo.GetHackathons(ctx, false, nil, nil, nil, nil)
+	list, _, err := s.pgRepo.GetHackathons(ctx, false, nil, nil, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +99,7 @@ func (s *SuperAdminService) GetGlobalMetrics(ctx context.Context) (map[string]in
 		return nil, err
 	}
 
-	hacks, _, err := s.pgRepo.GetHackathons(ctx, true, nil, nil, nil, nil)
+	hacks, _, err := s.pgRepo.GetHackathons(ctx, true, nil, nil, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -89,9 +89,9 @@ func (s *HackathonService) GetHackathonByID(ctx context.Context, id string) (*mo
 	return h, nil
 }
 
-func (s *HackathonService) GetHackathons(ctx context.Context, onlyApproved bool, limit, offset *int, search, track *string) ([]models.Hackathon, int, error) {
-	// If pagination/search is used, bypass list cache to keep queries fresh and dynamic
-	if limit == nil && offset == nil && search == nil && track == nil {
+func (s *HackathonService) GetHackathons(ctx context.Context, onlyApproved bool, limit, offset *int, search, track, organizerID *string) ([]models.Hackathon, int, error) {
+	// If pagination/search/organizer filtering is used, bypass list cache to keep queries fresh and dynamic
+	if limit == nil && offset == nil && search == nil && track == nil && organizerID == nil {
 		cacheKey := cacheKeyHackathonsAll
 		if onlyApproved {
 			cacheKey = cacheKeyHackathonsApproved
@@ -110,7 +110,7 @@ func (s *HackathonService) GetHackathons(ctx context.Context, onlyApproved bool,
 		}
 
 		// Cache miss — fetch from DB
-		hackathons, totalCount, err := s.pgRepo.GetHackathons(ctx, onlyApproved, nil, nil, nil, nil)
+		hackathons, totalCount, err := s.pgRepo.GetHackathons(ctx, onlyApproved, nil, nil, nil, nil, nil)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -125,7 +125,7 @@ func (s *HackathonService) GetHackathons(ctx context.Context, onlyApproved bool,
 	}
 
 	// Dynamic paginated / searched query
-	return s.pgRepo.GetHackathons(ctx, onlyApproved, limit, offset, search, track)
+	return s.pgRepo.GetHackathons(ctx, onlyApproved, limit, offset, search, track, organizerID)
 }
 
 func (s *HackathonService) ApproveHackathon(ctx context.Context, id string) error {

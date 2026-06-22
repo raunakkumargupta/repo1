@@ -7,7 +7,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   Loader2, Plus, FileText, Calendar, Award, ShieldAlert, 
   Layers, DollarSign, Users, Upload, Code, Sparkles, X, 
-  ChevronRight, Laptop, HelpCircle, ArrowLeft, ArrowUp, ArrowDown, Trash2, Download
+  ChevronRight, Laptop, HelpCircle, ArrowLeft, ArrowUp, ArrowDown, Trash2, Download,
+  Search
 } from "lucide-react";
 import { fetchApi } from "@/lib/api";
 
@@ -282,6 +283,7 @@ export function parseMarkdownForHackathon(md: string) {
 export default function HostPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -314,6 +316,58 @@ export default function HostPage() {
 
   const PRESET_TRACKS = ["AI", "Web3", "Blockchain", "Mobile", "Design", "Hardware", "AR/VR", "Cybersecurity", "Cloud", "IoT", "Fintech", "HealthTech", "EdTech", "Open Source"];
 
+  // Search & Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchText, setSearchText] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [totalCount, setTotalCount] = useState(0);
+  const limit = 6;
+  const offset = (currentPage - 1) * limit;
+
+  // Debounce search input to prevent database queries overload
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchText);
+    }, 300);
+
+    return () => clearTimeout(handler);
+  }, [searchText]);
+
+  // Reset page to 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch]);
+
+  const loadHostedHackathons = async (userId: string, page: number, search: string) => {
+    setLoading(true);
+    const currentOffset = (page - 1) * limit;
+    const searchParam = search.trim();
+    const query = new URLSearchParams({
+      organizer_id: userId,
+      limit: String(limit),
+      offset: String(currentOffset),
+    });
+    if (searchParam) {
+      query.append("search", searchParam);
+    }
+
+    try {
+      const res = await fetch(`/api/hackathons/all?${query.toString()}`);
+      if (!res.ok) throw new Error("Failed to fetch hosted hackathons");
+      const totalCountHeader = res.headers.get("X-Total-Count");
+      const total = totalCountHeader ? parseInt(totalCountHeader, 10) : 0;
+      const list = await res.json();
+      const actualList = Array.isArray(list) ? list : [];
+      setHostedHackathons(actualList);
+      setTotalCount(total || actualList.length);
+    } catch (err) {
+      console.error("Error fetching hosted hackathons:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Auth check on mount
   useEffect(() => {
     fetch("/api/auth/me")
       .then((res) => (res.ok ? res.json() : null))
@@ -321,23 +375,22 @@ export default function HostPage() {
         setUser(data);
         if (!data) {
           router.push("/login");
-          return;
         }
-
-        fetchApi<HostedHackathon[]>("/hackathons/all")
-          .then((list) => {
-            if (Array.isArray(list)) {
-              setHostedHackathons(list.filter((h) => h.organizer_id === data.id));
-            }
-          })
-          .catch((err) => console.error("Error fetching hosted hackathons:", err))
-          .finally(() => setLoading(false));
       })
       .catch((err) => {
         console.error(err);
-        setLoading(false);
+      })
+      .finally(() => {
+        setInitialLoading(false);
       });
   }, [router]);
+
+  // Fetch hosted hackathons when user/pagination/search changes
+  useEffect(() => {
+    if (user?.id) {
+      loadHostedHackathons(user.id, currentPage, debouncedSearch);
+    }
+  }, [user?.id, currentPage, debouncedSearch]);
 
   const handleTrackToggle = (track: string) => {
     if (tracks.includes(track)) {
@@ -541,13 +594,9 @@ export default function HostPage() {
       setTimeout(() => {
         setSuccess(false);
         setIsFormOpen(false);
-        fetchApi<HostedHackathon[]>("/hackathons/all")
-          .then((list) => {
-            if (Array.isArray(list)) {
-              setHostedHackathons(list.filter((h) => h.organizer_id === user.id));
-            }
-          })
-          .catch((err) => console.error("Error refreshing list:", err));
+        if (user?.id) {
+          loadHostedHackathons(user.id, currentPage, debouncedSearch);
+        }
       }, 2000);
     } catch (err: any) {
       setError(err.message || "Failed to submit hackathon request");
@@ -556,7 +605,7 @@ export default function HostPage() {
     }
   };
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-transparent">
         <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
@@ -612,90 +661,178 @@ export default function HostPage() {
             exit={{ opacity: 0, y: -15 }}
             className="space-y-6"
           >
-            {hostedHackathons.length === 0 ? (
-              <div className="text-center py-20 glass border border-slate-200/60 dark:border-white/10 rounded-3xl space-y-4 shadow-sm">
-                <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center mx-auto text-slate-500">
-                  <Laptop className="w-6 h-6" />
+            {/* Search Bar / Filters */}
+            {(hostedHackathons.length > 0 || searchText !== "") && (
+              <div className="relative max-w-md w-full">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Search className="w-4 h-4 text-blue-500" />
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-300">You haven&apos;t hosted any hackathons yet</h3>
-                  <p className="text-xs text-slate-500 mt-1">Click the &quot;Host a Hackathon&quot; button above to create and request approval for your first event.</p>
-                </div>
+                <input
+                  type="text"
+                  placeholder="Search your events..."
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  className="w-full pl-10 pr-10 py-3 bg-white/40 dark:bg-slate-900/40 border border-slate-200/60 dark:border-white/10 rounded-2xl text-xs text-slate-900 dark:text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 backdrop-blur-md transition-all shadow-sm"
+                />
+                {searchText && (
+                  <button
+                    onClick={() => setSearchText("")}
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
+                  >
+                    <X className="w-4.5 h-4.5" />
+                  </button>
+                )}
               </div>
+            )}
+
+            {loading ? (
+              <div className="flex justify-center py-20">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+              </div>
+            ) : hostedHackathons.length === 0 ? (
+              searchText !== "" ? (
+                <div className="text-center py-20 glass border border-slate-200/60 dark:border-white/10 rounded-3xl space-y-4 shadow-sm">
+                  <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center mx-auto text-slate-500">
+                    <Search className="w-6 h-6 text-slate-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-300">No matching hackathons found</h3>
+                    <p className="text-xs text-slate-500 mt-1">Try adjusting your search terms or clearing the filter.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-20 glass border border-slate-200/60 dark:border-white/10 rounded-3xl space-y-4 shadow-sm">
+                  <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center mx-auto text-slate-500">
+                    <Laptop className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-300">You haven&apos;t hosted any hackathons yet</h3>
+                    <p className="text-xs text-slate-500 mt-1">Click the &quot;Host a Hackathon&quot; button above to create and request approval for your first event.</p>
+                  </div>
+                </div>
+              )
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {hostedHackathons.map((hack) => {
-                  let tracksArr: string[] = [];
-                  try {
-                    tracksArr = JSON.parse(hack.tracks);
-                  } catch (e) {
-                    tracksArr = [];
-                  }
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {hostedHackathons.map((hack) => {
+                    let tracksArr: string[] = [];
+                    try {
+                      tracksArr = JSON.parse(hack.tracks);
+                    } catch (e) {
+                      tracksArr = [];
+                    }
 
-                  return (
-                    <TiltCard key={hack.id}>
-                      <div className="glass border border-slate-200/60 dark:border-white/10 rounded-3xl overflow-hidden flex flex-col group h-full shadow-lg relative bg-white dark:bg-slate-900/40">
-                        <div className={`absolute top-4 right-4 z-10 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border backdrop-blur-md ${
-                          hack.is_approved 
-                            ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" 
-                            : "bg-amber-500/10 text-amber-500 border-amber-500/20"
-                        }`}>
-                          {hack.is_approved ? "Approved & Live" : "Pending Approval"}
-                        </div>
-
-                        <div className="h-44 w-full relative overflow-hidden bg-slate-950/60">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img 
-                            src={hack.cover_image || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=60"} 
-                            alt={hack.title}
-                            className="object-cover w-full h-full opacity-70 group-hover:scale-105 transition-transform duration-700 ease-out"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
-                        </div>
-
-                        <div className="p-5 flex-grow flex flex-col justify-between space-y-4">
-                          <div className="space-y-2">
-                            <h3 className="text-base font-black text-slate-900 dark:text-white line-clamp-1 group-hover:text-blue-500 transition-colors">
-                              {hack.title}
-                            </h3>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
-                              {hack.description}
-                            </p>
+                    return (
+                      <TiltCard key={hack.id}>
+                        <div className="glass border border-slate-200/60 dark:border-white/10 rounded-3xl overflow-hidden flex flex-col group h-full shadow-lg relative bg-white dark:bg-slate-900/40">
+                          <div className={`absolute top-4 right-4 z-10 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border backdrop-blur-md ${
+                            hack.is_approved 
+                              ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" 
+                              : "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                          }`}>
+                            {hack.is_approved ? "Approved & Live" : "Pending Approval"}
                           </div>
 
-                          <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-white/5">
-                            <div className="flex flex-wrap gap-1">
-                              {tracksArr.map((tr) => (
-                                <span key={tr} className="text-[9px] font-black uppercase tracking-wider bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/10 px-2 py-0.5 rounded-md">
-                                  {tr}
-                                </span>
-                              ))}
+                          <div className="h-44 w-full relative overflow-hidden bg-slate-950/60">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img 
+                              src={hack.cover_image || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=60"} 
+                              alt={hack.title}
+                              className="object-cover w-full h-full opacity-70 group-hover:scale-105 transition-transform duration-700 ease-out"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
+                          </div>
+
+                          <div className="p-5 flex-grow flex flex-col justify-between space-y-4">
+                            <div className="space-y-2">
+                              <h3 className="text-base font-black text-slate-900 dark:text-white line-clamp-1 group-hover:text-blue-500 transition-colors">
+                                {hack.title}
+                              </h3>
+                              <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                                {hack.description}
+                              </p>
                             </div>
 
-                            <p className="text-[10px] text-slate-400 font-bold flex items-center gap-1.5 font-mono">
-                              <Calendar className="w-3.5 h-3.5 text-blue-500" />
-                              {new Date(hack.start_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                              {" - "}
-                              {new Date(hack.end_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                            </p>
-                          </div>
-                        </div>
+                            <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-white/5">
+                              <div className="flex flex-wrap gap-1">
+                                {tracksArr.map((tr) => (
+                                  <span key={tr} className="text-[9px] font-black uppercase tracking-wider bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/10 px-2 py-0.5 rounded-md">
+                                    {tr}
+                                  </span>
+                                ))}
+                              </div>
 
-                        {hack.is_approved && (
-                          <div className="px-5 pb-5 pt-1">
-                            <Link 
-                              href={`/workspace/${hack.id}/organizer`}
-                              className="w-full py-2 bg-slate-100 dark:bg-white/5 hover:bg-blue-600 hover:text-white transition-all text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-300 rounded-xl flex items-center justify-center gap-1 border border-slate-200 dark:border-white/5"
-                            >
-                              Organizer Console <ChevronRight className="w-3.5 h-3.5" />
-                            </Link>
+                              <p className="text-[10px] text-slate-400 font-bold flex items-center gap-1.5 font-mono">
+                                <Calendar className="w-3.5 h-3.5 text-blue-500" />
+                                {new Date(hack.start_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                {" - "}
+                                {new Date(hack.end_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </p>
+                            </div>
                           </div>
-                        )}
+
+                          {hack.is_approved && (
+                            <div className="px-5 pb-5 pt-1">
+                              <Link 
+                                href={`/workspace/${hack.id}/organizer`}
+                                className="w-full py-2 bg-slate-100 dark:bg-white/5 hover:bg-blue-600 hover:text-white transition-all text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-300 rounded-xl flex items-center justify-center gap-1 border border-slate-200 dark:border-white/5"
+                              >
+                                Organizer Console <ChevronRight className="w-3.5 h-3.5" />
+                              </Link>
+                            </div>
+                          )}
+                        </div>
+                      </TiltCard>
+                    );
+                  })}
+                </div>
+
+                {/* Pagination Controls */}
+                {totalCount > limit && (
+                  <div className="flex flex-col sm:flex-row justify-between items-center gap-4 border-t border-slate-200/60 dark:border-white/10 pt-6">
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                      Showing {offset + 1} - {Math.min(offset + limit, totalCount)} of {totalCount} hosted events
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-4 py-2 border border-slate-200 dark:border-white/10 bg-white/40 dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-white/5 disabled:opacity-40 disabled:hover:bg-transparent rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 transition-all cursor-pointer flex items-center gap-1.5"
+                      >
+                        Previous
+                      </button>
+                      <div className="flex items-center gap-1 px-2">
+                        {Array.from({ length: Math.ceil(totalCount / limit) }).map((_, idx) => {
+                          const pageNum = idx + 1;
+                          return (
+                            <button
+                              key={pageNum}
+                              type="button"
+                              onClick={() => setCurrentPage(pageNum)}
+                              className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${
+                                currentPage === pageNum
+                                  ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
+                                  : "text-slate-500 hover:text-slate-800 dark:hover:text-white"
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        })}
                       </div>
-                    </TiltCard>
-                  );
-                })}
-              </div>
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage((p) => Math.min(Math.ceil(totalCount / limit), p + 1))}
+                        disabled={currentPage === Math.ceil(totalCount / limit)}
+                        className="px-4 py-2 border border-slate-200 dark:border-white/10 bg-white/40 dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-white/5 disabled:opacity-40 disabled:hover:bg-transparent rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 transition-all cursor-pointer flex items-center gap-1.5"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </motion.div>
         ) : (

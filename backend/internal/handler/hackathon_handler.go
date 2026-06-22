@@ -82,7 +82,7 @@ func (h *HackathonHandler) ListApproved(w http.ResponseWriter, r *http.Request) 
 		trackPtr = &trackStr
 	}
 
-	list, totalCount, err := h.hackService.GetHackathons(r.Context(), true, limitPtr, offsetPtr, searchPtr, trackPtr)
+	list, totalCount, err := h.hackService.GetHackathons(r.Context(), true, limitPtr, offsetPtr, searchPtr, trackPtr, nil)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -117,7 +117,12 @@ func (h *HackathonHandler) ListAll(w http.ResponseWriter, r *http.Request) {
 		trackPtr = &trackStr
 	}
 
-	list, totalCount, err := h.hackService.GetHackathons(r.Context(), false, limitPtr, offsetPtr, searchPtr, trackPtr)
+	var organizerIDPtr *string
+	if organizerIDStr := r.URL.Query().Get("organizer_id"); organizerIDStr != "" {
+		organizerIDPtr = &organizerIDStr
+	}
+
+	list, totalCount, err := h.hackService.GetHackathons(r.Context(), false, limitPtr, offsetPtr, searchPtr, trackPtr, organizerIDPtr)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

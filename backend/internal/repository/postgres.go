@@ -144,7 +144,7 @@ func (r *PostgresRepo) GetHackathonByID(ctx context.Context, id string) (*models
 	return h, nil
 }
 
-func (r *PostgresRepo) GetHackathons(ctx context.Context, onlyApproved bool, limit, offset *int, search, track *string) ([]models.Hackathon, int, error) {
+func (r *PostgresRepo) GetHackathons(ctx context.Context, onlyApproved bool, limit, offset *int, search, track, organizerID *string) ([]models.Hackathon, int, error) {
 	var query string
 	var args []interface{}
 	placeholderIdx := 1
@@ -159,6 +159,12 @@ func (r *PostgresRepo) GetHackathons(ctx context.Context, onlyApproved bool, lim
 		                COALESCE(problem_statement, ''), COALESCE(prizes, ''), COALESCE(schedule, ''), COALESCE(sponsors, ''), COALESCE(min_team_size, 1), COALESCE(max_team_size, 4), COALESCE(registration_fee, 'Free'), COALESCE(rounds, ''),
 		                COUNT(*) OVER() as total_count
 		         FROM hackathons WHERE true`
+	}
+
+	if organizerID != nil && *organizerID != "" {
+		query += fmt.Sprintf(" AND organizer_id = $%d", placeholderIdx)
+		args = append(args, *organizerID)
+		placeholderIdx++
 	}
 
 	if search != nil && *search != "" {
