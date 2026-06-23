@@ -106,6 +106,7 @@ func NewRouter(
 			// Get application details
 			r.Get("/api/hackathons/{id}/my-registration", regHandler.GetMyRegistration)
 			r.Get("/api/hackathons/{id}/staff-role", staffHandler.GetMyRole)
+			r.Get("/api/hackathons/{id}/applications", regHandler.ListByHackathon)
 			
 			// Teams & Team Management
 			r.Post("/api/hackathons/{id}/teams", teamHandler.Create)
@@ -146,7 +147,6 @@ func NewRouter(
 			r.Patch("/api/hackathons/{id}/details", hackathonHandler.UpdateDetails)
 			
 			// View metrics & details
-			r.Get("/api/hackathons/{id}/applications", regHandler.ListByHackathon)
 			r.Put("/api/registrations/{reg_id}/status", regHandler.UpdateStatus)
 			
 			// Staffing
