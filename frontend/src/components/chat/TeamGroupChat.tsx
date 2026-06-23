@@ -95,7 +95,7 @@ export default function TeamGroupChat({ teamId, teamName }: TeamGroupChatProps) 
 
       {/* Integrated CometChat Messages View */}
       <div className="flex-1 min-h-0 flex flex-col">
-        <CometChatMessageHeader group={group} hideVideoCallButton={true} hideVoiceCallButton={true} />
+        <CometChatMessageHeader group={group} />
         <div className="flex-1 min-h-0 flex flex-col">
           <CometChatMessageList group={group} />
         </div>

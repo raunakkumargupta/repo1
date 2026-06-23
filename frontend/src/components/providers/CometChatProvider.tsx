@@ -95,9 +95,36 @@ async function initCometChat(): Promise<void> {
 let loginInFlight: Promise<unknown> | null = null;
 
 async function loginCallsSDK(uid: string, user: any) {
-  if (callsSdkLoggedIn) return; // Prevent duplicate login to Calls SDK
   const { CometChatCalls } = await import("@cometchat/calls-sdk-javascript");
-  const token = typeof user?.getAuthToken === "function" ? user.getAuthToken() : null;
+  const { CometChat } = await import("@cometchat/chat-sdk-javascript");
+
+  try {
+    const existingCallsUser = await CometChatCalls.getLoggedInUser();
+    if (existingCallsUser && existingCallsUser.uid === uid) {
+      console.log("[CometChat] Calls SDK already logged in for UID:", uid);
+      callsSdkLoggedIn = true;
+      return;
+    }
+  } catch (e) {
+    console.warn("[CometChat] Failed to get logged in Calls user, proceeding with login:", e);
+  }
+
+  // Retrieve active auth token directly from Chat SDK
+  let token = null;
+  try {
+    const loggedInUser = await CometChat.getLoggedinUser();
+    if (loggedInUser && typeof loggedInUser.getAuthToken === "function") {
+      token = loggedInUser.getAuthToken();
+    }
+  } catch (e) {
+    console.warn("[CometChat] Failed to get logged in user's auth token:", e);
+  }
+
+  // Fallback to user object getAuthToken method
+  if (!token && typeof user?.getAuthToken === "function") {
+    token = user.getAuthToken();
+  }
+
   if (token) {
     try {
       await CometChatCalls.loginWithAuthToken(token);
