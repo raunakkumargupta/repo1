@@ -1,9 +1,42 @@
 import SwiftUI
 import CometChatSDK
 
+// MARK: - Call State for single fullScreenCover
+enum ActiveCallState: Identifiable {
+    case incoming(Call)
+    case ongoing(String)
+    
+    var id: String {
+        switch self {
+        case .incoming(let call): return "incoming-\(call.sessionID ?? "")"
+        case .ongoing(let sessionID): return "ongoing-\(sessionID)"
+        }
+    }
+}
+
 struct RootView: View {
     @StateObject private var vm = AppViewModel()
     @State private var screen: AuthScreen = .login
+
+    private var activeCallState: Binding<ActiveCallState?> {
+        Binding<ActiveCallState?>(
+            get: {
+                // Prioritize ongoing call over incoming (handles accept transition)
+                if let sessionID = vm.ongoingCallSessionID {
+                    return .ongoing(sessionID)
+                } else if let call = vm.incomingCall {
+                    return .incoming(call)
+                }
+                return nil
+            },
+            set: { newValue in
+                if newValue == nil {
+                    vm.incomingCall = nil
+                    vm.ongoingCallSessionID = nil
+                }
+            }
+        )
+    }
 
     var body: some View {
         Group {
@@ -16,20 +49,15 @@ struct RootView: View {
             }
         }
         .preferredColorScheme(vm.activeTheme == .appleClean ? .light : .dark)
-        .fullScreenCover(item: Binding<IdentifiableCall?>(
-            get: { vm.incomingCall.map { IdentifiableCall(id: $0.sessionID ?? UUID().uuidString, call: $0) } },
-            set: { vm.incomingCall = $0?.call }
-        )) { wrap in
-            CometChatIncomingCallView(call: wrap.call)
-                .environmentObject(vm)
-        }
-        .fullScreenCover(item: Binding<IdentifiableSession?>(
-            get: { vm.ongoingCallSessionID.map { IdentifiableSession(id: $0) } },
-            set: { vm.ongoingCallSessionID = $0?.id }
-        )) { wrap in
-            CometChatOngoingCallView(sessionID: wrap.id)
-                .environmentObject(vm)
-                .ignoresSafeArea()
+        .fullScreenCover(item: activeCallState) { state in
+            switch state {
+            case .incoming(let call):
+                CometChatIncomingCallView(call: call)
+                    .environmentObject(vm)
+            case .ongoing(let sessionID):
+                CometChatOngoingCallView(sessionID: sessionID)
+                    .environmentObject(vm)
+            }
         }
         .task {
             vm.bootstrap()

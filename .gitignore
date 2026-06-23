@@ -5,3 +5,5 @@ staging-build.zip
 firebase-service-account.json
 .claude
 .vscode
+.agents
+.kiro

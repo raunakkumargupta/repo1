@@ -2,10 +2,14 @@ package handler
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/raunakkumargupta/repo1/backend/internal/repository"
@@ -14,11 +18,15 @@ import (
 // CometChatWebhookHandler handles incoming webhook events from CometChat.
 // Used for moderation logging, activity tracking, etc.
 type CometChatWebhookHandler struct {
-	pgRepo *repository.PostgresRepo
+	pgRepo        *repository.PostgresRepo
+	webhookSecret string
 }
 
 func NewCometChatWebhookHandler(pgRepo *repository.PostgresRepo) *CometChatWebhookHandler {
-	return &CometChatWebhookHandler{pgRepo: pgRepo}
+	return &CometChatWebhookHandler{
+		pgRepo:        pgRepo,
+		webhookSecret: os.Getenv("COMETCHAT_WEBHOOK_SECRET"),
+	}
 }
 
 // ─── Webhook Event Structures ─────────────────────────────────────────────────
@@ -67,6 +75,24 @@ func (h *CometChatWebhookHandler) HandleWebhook(w http.ResponseWriter, r *http.R
 		return
 	}
 	defer r.Body.Close()
+
+	// Verify HMAC-SHA256 signature if webhook secret is configured
+	if h.webhookSecret != "" {
+		signature := r.Header.Get("X-CometChat-Signature")
+		if signature == "" {
+			log.Printf("[CometChat Webhook] Missing X-CometChat-Signature header")
+			http.Error(w, "missing signature", http.StatusUnauthorized)
+			return
+		}
+		mac := hmac.New(sha256.New, []byte(h.webhookSecret))
+		mac.Write(body)
+		expectedSig := hex.EncodeToString(mac.Sum(nil))
+		if !hmac.Equal([]byte(signature), []byte(expectedSig)) {
+			log.Printf("[CometChat Webhook] Invalid signature")
+			http.Error(w, "invalid signature", http.StatusUnauthorized)
+			return
+		}
+	}
 
 	var event CometChatWebhookEvent
 	if err := json.Unmarshal(body, &event); err != nil {
@@ -117,7 +143,7 @@ func (h *CometChatWebhookHandler) handleMessageSent(event CometChatWebhookEvent)
 	})
 }
 
-// handleMessageEdited logs edit events.
+// handleMessageEdited logs edit events to the database.
 func (h *CometChatWebhookHandler) handleMessageEdited(event CometChatWebhookEvent) {
 	var msg CometChatMessageData
 	if err := json.Unmarshal(event.Data, &msg); err != nil {
@@ -126,6 +152,18 @@ func (h *CometChatWebhookHandler) handleMessageEdited(event CometChatWebhookEven
 	}
 
 	log.Printf("[CometChat Webhook] Message edited by %s (%s)", msg.Sender.Name, msg.Sender.UID)
+
+	ctx := context.Background()
+	_ = h.pgRepo.InsertModerationLog(ctx, repository.ModerationLogEntry{
+		EventType:   "message_edited",
+		SenderUID:   msg.Sender.UID,
+		SenderName:  msg.Sender.Name,
+		ReceiverID:  msg.Receiver,
+		MessageType: msg.Type,
+		MessageText: truncate(msg.Text, 200),
+		IsFlagged:   false,
+		CreatedAt:   time.Now(),
+	})
 }
 
 // handleModeration logs moderation-flagged messages to the moderation_logs table.

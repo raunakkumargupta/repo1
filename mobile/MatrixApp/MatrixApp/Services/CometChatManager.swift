@@ -19,7 +19,7 @@ final class CometChatManager: NSObject {
     // Callbacks to bridge signaling states to the ViewModel
     var onIncomingCallReceived: ((Call) -> Void)?
     var onOutgoingCallAccepted: ((Call) -> Void)?
-    var onCallEnded: (() -> Void)?
+    var onCallEnded: ((String?) -> Void)?  // passes session ID of ended call
     
     private override init() {
         super.init()
@@ -55,14 +55,13 @@ final class CometChatManager: NSObject {
                         .setRegion(strongSelf.region)
                         .build()
                     
-                    CometChatCalls.init(callsAppSettings: callAppSettings, onSuccess: { _ in
+                    CometChatCalls(callsAppSettings: callAppSettings) { _ in
                         print("CometChatCalls SDK initialized successfully ✓")
                         completion(success, nil)
-                    }, onError: { error in
+                    } onError: { error in
                         print("CometChatCalls SDK init failed: \(error?.errorDescription ?? "unknown")")
-                        // We still report success for chat initialization
                         completion(success, nil)
-                    })
+                    }
                 case .failure(let error):
                     print("CometChat init failed: \(error.localizedDescription)")
                     completion(false, error as? CometChatException)
@@ -109,15 +108,11 @@ final class CometChatManager: NSObject {
         }
     }
     
-    /// Login to CometChatCalls SDK — required for accept/reject calls to work.
-    /// Must be called after Chat SDK login succeeds.
+    /// In Calls SDK v4.x, there's no separate login step.
+    /// The session token is handled internally when joining a call.
     func loginCallsSDK(uid: String) {
-        CometChatCalls.login(UID: uid, authKey: authKey, onSuccess: { _ in
-            print("CometChatCalls SDK logged in for UID=\(uid) ✓")
-        }, onError: { error in
-            // ERR_ALREADY_LOGGED_IN is fine — just means we're already logged in
-            print("CometChatCalls SDK login result: \(error.errorDescription) — calls may still work")
-        })
+        // No-op for v4.x — login is not needed
+        print("CometChatCalls SDK v4 — no login needed for UID=\(uid) ✓")
     }
     
     func logout(completion: @escaping (Bool, CometChatException?) -> Void) {
@@ -143,6 +138,20 @@ final class CometChatManager: NSObject {
         }
     }
     
+    /// Re-initialize the Calls SDK after a call session ends.
+    func reinitializeCallsSDK() {
+        let callAppSettings = CallAppSettingsBuilder()
+            .setAppId(appID)
+            .setRegion(region)
+            .build()
+        
+        CometChatCalls.init(callsAppSettings: callAppSettings, onSuccess: { _ in
+            print("[CALL-DEBUG] CometChatCalls SDK re-initialized after call ✓")
+        }, onError: { error in
+            print("[CALL-DEBUG] CometChatCalls SDK re-init failed: \(error?.errorDescription ?? "unknown")")
+        })
+    }
+    
     // Derive a CometChat UID from the user email
     static func uidFromEmail(_ email: String) -> String {
         return email.lowercased()
@@ -165,6 +174,8 @@ extension CometChatManager: CometChatCallDelegate {
         guard let call = acceptedCall else { return }
         print("Outgoing call accepted in CometChatManager: \(call.sessionID ?? "")")
         DispatchQueue.main.async {
+            // Dismiss the SDK's internal outgoing call view before we present our ongoing call
+            NotificationCenter.default.post(name: NSNotification.Name("CometChatCallEnded"), object: nil)
             self.onOutgoingCallAccepted?(call)
         }
     }
@@ -172,28 +183,23 @@ extension CometChatManager: CometChatCallDelegate {
     func onIncomingCallCancelled(cancelledCall: Call?, error: CometChatException?) {
         print("Incoming call cancelled in CometChatManager")
         DispatchQueue.main.async {
-            self.onCallEnded?()
+            self.onCallEnded?(cancelledCall?.sessionID)
+            NotificationCenter.default.post(name: NSNotification.Name("CometChatCallEnded"), object: nil)
         }
     }
     
     func onOutgoingCallRejected(rejectedCall: Call?, error: CometChatException?) {
         print("Outgoing call rejected in CometChatManager")
         DispatchQueue.main.async {
-            self.onCallEnded?()
+            self.onCallEnded?(rejectedCall?.sessionID)
+            NotificationCenter.default.post(name: NSNotification.Name("CometChatCallEnded"), object: nil)
         }
     }
     
     func onCallEndedMessageReceived(endedCall: Call?, error: CometChatException?) {
-        print("Call ended message received in CometChatManager")
+        print("Call ended message received in CometChatManager: \(endedCall?.sessionID ?? "no-session")")
         DispatchQueue.main.async {
-            self.onCallEnded?()
-            
-            // Clean up AVAudioSession as per rule 1.5
-            do {
-                try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-            } catch {
-                print("Failed to deactivate audio session: \(error)")
-            }
+            self.onCallEnded?(endedCall?.sessionID)
         }
     }
 }

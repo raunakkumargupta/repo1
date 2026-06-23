@@ -1297,12 +1297,12 @@ func (r *PostgresRepo) GetModerationLogs(ctx context.Context, flaggedOnly bool) 
 
 func (r *PostgresRepo) GetResolvedTicketsByMentor(ctx context.Context, hackathonID, mentorID string) ([]models.Ticket, error) {
 	query := `
-		SELECT t.id, t.hackathon_id, t.team_id, t.assigned_mentor_id, t.description, t.status, t.created_at, t.resolved_at,
+		SELECT t.id, t.hackathon_id, t.team_id, t.assigned_mentor_id, t.description, t.status, t.created_at,
 			   COALESCE(tm.team_name, 'Unknown Team') as team_name
 		FROM tickets t
 		LEFT JOIN teams tm ON tm.id = t.team_id
 		WHERE t.hackathon_id = $1 AND t.assigned_mentor_id = $2 AND t.status = 'Resolved'
-		ORDER BY t.resolved_at DESC
+		ORDER BY t.created_at DESC
 	`
 	rows, err := r.pool.Query(ctx, query, hackathonID, mentorID)
 	if err != nil {
@@ -1314,7 +1314,7 @@ func (r *PostgresRepo) GetResolvedTicketsByMentor(ctx context.Context, hackathon
 	for rows.Next() {
 		var t models.Ticket
 		var teamName string
-		if err := rows.Scan(&t.ID, &t.HackathonID, &t.TeamID, &t.AssignedMentorID, &t.Description, &t.Status, &t.CreatedAt, &t.ResolvedAt, &teamName); err != nil {
+		if err := rows.Scan(&t.ID, &t.HackathonID, &t.TeamID, &t.AssignedMentorID, &t.Description, &t.Status, &t.CreatedAt, &teamName); err != nil {
 			return nil, err
 		}
 		t.TeamName = teamName

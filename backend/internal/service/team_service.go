@@ -128,7 +128,14 @@ func (s *TeamService) RemoveMember(ctx context.Context, teamID, memberID, reques
 		return errors.New("team leader cannot be removed")
 	}
 
-	return s.pgRepo.RemoveUserFromTeam(ctx, teamID, memberID)
+	if err := s.pgRepo.RemoveUserFromTeam(ctx, teamID, memberID); err != nil {
+		return err
+	}
+
+	// Sync: Remove user from CometChat group
+	go s.syncRemoveMemberFromGroup(context.Background(), teamID, memberID)
+
+	return nil
 }
 
 func (s *TeamService) GetPublicTeamsByHackathon(ctx context.Context, hackathonID string, limit, offset *int, search *string) ([]models.TeamWithMembers, error) {
@@ -307,5 +314,12 @@ func (s *TeamService) syncAddMemberToGroup(ctx context.Context, teamID, userID s
 		} else {
 			fmt.Printf("[CometChat Sync] Successfully added member %s to group %s on retry\n", userID, teamID)
 		}
+	}
+}
+
+func (s *TeamService) syncRemoveMemberFromGroup(ctx context.Context, teamID, userID string) {
+	ccService := NewCometChatService()
+	if err := ccService.RemoveMemberFromGroup(ctx, teamID, userID); err != nil {
+		fmt.Printf("[CometChat Sync] RemoveMemberFromGroup failed for %s from group %s: %v\n", userID, teamID, err)
 	}
 }

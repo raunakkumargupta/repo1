@@ -140,7 +140,7 @@ func NewRouter(
 		// Organizer
 		// ------------------------------------------
 		r.Group(func(r chi.Router) {
-			r.Use(middleware.RequireRole(models.RoleOrganizer, models.RoleHacker, models.RoleManager, models.RoleAdmin, models.RoleSuperAdmin))
+			r.Use(middleware.RequireRole(models.RoleOrganizer, models.RoleManager, models.RoleAdmin, models.RoleSuperAdmin))
 			
 			// Update hackathon event details (description, prizes, schedule, rounds etc.)
 			r.Patch("/api/hackathons/{id}/details", hackathonHandler.UpdateDetails)

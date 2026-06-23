@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"regexp"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -45,9 +46,15 @@ func (h *HackathonHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate UUID format to prevent DB errors on malformed IDs
+	if !isValidUUID(id) {
+		http.Error(w, "invalid hackathon id format", http.StatusBadRequest)
+		return
+	}
+
 	hack, err := h.hackService.GetHackathonByID(r.Context(), id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "hackathon not found", http.StatusNotFound)
 		return
 	}
 	if hack == nil {
@@ -174,3 +181,10 @@ func (h *HackathonHandler) DeleteHackathon(w http.ResponseWriter, r *http.Reques
 	json.NewEncoder(w).Encode(map[string]string{"message": "hackathon deleted successfully"})
 }
 
+
+// isValidUUID checks if a string is a valid UUID v4 format
+var uuidRegex = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+func isValidUUID(s string) bool {
+	return uuidRegex.MatchString(s)
+}

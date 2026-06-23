@@ -51,6 +51,7 @@ final class AppViewModel: ObservableObject {
     // MARK: - Calling State
     @Published var incomingCall: Call?
     @Published var ongoingCallSessionID: String?
+    var ongoingCallStartTime: Date?
     
     // MARK: - Selected Hackathon Details State
     @Published var selectedHackathon: Hackathon? {
@@ -85,15 +86,50 @@ final class AppViewModel: ObservableObject {
             
         // Bind CometChat call events to SwiftUI state
         CometChatManager.shared.onIncomingCallReceived = { [weak self] call in
+            print("[CALL-DEBUG] onIncomingCallReceived: sessionID=\(call.sessionID ?? "nil")")
             self?.incomingCall = call
         }
         CometChatManager.shared.onOutgoingCallAccepted = { [weak self] call in
+            print("[CALL-DEBUG] onOutgoingCallAccepted: sessionID=\(call.sessionID ?? "nil"), current ongoingCallSessionID=\(self?.ongoingCallSessionID ?? "nil")")
             self?.incomingCall = nil
-            self?.ongoingCallSessionID = call.sessionID
+            guard let sessionID = call.sessionID else { return }
+            // Dismiss the UIKit's internal outgoing call view
+            NotificationCenter.default.post(name: NSNotification.Name("CometChatCallEnded"), object: nil)
+            // Present the ongoing call view
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self?.ongoingCallSessionID = sessionID
+                self?.ongoingCallStartTime = Date()
+            }
         }
-        CometChatManager.shared.onCallEnded = { [weak self] in
-            self?.incomingCall = nil
-            self?.ongoingCallSessionID = nil
+        CometChatManager.shared.onCallEnded = { [weak self] endedSessionID in
+            print("[CALL-DEBUG] onCallEnded: endedSessionID=\(endedSessionID ?? "nil"), active ongoingCallSessionID=\(self?.ongoingCallSessionID ?? "nil"), active incomingCall=\(self?.incomingCall?.sessionID ?? "nil")")
+            
+            // Clear incoming call if it matches
+            if let endedID = endedSessionID, let activeCall = self?.incomingCall {
+                if endedID == activeCall.sessionID {
+                    print("[CALL-DEBUG] Clearing incomingCall (matches ended session)")
+                    self?.incomingCall = nil
+                }
+            }
+            
+            // Only clear ongoing session if it's been active for at least 5 seconds
+            if let endedID = endedSessionID, let activeID = self?.ongoingCallSessionID {
+                if endedID == activeID {
+                    let elapsed = Date().timeIntervalSince(self?.ongoingCallStartTime ?? Date())
+                    if elapsed > 5.0 {
+                        print("[CALL-DEBUG] Clearing ongoingCallSessionID (matches ended session, elapsed=\(elapsed)s)")
+                        self?.ongoingCallSessionID = nil
+                        self?.ongoingCallStartTime = nil
+                    } else {
+                        print("[CALL-DEBUG] IGNORING premature call ended (elapsed=\(elapsed)s < 5s, still connecting)")
+                    }
+                } else {
+                    print("[CALL-DEBUG] IGNORING stale call ended event (endedID != activeID)")
+                }
+            }
+            
+            // Always re-initialize Calls SDK after any call ends so the next call works
+            CometChatManager.shared.reinitializeCallsSDK()
         }
     }
 
@@ -116,6 +152,8 @@ final class AppViewModel: ObservableObject {
                     CometChatManager.shared.login(uid: userId) { user, error in
                         if let user = user {
                             print("CometChat auto-login success: \(user.uid ?? "") ✓")
+                            // Register pending push tokens after login
+                            CometChatPushHelper.shared.registerPendingTokens()
                         } else if let error = error {
                             print("CometChat auto-login failed: \(error.errorDescription)")
                         }
@@ -135,6 +173,7 @@ final class AppViewModel: ObservableObject {
                     CometChatManager.shared.login(uid: userId) { user, error in
                         if let user = user {
                             print("CometChat auto-login success: \(user.uid ?? "") ✓")
+                            CometChatPushHelper.shared.registerPendingTokens()
                         } else if let error = error {
                             print("CometChat auto-login failed: \(error.errorDescription)")
                         }

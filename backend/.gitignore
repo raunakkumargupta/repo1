@@ -8,7 +8,6 @@
 *.dylib
 *.test
 *.out
-
 # Go cache / workspace files
 go.work
 go.work.sum

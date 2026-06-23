@@ -322,6 +322,34 @@ func (s *CometChatService) AddMemberToGroup(ctx context.Context, guid, uid strin
 	return nil
 }
 
+// RemoveMemberFromGroup removes a user from a CometChat group.
+func (s *CometChatService) RemoveMemberFromGroup(ctx context.Context, guid, uid string) error {
+	req, err := http.NewRequestWithContext(ctx, "DELETE", s.baseURL+"/groups/"+guid+"/members/"+uid, nil)
+	if err != nil {
+		return fmt.Errorf("cometchat: failed to build remove-member request: %w", err)
+	}
+	req.Header.Set("apikey", s.apiKey)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("cometchat: remove-member HTTP error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		log.Printf("[CometChat] Member removed from group: GUID=%s UID=%s", guid, uid)
+		return nil
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		log.Printf("[CometChat] Member %s not in group %s (404) — skipping", uid, guid)
+		return nil
+	}
+
+	respBody, _ := io.ReadAll(resp.Body)
+	return fmt.Errorf("cometchat: remove-member failed (status %d): %s", resp.StatusCode, string(respBody))
+}
+
 // DeleteGroup deletes a CometChat group.
 func (s *CometChatService) DeleteGroup(ctx context.Context, guid string) error {
 	req, err := http.NewRequestWithContext(ctx, "DELETE", s.baseURL+"/groups/"+guid, nil)
