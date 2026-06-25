@@ -27,6 +27,69 @@ class CometChatPushHelper: NSObject {
         super.init()
     }
     
+    // MARK: - Report incoming call from SDK (foreground) to CallKit
+    /// Called when the CometChat SDK detects an incoming call while the app is in the foreground.
+    /// This shows the native iOS call UI (green phone banner on home/lock screen).
+    func reportIncomingCallFromSDK(sessionId: String, callerName: String, isVideo: Bool, call: Call) {
+        // If already handling this call via VoIP push, skip duplicate
+        if let existingUUID = self.uuid, self.activeCall?.sessionID == sessionId {
+            print("[PUSH] Already handling call \(sessionId) via VoIP push, skipping SDK report")
+            return
+        }
+        
+        // If already on an active call, reject with busy
+        if CometChat.getActiveCall() != nil && CometChat.getActiveCall()?.callStatus != .initiated {
+            CometChat.rejectCall(sessionID: sessionId, status: .busy) { _ in
+                print("[PUSH] Rejected with busy (already on call)")
+            } onError: { _ in }
+            return
+        }
+        
+        uuid = UUID()
+        activeCall = call
+        
+        let config = CXProviderConfiguration(localizedName: "MatrixApp")
+        config.supportsVideo = isVideo
+        config.includesCallsInRecents = true
+        config.maximumCallGroups = 1
+        config.maximumCallsPerCallGroup = 1
+        
+        if provider == nil {
+            provider = CXProvider(configuration: config)
+            provider?.setDelegate(self, queue: nil)
+        }
+        
+        let update = CXCallUpdate()
+        update.remoteHandle = CXHandle(type: .generic, value: callerName)
+        update.hasVideo = isVideo
+        update.localizedCallerName = callerName
+        
+        provider?.reportNewIncomingCall(with: uuid!, update: update) { error in
+            if let error = error {
+                print("[PUSH] Report incoming call from SDK failed: \(error.localizedDescription)")
+                // Fall back to SwiftUI overlay only
+            } else {
+                print("[PUSH] CallKit reported incoming call from SDK: \(callerName), session: \(sessionId)")
+                self.configureAudioSession()
+            }
+        }
+    }
+    
+    // MARK: - End call from app (when user hangs up or call ends)
+    /// Call this when the call ends from within the app (SDK callback) to dismiss CallKit UI
+    func endCallKitCall() {
+        guard let uuid = self.uuid else { return }
+        let endAction = CXEndCallAction(call: uuid)
+        let transaction = CXTransaction(action: endAction)
+        callController.request(transaction) { error in
+            if let error = error {
+                print("[PUSH] Failed to end CallKit call: \(error.localizedDescription)")
+            }
+        }
+        self.uuid = nil
+        self.activeCall = nil
+    }
+    
     // MARK: - Configure Push Notifications
     func configurePushNotification(application: UIApplication) {
         let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]

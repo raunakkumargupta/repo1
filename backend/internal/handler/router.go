@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"encoding/json"
+	"net/http"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -68,6 +70,16 @@ func NewRouter(
 
 		// CometChat Webhooks (public — validated by CometChat secret)
 		r.Post("/api/webhooks/cometchat", webhookHandler.HandleWebhook)
+		
+		// Chatbot info (public — lets clients know the bot UID)
+		r.Get("/api/chatbot/info", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{
+				"uid":  "matrix-ai-assistant",
+				"name": "Matrix AI Assistant",
+				"description": "AI-powered hackathon assistant. DM me in chat for help with hackathon questions, coding tips, and team formation!",
+			})
+		})
 	})
 
 	// ==========================================

@@ -165,6 +165,22 @@ extension CometChatManager: CometChatCallDelegate {
     func onIncomingCallReceived(incomingCall: Call?, error: CometChatException?) {
         guard let call = incomingCall else { return }
         print("Incoming call received in CometChatManager: \(call.sessionID ?? "")")
+        
+        // Report to CallKit so native call UI shows on lock screen & home screen
+        let callerName: String
+        if let initiator = call.callInitiator as? CometChatSDK.User {
+            callerName = initiator.name ?? "Unknown"
+        } else {
+            callerName = "Unknown Caller"
+        }
+        let isVideo = (call.callType == .video)
+        CometChatPushHelper.shared.reportIncomingCallFromSDK(
+            sessionId: call.sessionID ?? "",
+            callerName: callerName,
+            isVideo: isVideo,
+            call: call
+        )
+        
         DispatchQueue.main.async {
             self.onIncomingCallReceived?(call)
         }
@@ -184,6 +200,7 @@ extension CometChatManager: CometChatCallDelegate {
         print("Incoming call cancelled in CometChatManager")
         DispatchQueue.main.async {
             self.onCallEnded?(cancelledCall?.sessionID)
+            CometChatPushHelper.shared.endCallKitCall()
             NotificationCenter.default.post(name: NSNotification.Name("CometChatCallEnded"), object: nil)
         }
     }
@@ -192,6 +209,7 @@ extension CometChatManager: CometChatCallDelegate {
         print("Outgoing call rejected in CometChatManager")
         DispatchQueue.main.async {
             self.onCallEnded?(rejectedCall?.sessionID)
+            CometChatPushHelper.shared.endCallKitCall()
             NotificationCenter.default.post(name: NSNotification.Name("CometChatCallEnded"), object: nil)
         }
     }

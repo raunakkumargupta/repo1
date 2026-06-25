@@ -130,6 +130,9 @@ final class AppViewModel: ObservableObject {
             
             // Always re-initialize Calls SDK after any call ends so the next call works
             CometChatManager.shared.reinitializeCallsSDK()
+            
+            // Dismiss CallKit native UI if it's showing
+            CometChatPushHelper.shared.endCallKitCall()
         }
     }
 

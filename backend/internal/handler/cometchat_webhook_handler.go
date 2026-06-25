@@ -13,19 +13,26 @@ import (
 	"time"
 
 	"github.com/raunakkumargupta/repo1/backend/internal/repository"
+	"github.com/raunakkumargupta/repo1/backend/internal/service"
 )
 
 // CometChatWebhookHandler handles incoming webhook events from CometChat.
-// Used for moderation logging, activity tracking, etc.
+// Used for moderation logging, activity tracking, and AI chatbot replies.
 type CometChatWebhookHandler struct {
 	pgRepo        *repository.PostgresRepo
 	webhookSecret string
+	chatbot       *service.ChatbotService
 }
 
 func NewCometChatWebhookHandler(pgRepo *repository.PostgresRepo) *CometChatWebhookHandler {
+	chatbot := service.NewChatbotService()
+	// Ensure bot user exists in CometChat
+	go chatbot.EnsureBotUserExists(context.Background())
+
 	return &CometChatWebhookHandler{
 		pgRepo:        pgRepo,
 		webhookSecret: os.Getenv("COMETCHAT_WEBHOOK_SECRET"),
+		chatbot:       chatbot,
 	}
 }
 
@@ -120,6 +127,7 @@ func (h *CometChatWebhookHandler) HandleWebhook(w http.ResponseWriter, r *http.R
 }
 
 // handleMessageSent logs a message activity event to the database.
+// If the message is sent TO the bot, it generates an AI reply.
 func (h *CometChatWebhookHandler) handleMessageSent(event CometChatWebhookEvent) {
 	var msg CometChatMessageData
 	if err := json.Unmarshal(event.Data, &msg); err != nil {
@@ -141,6 +149,43 @@ func (h *CometChatWebhookHandler) handleMessageSent(event CometChatWebhookEvent)
 		IsFlagged:   false,
 		CreatedAt:   time.Now(),
 	})
+
+	// AI Chatbot: if the message is sent TO the bot user, generate a reply
+	botUID := h.chatbot.GetBotUID()
+	if msg.Receiver == botUID && msg.ReceiverType == "user" && msg.Sender.UID != botUID {
+		go h.handleChatbotReply(msg)
+	}
+}
+
+// handleChatbotReply generates an AI response and sends it back via CometChat
+func (h *CometChatWebhookHandler) handleChatbotReply(msg CometChatMessageData) {
+	ctx := context.Background()
+
+	userMessage := msg.Text
+	if userMessage == "" {
+		// Try to extract text from data field
+		var dataObj struct {
+			Text string `json:"text"`
+		}
+		json.Unmarshal(msg.Data, &dataObj)
+		userMessage = dataObj.Text
+	}
+
+	if userMessage == "" {
+		userMessage = "[non-text message]"
+	}
+
+	log.Printf("[Chatbot] Generating reply for %s: %s", msg.Sender.UID, truncate(userMessage, 50))
+
+	reply, err := h.chatbot.GenerateResponse(ctx, userMessage)
+	if err != nil {
+		log.Printf("[Chatbot] Error generating response: %v", err)
+		reply = "Sorry, I'm having trouble processing that. Please try again."
+	}
+
+	if err := h.chatbot.SendBotMessage(ctx, msg.Sender.UID, reply); err != nil {
+		log.Printf("[Chatbot] Error sending reply: %v", err)
+	}
 }
 
 // handleMessageEdited logs edit events to the database.
