@@ -88,7 +88,12 @@ func (h *SuperAdminHandler) BanUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.adminService.BanUser(r.Context(), userID)
+	status := req.Status
+	if status == "" {
+		status = "deactivated"
+	}
+
+	err := h.adminService.UpdateUserStatus(r.Context(), userID, status)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

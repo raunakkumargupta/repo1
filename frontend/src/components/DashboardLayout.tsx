@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCometChat } from "@/components/providers/CometChatProvider";
+import ChatbotWidget from "@/components/ChatbotWidget";
 
 type NavItem = { name: string; href: string; icon: any };
 
@@ -353,6 +354,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </div>
       </main>
+
+      {/* Floating AI Chatbot Widget */}
+      <ChatbotWidget />
     </div>
   );
 }

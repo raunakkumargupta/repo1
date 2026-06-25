@@ -116,6 +116,33 @@ func NewRouter(
 		// Mobile FCM token registration
 		r.Post("/api/users/fcm-token", userHandler.RegisterFcmToken)
 
+		// CometChat user sync — called by the frontend when a user gets a 404
+		// from CometChat login (user exists in our DB but not in CometChat).
+		// This endpoint is auth-protected so only the logged-in user can trigger their own sync.
+		r.Post("/api/cometchat/sync-user", func(w http.ResponseWriter, req *http.Request) {
+			claims := middleware.GetUserClaims(req.Context())
+			if claims == nil {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+			// Accept optional name from body; fall back to user ID prefix
+			var body struct {
+				Name string `json:"name"`
+			}
+			_ = json.NewDecoder(req.Body).Decode(&body)
+			name := body.Name
+			if name == "" {
+				name = claims.UserID // CometChat only needs a non-empty name
+			}
+			ccService := service.NewCometChatService()
+			if err := ccService.CreateUser(req.Context(), claims.UserID, name, claims.Role); err != nil {
+				http.Error(w, "cometchat sync failed: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{"status": "synced"})
+		})
+
 		// Create a hackathon (accessible to all authenticated users)
 		r.Post("/api/hackathons", hackathonHandler.Create)
 		// Fetch all hackathons (including pending)

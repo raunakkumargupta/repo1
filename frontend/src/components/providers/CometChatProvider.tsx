@@ -33,7 +33,7 @@ type CometChatContextValue = {
   isInitialized: boolean;
   isLoggedIn: boolean;
   error: string | null;
-  loginUser: (uid: string) => Promise<void>;
+  loginUser: (uid: string, name?: string) => Promise<void>;
   logoutUser: () => Promise<void>;
 };
 
@@ -142,7 +142,7 @@ async function loginCallsSDK(uid: string, user: any) {
   }
 }
 
-async function ensureLoggedIn(uid: string): Promise<void> {
+async function ensureLoggedIn(uid: string, isRetry = false, userName?: string): Promise<void> {
   const { CometChatUIKit } = await import("@cometchat/chat-uikit-react");
   const existing = await CometChatUIKit.getLoggedinUser();
   if (existing) {
@@ -166,6 +166,27 @@ async function ensureLoggedIn(uid: string): Promise<void> {
   try {
     const loggedInUser = await loginInFlight;
     await loginCallsSDK(uid, loggedInUser);
+  } catch (err: any) {
+    // CometChat returns 404 when the user doesn't exist in their system.
+    // Auto-sync: ask the backend to create this user in CometChat, then retry once.
+    const code = err?.code ?? err?.message ?? "";
+    const is404 = String(code).includes("404") || String(code).includes("ERR_UID_NOT_FOUND") || String(code).includes("not found");
+    if (!isRetry && is404) {
+      console.warn("[CometChat] User not found in CometChat (404). Triggering backend sync for UID:", uid);
+      try {
+        await fetch("/api/cometchat/sync-user", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: userName }),
+        });
+      } catch (syncErr) {
+        console.warn("[CometChat] Backend sync failed:", syncErr);
+      }
+      // Retry login once after sync
+      loginInFlight = null;
+      return ensureLoggedIn(uid, true, userName);
+    }
+    throw err;
   } finally {
     loginInFlight = null;
   }
@@ -362,17 +383,17 @@ export function CometChatProvider({ children }: { children: React.ReactNode }) {
   }, [isLoggedIn, startRinging, stopRinging]);
 
   const loginUser = useCallback(
-    async (uid: string) => {
+    async (uid: string, name?: string) => {
       if (!isInitialized) {
         return;
       }
       try {
-        await ensureLoggedIn(uid);
+        await ensureLoggedIn(uid, false, name);
         setIsLoggedIn(true);
         setError(null);
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "CometChat login failed";
-        setError(msg);
+        // Log but don't surface CometChat errors to the UI — the app works
+        // fine without CometChat (chat features are just unavailable).
         console.error("[CometChat] Login error:", e);
       }
     },
@@ -402,7 +423,7 @@ export function CometChatProvider({ children }: { children: React.ReactNode }) {
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data && data.id) {
-          loginUser(data.id);
+          loginUser(data.id, data.name);
         } else {
           // If no platform user session exists, ensure logged out of CometChat
           if (isLoggedIn) {

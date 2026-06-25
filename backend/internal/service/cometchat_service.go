@@ -50,9 +50,83 @@ type CometChatUserPayload struct {
 	Tags     []string               `json:"tags,omitempty"`
 }
 
+// GetUser retrieves user details from CometChat.
+// Returns nil, nil if the user is not found (404).
+func (s *CometChatService) GetUser(ctx context.Context, uid string) (*CometChatUserPayload, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", s.baseURL+"/users/"+uid, nil)
+	if err != nil {
+		return nil, fmt.Errorf("cometchat: failed to build get-user request: %w", err)
+	}
+	req.Header.Set("apikey", s.apiKey)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("cometchat: get-user HTTP error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, nil
+	}
+
+	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("cometchat: get-user failed (status %d): %s", resp.StatusCode, string(respBody))
+	}
+
+	var result struct {
+		Data CometChatUserPayload `json:"data"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("cometchat: failed to parse get-user response: %w", err)
+	}
+
+	return &result.Data, nil
+}
+
+// SetUserActivationState activates or deactivates a user in CometChat.
+func (s *CometChatService) SetUserActivationState(ctx context.Context, uid string, activate bool) error {
+	payload := map[string]interface{}{
+		"activated": activate,
+	}
+	body, _ := json.Marshal(payload)
+
+	req, err := http.NewRequestWithContext(ctx, "PUT", s.baseURL+"/users/"+uid, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("cometchat: failed to build activate/deactivate request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("apikey", s.apiKey)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("cometchat: activate/deactivate HTTP error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		log.Printf("[CometChat] User activation state updated to %t: UID=%s", activate, uid)
+		return nil
+	}
+
+	respBody, _ := io.ReadAll(resp.Body)
+	return fmt.Errorf("cometchat: activate/deactivate failed (status %d): %s", resp.StatusCode, string(respBody))
+}
+
 // CreateUser creates a new user in CometChat.
 // Called during registration — maps our PostgreSQL user.ID to CometChat UID.
 func (s *CometChatService) CreateUser(ctx context.Context, uid, name, role string) error {
+	// First check if the user already exists to avoid hitting plan/billing limit (402 Payment Required) on creation requests
+	existing, err := s.GetUser(ctx, uid)
+	if err != nil {
+		log.Printf("[CometChat] Warning: failed to check if user %s exists: %v", uid, err)
+	} else if existing != nil {
+		log.Printf("[CometChat] User already exists (GET check): UID=%s — ensuring activated", uid)
+		return s.SetUserActivationState(ctx, uid, true)
+	}
+
 	payload := CometChatUserPayload{
 		UID:  uid,
 		Name: name,
@@ -145,32 +219,7 @@ func (s *CometChatService) UpdateUser(ctx context.Context, uid, name, role strin
 
 // DeactivateUser deactivates a user in CometChat when banned/deactivated in our app.
 func (s *CometChatService) DeactivateUser(ctx context.Context, uid string) error {
-	payload := map[string]interface{}{
-		"activated": false,
-	}
-	body, _ := json.Marshal(payload)
-
-	req, err := http.NewRequestWithContext(ctx, "PUT", s.baseURL+"/users/"+uid, bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("cometchat: failed to build deactivate-user request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("apikey", s.apiKey)
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("cometchat: deactivate-user HTTP error: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusOK {
-		log.Printf("[CometChat] User deactivated: UID=%s", uid)
-		return nil
-	}
-
-	respBody, _ := io.ReadAll(resp.Body)
-	return fmt.Errorf("cometchat: deactivate-user failed (status %d): %s", resp.StatusCode, string(respBody))
+	return s.SetUserActivationState(ctx, uid, false)
 }
 
 // ─── Group Sync ───────────────────────────────────────────────────────────────

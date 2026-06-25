@@ -110,16 +110,17 @@ func (s *SuperAdminService) GetGlobalMetrics(ctx context.Context) (map[string]in
 	}, nil
 }
 
-func (s *SuperAdminService) BanUser(ctx context.Context, userID string) error {
-	if err := s.pgRepo.UpdateUserStatus(ctx, userID, "deactivated"); err != nil {
+func (s *SuperAdminService) UpdateUserStatus(ctx context.Context, userID string, status string) error {
+	if err := s.pgRepo.UpdateUserStatus(ctx, userID, status); err != nil {
 		return err
 	}
 
-	// Sync: Deactivate the user in CometChat as well
+	// Sync: Update user activation state in CometChat as well
 	go func() {
 		ccService := NewCometChatService()
-		if err := ccService.DeactivateUser(context.Background(), userID); err != nil {
-			fmt.Printf("[CometChat Sync] Failed to deactivate user %s: %v\n", userID, err)
+		activate := (status == "active")
+		if err := ccService.SetUserActivationState(context.Background(), userID, activate); err != nil {
+			fmt.Printf("[CometChat Sync] Failed to update activation for user %s to %t: %v\n", userID, activate, err)
 		}
 	}()
 

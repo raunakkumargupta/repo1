@@ -6,6 +6,15 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Matrix — Hackathon Command Platform",
   description: "Production-grade hackathon infrastructure. Real-time mentor routing, RBAC, and team management.",
+  icons: {
+    icon: [
+      { url: "/logo.png", type: "image/png" },
+    ],
+    apple: [
+      { url: "/logo.png", type: "image/png" },
+    ],
+    shortcut: "/logo.png",
+  },
 };
 
 export default function RootLayout({
