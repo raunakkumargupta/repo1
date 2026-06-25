@@ -1,6 +1,9 @@
 package com.matrix.app;
 
 import android.content.Context;
+import android.content.Intent;
+import android.os.Handler;
+import android.os.Looper;
 
 import okhttp3.Dispatcher;
 import okhttp3.Interceptor;
@@ -62,7 +65,29 @@ public class ApiClient {
                                 builder.header("Cookie", "jwt=" + token);
                             }
 
-                            return chain.proceed(builder.build());
+                            Response response = chain.proceed(builder.build());
+
+                            // ── Session expiry: auto-logout on 401 ───────────────────
+                            if (response.code() == 401) {
+                                SecurityManager sm = appSecurityManager;
+                                if (sm != null) {
+                                    Context ctx = sm.getContext();
+                                    sm.clearAll();
+                                    ApiClient.reset();
+                                    // Post redirect to main thread (interceptor runs on bg thread)
+                                    new Handler(Looper.getMainLooper()).post(() -> {
+                                        if (ctx != null) {
+                                            Intent intent = new Intent(ctx, LoginActivity.class);
+                                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                                                    | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                                            intent.putExtra("session_expired", true);
+                                            ctx.startActivity(intent);
+                                        }
+                                    });
+                                }
+                            }
+
+                            return response;
                         }
                     })
                     .build();

@@ -14,8 +14,10 @@ public class SecurityManager {
     private static final String KEY_EMAIL   = "user_email";
     private static final String KEY_USER_ID = "user_id";  // backend UUID = CometChat UID
     private SharedPreferences sharedPreferences;
+    private final Context appContext;
 
     public SecurityManager(Context context) {
+        this.appContext = context.getApplicationContext();
         try {
             MasterKey masterKey = new MasterKey.Builder(context)
                     .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -31,6 +33,11 @@ public class SecurityManager {
         } catch (GeneralSecurityException | IOException e) {
             e.printStackTrace();
         }
+    }
+
+    /** Returns the application context — safe to use from background threads. */
+    public Context getContext() {
+        return appContext;
     }
 
     public void saveToken(String token) {

@@ -55,6 +55,10 @@ public interface MatrixApi {
             @Query("search") String search);
 
     // ---- Registration ----
+    /** Single-call: returns ALL registrations for the logged-in user. */
+    @GET("registrations/me")
+    Call<List<Registration>> getMyAllRegistrations();
+
     @GET("hackathons/{id}/my-registration")
     Call<Registration> getMyRegistration(@Path("id") String hackathonId);
 

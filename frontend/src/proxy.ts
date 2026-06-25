@@ -19,6 +19,7 @@ export async function proxy(request: NextRequest) {
 
   const token = request.cookies.get("jwt")?.value;
   let role: string | null = null;
+  let userId: string | null = null;
 
   if (token) {
     try {
@@ -27,9 +28,11 @@ export async function proxy(request: NextRequest) {
       );
       const { payload } = await jwtVerify(token, secret);
       role = (payload.role as string) || null;
+      userId = (payload.user_id as string) || null;
     } catch {
       // Invalid / expired token — treat as unauthenticated
       role = null;
+      userId = null;
     }
   }
 
@@ -65,11 +68,45 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Organizer panel
-  if (pathname.startsWith("/organizer") && role !== "Organizer" && role !== "SuperAdmin" && role !== "Admin") {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
+  // Organizer panels (check /organizer/[hackathon_id] and /workspace/[hackathon_id]/organizer)
+  const workspaceOrganizerMatch = pathname.match(/^\/workspace\/([^/]+)\/organizer(?:\/|$)/i);
+  const organizerMatch = pathname.match(/^\/organizer\/([^/]+)(?:\/|$)/i);
+
+  if (workspaceOrganizerMatch || organizerMatch) {
+    // 1. Only allow Organizer, Admin, SuperAdmin roles
+    if (role !== "Organizer" && role !== "SuperAdmin" && role !== "Admin") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
+
+    // 2. If Organizer, check ownership
+    if (role === "Organizer") {
+      const hackathonId = workspaceOrganizerMatch ? workspaceOrganizerMatch[1] : organizerMatch![1];
+      try {
+        const backendUrl = process.env.BACKEND_API_URL || "http://localhost:8080";
+        const res = await fetch(`${backendUrl}/api/hackathons/${hackathonId}`);
+        if (!res.ok) {
+          // If hackathon doesn't exist, redirect to dashboard
+          const url = request.nextUrl.clone();
+          url.pathname = "/dashboard";
+          return NextResponse.redirect(url);
+        }
+        const hackathon = await res.json();
+        if (hackathon.organizer_id !== userId) {
+          // Organizer is not the owner -> Redirect to dashboard
+          const url = request.nextUrl.clone();
+          url.pathname = "/dashboard";
+          return NextResponse.redirect(url);
+        }
+      } catch (err) {
+        console.error("Middleware hackathon ownership check error:", err);
+        // On backend/network error, fail secure (block access)
+        const url = request.nextUrl.clone();
+        url.pathname = "/dashboard";
+        return NextResponse.redirect(url);
+      }
+    }
   }
 
   // Mentor panel

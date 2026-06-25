@@ -24,6 +24,9 @@ import retrofit2.Response;
 
 public class ProfileActivity extends AppCompatActivity {
 
+    private static final int REQUEST_EDIT_PROFILE = 1001;
+    private boolean needsRefresh = false;
+
     private MatrixApi api;
     private SecurityManager securityManager;
     private View rootView;
@@ -71,7 +74,7 @@ public class ProfileActivity extends AppCompatActivity {
         tvAllergies       = findViewById(R.id.tv_profile_allergies);
 
         findViewById(R.id.btn_edit_profile).setOnClickListener(v ->
-                startActivity(new Intent(this, EditProfileActivity.class)));
+                startActivityForResult(new Intent(this, EditProfileActivity.class), REQUEST_EDIT_PROFILE));
 
         ((MaterialButton) findViewById(R.id.btn_sign_out)).setOnClickListener(v ->
                 confirmSignOut());
@@ -107,12 +110,28 @@ public class ProfileActivity extends AppCompatActivity {
             }
             return false;
         });
+
+        // AI Chatbot FAB
+        findViewById(R.id.fab_ai_chat).setOnClickListener(v ->
+                startActivity(new Intent(this, AIChatActivity.class)));
+
+        loadProfile();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        loadProfile();
+        // Only reload if we returned from EditProfile (data may have changed)
+        if (needsRefresh) {
+            needsRefresh = false;
+            loadProfile();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_EDIT_PROFILE) needsRefresh = true;
     }
 
     private void loadProfile() {

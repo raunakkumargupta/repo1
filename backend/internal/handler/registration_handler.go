@@ -68,6 +68,21 @@ func (h *RegistrationHandler) GetMyRegistration(w http.ResponseWriter, r *http.R
 	json.NewEncoder(w).Encode(reg)
 }
 
+func (h *RegistrationHandler) GetMyRegistrations(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.GetUserClaims(r.Context())
+	list, err := h.regService.GetRegistrationsByUserID(r.Context(), claims.UserID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if list == nil {
+		list = []models.Registration{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(list)
+}
+
 func (h *RegistrationHandler) ListByHackathon(w http.ResponseWriter, r *http.Request) {
 	hackathonID := chi.URLParam(r, "id")
 	if hackathonID == "" {

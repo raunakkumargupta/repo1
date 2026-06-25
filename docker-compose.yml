@@ -50,6 +50,8 @@ services:
       - COMETCHAT_REGION=${COMETCHAT_REGION}
       - COMETCHAT_API_KEY=${COMETCHAT_API_KEY}
       - COMETCHAT_AUTH_KEY=${COMETCHAT_AUTH_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - CHATBOT_UID=${CHATBOT_UID}
     volumes:
       - ./firebase-service-account.json:/app/firebase-service-account.json:ro
     depends_on:

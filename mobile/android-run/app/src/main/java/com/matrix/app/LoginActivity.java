@@ -67,6 +67,10 @@ public class LoginActivity extends AppCompatActivity {
             return;
         }
 
+        if (getIntent().getBooleanExtra("session_expired", false)) {
+            Toast.makeText(this, "Session expired. Please log in again.", Toast.LENGTH_LONG).show();
+        }
+
         api = ApiClient.getClient(securityManager).create(MatrixApi.class);
 
         // Bind views

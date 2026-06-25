@@ -8,6 +8,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/raunakkumargupta/repo1/backend/internal/middleware"
 	"github.com/raunakkumargupta/repo1/backend/internal/models"
 	"github.com/raunakkumargupta/repo1/backend/internal/repository"
 	"github.com/raunakkumargupta/repo1/backend/internal/worker"
@@ -183,7 +184,24 @@ func (s *HackathonService) ApproveHackathon(ctx context.Context, id string) erro
 }
 
 func (s *HackathonService) UpdateHackathonDetails(ctx context.Context, id string, details models.UpdateHackathonDetailsRequest) error {
-	err := s.pgRepo.UpdateHackathonDetails(ctx, id, details)
+	claims := middleware.GetUserClaims(ctx)
+	if claims == nil {
+		return errors.New("unauthorized: missing credentials")
+	}
+
+	hack, err := s.pgRepo.GetHackathonByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if hack == nil {
+		return errors.New("hackathon not found")
+	}
+
+	if claims.Role != models.RoleSuperAdmin && claims.Role != models.RoleAdmin && hack.OrganizerID != claims.UserID {
+		return errors.New("forbidden: you do not have permission to edit this hackathon")
+	}
+
+	err = s.pgRepo.UpdateHackathonDetails(ctx, id, details)
 	if err == nil {
 		s.invalidateListCache(ctx)
 		if s.cache != nil {
@@ -194,7 +212,24 @@ func (s *HackathonService) UpdateHackathonDetails(ctx context.Context, id string
 }
 
 func (s *HackathonService) DeleteHackathon(ctx context.Context, id string) error {
-	err := s.pgRepo.DeleteHackathon(ctx, id)
+	claims := middleware.GetUserClaims(ctx)
+	if claims == nil {
+		return errors.New("unauthorized: missing credentials")
+	}
+
+	hack, err := s.pgRepo.GetHackathonByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if hack == nil {
+		return errors.New("hackathon not found")
+	}
+
+	if claims.Role != models.RoleSuperAdmin && claims.Role != models.RoleAdmin && hack.OrganizerID != claims.UserID {
+		return errors.New("forbidden: you do not have permission to delete this hackathon")
+	}
+
+	err = s.pgRepo.DeleteHackathon(ctx, id)
 	if err == nil {
 		s.invalidateListCache(ctx)
 		if s.cache != nil {

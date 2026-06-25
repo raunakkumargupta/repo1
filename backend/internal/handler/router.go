@@ -128,7 +128,7 @@ func NewRouter(
 
 		// For backward compatibility (legacy routes)
 		r.Post("/api/registrations", regHandler.CreateRegistration)
-		r.Get("/api/registrations/me", regHandler.GetMyRegistration)
+		r.Get("/api/registrations/me", regHandler.GetMyRegistrations)
 		r.Post("/api/community", commHandler.CreatePost)
 
 		// ------------------------------------------

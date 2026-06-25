@@ -251,15 +251,20 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         if (!com.cometchat.chatuikit.shared.cometchatuikit.CometChatUIKit.isSDKInitialized()) return;
         if (com.cometchat.chatuikit.shared.cometchatuikit.CometChatUIKit.getLoggedInUser() == null) return;
 
-        CometChat.registerTokenForPushNotification(token, new CometChat.CallbackListener<String>() {
-            @Override
-            public void onSuccess(String s) {
-                Log.d(TAG, "FCM token registered with CometChat ✓");
-            }
-            @Override
-            public void onError(com.cometchat.chat.exceptions.CometChatException e) {
-                Log.w(TAG, "FCM token registration with CometChat failed: " + e.getMessage());
-            }
-        });
+        com.cometchat.chat.core.CometChatNotifications.registerPushToken(
+                token,
+                com.cometchat.chat.enums.PushPlatforms.FCM_ANDROID,
+                COMETCHAT_PUSH_PROVIDER_ID,
+                new CometChat.CallbackListener<String>() {
+                    @Override
+                    public void onSuccess(String s) {
+                        Log.d(TAG, "FCM token registered with CometChat ✓");
+                    }
+                    @Override
+                    public void onError(com.cometchat.chat.exceptions.CometChatException e) {
+                        Log.w(TAG, "FCM token registration with CometChat failed: " + e.getMessage());
+                    }
+                }
+        );
     }
 }

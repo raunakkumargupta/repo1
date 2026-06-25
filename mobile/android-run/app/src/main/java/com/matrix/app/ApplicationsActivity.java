@@ -68,49 +68,62 @@ public class ApplicationsActivity extends AppCompatActivity {
             return false;
         });
 
+        // AI Chatbot FAB
+        findViewById(R.id.fab_ai_chat).setOnClickListener(v ->
+                startActivity(new Intent(this, AIChatActivity.class)));
+
         progressBar.setVisibility(View.VISIBLE);
         tvSummary.setText("Loading your registrations...");
 
-        // Load all hackathons, then check registration for each
+        // ── Two parallel calls instead of N+1 ──────────────────────────────────
+        final List<Registration>[] regsHolder = new List[]{null};
+        final List<Hackathon>[]    hacksHolder = new List[]{null};
+        final int[] done = {0};
+
+        Runnable merge = () -> {
+            done[0]++;
+            if (done[0] < 2) return; // wait for both
+            progressBar.setVisibility(View.GONE);
+
+            List<Registration> myRegs = regsHolder[0] != null ? regsHolder[0] : new ArrayList<>();
+            List<Hackathon> hackathons = hacksHolder[0] != null ? hacksHolder[0] : new ArrayList<>();
+
+            // Pair each registration with its hackathon
+            List<Object[]> results = new ArrayList<>();
+            for (Registration reg : myRegs) {
+                if (reg.getId() == null) continue;
+                Hackathon matched = null;
+                for (Hackathon h : hackathons) {
+                    if (h.getId().equals(reg.getHackathonId())) { matched = h; break; }
+                }
+                results.add(new Object[]{reg, matched != null ? matched : new Hackathon()});
+            }
+            renderResults(results, tvSummary, container);
+        };
+
+        api.getMyAllRegistrations().enqueue(new Callback<List<Registration>>() {
+            @Override
+            public void onResponse(Call<List<Registration>> call, Response<List<Registration>> r) {
+                regsHolder[0] = (r.isSuccessful() && r.body() != null) ? r.body() : new ArrayList<>();
+                runOnUiThread(merge);
+            }
+            @Override
+            public void onFailure(Call<List<Registration>> call, Throwable t) {
+                regsHolder[0] = new ArrayList<>();
+                runOnUiThread(merge);
+            }
+        });
+
         api.listHackathons().enqueue(new Callback<List<Hackathon>>() {
             @Override
-            public void onResponse(Call<List<Hackathon>> call, Response<List<Hackathon>> response) {
-                if (response.body() == null || response.body().isEmpty()) {
-                    progressBar.setVisibility(View.GONE);
-                    tvSummary.setText("No hackathons available.");
-                    return;
-                }
-
-                List<Hackathon> hackathons = response.body();
-                AtomicInteger pending = new AtomicInteger(hackathons.size());
-                List<Object[]> results = new ArrayList<>(); // [Registration, Hackathon]
-
-                for (Hackathon h : hackathons) {
-                    api.getMyRegistration(h.getId()).enqueue(new Callback<Registration>() {
-                        @Override
-                        public void onResponse(Call<Registration> call2, Response<Registration> r2) {
-                            if (r2.isSuccessful() && r2.body() != null && r2.body().getId() != null) {
-                                results.add(new Object[]{r2.body(), h});
-                            }
-                            if (pending.decrementAndGet() == 0) {
-                                progressBar.setVisibility(View.GONE);
-                                renderResults(results, tvSummary, container);
-                            }
-                        }
-                        @Override
-                        public void onFailure(Call<Registration> call2, Throwable t) {
-                            if (pending.decrementAndGet() == 0) {
-                                progressBar.setVisibility(View.GONE);
-                                renderResults(results, tvSummary, container);
-                            }
-                        }
-                    });
-                }
+            public void onResponse(Call<List<Hackathon>> call, Response<List<Hackathon>> r) {
+                hacksHolder[0] = (r.isSuccessful() && r.body() != null) ? r.body() : new ArrayList<>();
+                runOnUiThread(merge);
             }
             @Override
             public void onFailure(Call<List<Hackathon>> call, Throwable t) {
-                progressBar.setVisibility(View.GONE);
-                tvSummary.setText("Failed to load. Check your connection.");
+                hacksHolder[0] = new ArrayList<>();
+                runOnUiThread(merge);
             }
         });
     }

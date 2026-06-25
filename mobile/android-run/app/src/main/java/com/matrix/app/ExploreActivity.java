@@ -88,6 +88,10 @@ public class ExploreActivity extends AppCompatActivity {
             return false;
         });
 
+        // AI Chatbot FAB
+        findViewById(R.id.fab_ai_chat).setOnClickListener(v ->
+                startActivity(new Intent(this, AIChatActivity.class)));
+
         // Pagination buttons
         btnPrevPage.setOnClickListener(v -> {
             if (currentPage > 1) {

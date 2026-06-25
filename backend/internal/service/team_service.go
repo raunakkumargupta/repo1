@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/raunakkumargupta/repo1/backend/internal/middleware"
 	"github.com/raunakkumargupta/repo1/backend/internal/models"
 	"github.com/raunakkumargupta/repo1/backend/internal/repository"
 	"github.com/raunakkumargupta/repo1/backend/internal/worker"
@@ -107,6 +108,31 @@ func (s *TeamService) GetTeamsByHackathon(ctx context.Context, hackathonID strin
 }
 
 func (s *TeamService) ToggleTeamWinner(ctx context.Context, teamID string, isWinner bool) error {
+	claims := middleware.GetUserClaims(ctx)
+	if claims == nil {
+		return errors.New("unauthorized: missing credentials")
+	}
+
+	team, err := s.pgRepo.GetTeamByID(ctx, teamID)
+	if err != nil {
+		return err
+	}
+	if team == nil {
+		return errors.New("team not found")
+	}
+
+	hack, err := s.pgRepo.GetHackathonByID(ctx, team.HackathonID)
+	if err != nil {
+		return err
+	}
+	if hack == nil {
+		return errors.New("hackathon not found")
+	}
+
+	if claims.Role != models.RoleSuperAdmin && claims.Role != models.RoleAdmin && hack.OrganizerID != claims.UserID {
+		return errors.New("forbidden: you do not have permission to manage this hackathon's teams")
+	}
+
 	return s.pgRepo.UpdateTeamWinnerStatus(ctx, teamID, isWinner)
 }
 

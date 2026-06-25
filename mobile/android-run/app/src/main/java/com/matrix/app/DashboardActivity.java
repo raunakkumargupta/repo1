@@ -156,81 +156,88 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     private void loadDashboard() {
-        // Load user info
+        // ── Parallel: user info ──────────────────────────────────────────────
         api.getMe().enqueue(new Callback<ApiUser>() {
             @Override
             public void onResponse(Call<ApiUser> call, Response<ApiUser> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    ApiUser user = response.body();
-                    String firstName = user.getName().split(" ")[0];
-                    tvWelcomeName.setText("Hey, " + firstName + " 👋");
-                    tvWelcomeSubtitle.setText(user.getEmail());
-                    // Avatar initials
-                    String initials = user.getName().length() >= 2
-                            ? String.valueOf(user.getName().charAt(0)).toUpperCase()
-                            : "?";
-                    tvAvatarInitials.setText(initials);
-                }
+                if (!response.isSuccessful() || response.body() == null) return;
+                ApiUser user = response.body();
+                String firstName = user.getName().split(" ")[0];
+                tvWelcomeName.setText("Hey, " + firstName + " 👋");
+                tvWelcomeSubtitle.setText(user.getEmail());
+                String initials = user.getName().length() >= 1
+                        ? String.valueOf(user.getName().charAt(0)).toUpperCase() : "?";
+                tvAvatarInitials.setText(initials);
             }
             @Override
             public void onFailure(Call<ApiUser> call, Throwable t) {}
         });
 
-        // Load hackathons → then load registrations only for ones user might be in
+        // ── Parallel: my registrations and hackathons list ───────────────────
+        final List<Registration>[] regsHolder = new List[]{null};
+        final List<Hackathon>[] hacksHolder = new List[]{null};
+        final boolean[] failedRegs = {false};
+        final int[] done = {0};
+
+        Runnable merge = () -> {
+            done[0]++;
+            if (done[0] < 2) return; // wait for both
+
+            if (failedRegs[0]) {
+                showEmptyState("Unable to load data. Check your connection.");
+                return;
+            }
+
+            List<Registration> myRegs = regsHolder[0] != null ? regsHolder[0] : new ArrayList<>();
+            List<Hackathon> hackathons = hacksHolder[0] != null ? hacksHolder[0] : new ArrayList<>();
+
+            // Update stat counters immediately
+            long accepted = 0, pending = 0;
+            for (Registration r : myRegs) {
+                if ("accepted".equalsIgnoreCase(r.getApprovalStatus())) accepted++;
+                else if ("pending".equalsIgnoreCase(r.getApprovalStatus())) pending++;
+            }
+            tvApplicationsCount.setText(String.valueOf(myRegs.size()));
+            tvTeamCount.setText(String.valueOf(accepted));
+            tvMentorCount.setText(String.valueOf(pending));
+
+            renderRegistrations(myRegs, hackathons);
+        };
+
+        api.getMyAllRegistrations().enqueue(new Callback<List<Registration>>() {
+            @Override
+            public void onResponse(Call<List<Registration>> call, Response<List<Registration>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    regsHolder[0] = response.body();
+                } else {
+                    regsHolder[0] = new ArrayList<>();
+                }
+                runOnUiThread(merge);
+            }
+            @Override
+            public void onFailure(Call<List<Registration>> call, Throwable t) {
+                regsHolder[0] = new ArrayList<>();
+                failedRegs[0] = true;
+                runOnUiThread(merge);
+            }
+        });
+
         api.listHackathons().enqueue(new Callback<List<Hackathon>>() {
             @Override
             public void onResponse(Call<List<Hackathon>> call, Response<List<Hackathon>> response) {
-                if (!response.isSuccessful() || response.body() == null || response.body().isEmpty()) {
-                    showEmptyState("No hackathons available yet.");
-                    tvApplicationsCount.setText("0");
-                    tvTeamCount.setText("0");
-                    tvMentorCount.setText("0");
-                    return;
-                }
-                List<Hackathon> allHackathons = response.body();
-                // Only check registrations for the most recent 10 hackathons to avoid 45+ network calls
-                int limit = Math.min(10, allHackathons.size());
-                List<Hackathon> hackathons = allHackathons.subList(0, limit);
-
-                final int[] pending = {hackathons.size()};
-                final List<Registration> myRegs = new ArrayList<>();
-
-                for (Hackathon h : hackathons) {
-                    api.getMyRegistration(h.getId()).enqueue(new Callback<Registration>() {
-                        @Override
-                        public void onResponse(Call<Registration> call2, Response<Registration> r2) {
-                            if (r2.isSuccessful() && r2.body() != null && r2.body().getId() != null) {
-                                myRegs.add(r2.body());
-                            }
-                            pending[0]--;
-                            if (pending[0] == 0) renderRegistrations(myRegs, allHackathons);
-                        }
-                        @Override
-                        public void onFailure(Call<Registration> call2, Throwable t) {
-                            pending[0]--;
-                            if (pending[0] == 0) renderRegistrations(myRegs, allHackathons);
-                        }
-                    });
-                }
+                hacksHolder[0] = (response.isSuccessful() && response.body() != null)
+                        ? response.body() : new ArrayList<>();
+                runOnUiThread(merge);
             }
             @Override
             public void onFailure(Call<List<Hackathon>> call, Throwable t) {
-                showEmptyState("Unable to load hackathons. Check your connection.");
+                hacksHolder[0] = new ArrayList<>();
+                runOnUiThread(merge);
             }
         });
     }
 
     private void renderRegistrations(List<Registration> registrations, List<Hackathon> hackathons) {
-        long accepted = 0, pending = 0;
-        for (Registration r : registrations) {
-            if ("accepted".equalsIgnoreCase(r.getApprovalStatus())) accepted++;
-            else if ("pending".equalsIgnoreCase(r.getApprovalStatus())) pending++;
-        }
-
-        tvApplicationsCount.setText(String.valueOf(registrations.size()));
-        tvTeamCount.setText(String.valueOf(accepted));
-        tvMentorCount.setText(String.valueOf(pending));
-
         registrationsContainer.removeAllViews();
 
         if (registrations.isEmpty()) {
@@ -294,3 +301,4 @@ public class DashboardActivity extends AppCompatActivity {
         registrationsContainer.addView(tv);
     }
 }
+

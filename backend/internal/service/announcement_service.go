@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/raunakkumargupta/repo1/backend/internal/middleware"
 	"github.com/raunakkumargupta/repo1/backend/internal/models"
 	"github.com/raunakkumargupta/repo1/backend/internal/repository"
 	"github.com/raunakkumargupta/repo1/backend/internal/worker"
@@ -23,6 +24,23 @@ func NewAnnouncementService(pgRepo *repository.PostgresRepo, wp *worker.WorkerPo
 }
 
 func (s *AnnouncementService) CreateAnnouncement(ctx context.Context, hackathonID string, req models.AnnouncementRequest) (*models.Announcement, error) {
+	claims := middleware.GetUserClaims(ctx)
+	if claims == nil {
+		return nil, errors.New("unauthorized: missing credentials")
+	}
+
+	hack, err := s.pgRepo.GetHackathonByID(ctx, hackathonID)
+	if err != nil {
+		return nil, err
+	}
+	if hack == nil {
+		return nil, errors.New("hackathon not found")
+	}
+
+	if claims.Role != models.RoleSuperAdmin && claims.Role != models.RoleAdmin && hack.OrganizerID != claims.UserID {
+		return nil, errors.New("forbidden: you do not have permission to manage this hackathon's broadcasts")
+	}
+
 	if req.Message == "" {
 		return nil, errors.New("message cannot be empty")
 	}

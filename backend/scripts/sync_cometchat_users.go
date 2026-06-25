@@ -28,7 +28,7 @@ func main() {
 	ccService := service.NewCometChatService()
 
 	// 1. Fetch essential test users to stay under CometChat's 100-user plan quota limit
-	rows, err := dbpool.Query(ctx, "SELECT id, name, email, role FROM users WHERE email IN ('admin@matrix.com', 'organizer@matrix.com', 'mentor@matrix.com', 'judge@matrix.com', 'R@gmail.co', 'hacker1@matrix.com', 'hacker2@matrix.com', 'hacker3@matrix.com', 'hacker4@matrix.com', 'hacker5@matrix.com')")
+	rows, err := dbpool.Query(ctx, "SELECT id, name, email, role FROM users WHERE email IN ('admin@matrix.com', 'organizer@matrix.com', 'mentor@matrix.com', 'judge@matrix.com', 'R@gmail.co', 'hacker1@matrix.com', 'hacker2@matrix.com', 'hacker3@matrix.com', 'hacker4@matrix.com', 'hacker5@matrix.com', 'warlord9004@gmail.com')")
 	if err != nil {
 		log.Fatalf("Failed to query users: %v\n", err)
 	}

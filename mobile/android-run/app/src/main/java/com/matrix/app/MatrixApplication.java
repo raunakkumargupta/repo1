@@ -57,6 +57,12 @@ public class MatrixApplication extends Application {
                     "matrix_channel", "Matrix Announcements", NotificationManager.IMPORTANCE_DEFAULT);
             announcementChannel.setDescription("Hackathon announcements and updates");
             manager.createNotificationChannel(announcementChannel);
+
+            // Fallback notification channel for FCM / CometChat background notifications
+            NotificationChannel fallbackChannel = new NotificationChannel(
+                    "fcm_fallback_notification_channel", "Miscellaneous", NotificationManager.IMPORTANCE_DEFAULT);
+            fallbackChannel.setDescription("Fallback channel for background push notifications");
+            manager.createNotificationChannel(fallbackChannel);
         }
     }
 

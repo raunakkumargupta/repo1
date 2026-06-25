@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/raunakkumargupta/repo1/backend/internal/middleware"
 	"github.com/raunakkumargupta/repo1/backend/internal/models"
 	"github.com/raunakkumargupta/repo1/backend/internal/repository"
 	"golang.org/x/crypto/bcrypt"
@@ -23,6 +24,23 @@ func (s *StaffService) GetStaffRole(ctx context.Context, hackathonID, userID str
 }
 
 func (s *StaffService) AssignStaff(ctx context.Context, hackathonID string, req models.StaffAssignmentRequest) error {
+	claims := middleware.GetUserClaims(ctx)
+	if claims == nil {
+		return errors.New("unauthorized: missing credentials")
+	}
+
+	hack, err := s.pgRepo.GetHackathonByID(ctx, hackathonID)
+	if err != nil {
+		return err
+	}
+	if hack == nil {
+		return errors.New("hackathon not found")
+	}
+
+	if claims.Role != models.RoleSuperAdmin && claims.Role != models.RoleAdmin && hack.OrganizerID != claims.UserID {
+		return errors.New("forbidden: you do not have permission to manage this hackathon's staff")
+	}
+
 	if req.Email == "" || req.Role == "" {
 		return errors.New("email and role are required")
 	}
@@ -103,6 +121,23 @@ func (s *StaffService) GetHackathonStaffList(ctx context.Context, hackathonID st
 }
 
 func (s *StaffService) RemoveStaff(ctx context.Context, hackathonID, userID string) error {
+	claims := middleware.GetUserClaims(ctx)
+	if claims == nil {
+		return errors.New("unauthorized: missing credentials")
+	}
+
+	hack, err := s.pgRepo.GetHackathonByID(ctx, hackathonID)
+	if err != nil {
+		return err
+	}
+	if hack == nil {
+		return errors.New("hackathon not found")
+	}
+
+	if claims.Role != models.RoleSuperAdmin && claims.Role != models.RoleAdmin && hack.OrganizerID != claims.UserID {
+		return errors.New("forbidden: you do not have permission to manage this hackathon's staff")
+	}
+
 	return s.pgRepo.RemoveStaff(ctx, hackathonID, userID)
 }
 

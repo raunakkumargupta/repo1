@@ -312,6 +312,48 @@ func (r *PostgresRepo) GetRegistrationByUserID(ctx context.Context, userID strin
 	return reg, nil
 }
 
+func (r *PostgresRepo) GetRegistrationByID(ctx context.Context, id string) (*models.Registration, error) {
+	query := `
+		SELECT id, user_id, hackathon_id, github_url, linkedin_url, skills, team_preference, approval_status, resume_url, created_at
+		FROM registrations
+		WHERE id = $1
+	`
+	reg := &models.Registration{}
+	err := r.pool.QueryRow(ctx, query, id).
+		Scan(&reg.ID, &reg.UserID, &reg.HackathonID, &reg.GithubURL, &reg.LinkedinURL, &reg.Skills, &reg.TeamPreference, &reg.ApprovalStatus, &reg.ResumeURL, &reg.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return reg, nil
+}
+
+func (r *PostgresRepo) GetRegistrationsByUserID(ctx context.Context, userID string) ([]models.Registration, error) {
+	query := `
+		SELECT id, user_id, hackathon_id, github_url, linkedin_url, skills, team_preference, approval_status, resume_url, created_at
+		FROM registrations
+		WHERE user_id = $1
+	`
+	rows, err := r.pool.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []models.Registration
+	for rows.Next() {
+		var reg models.Registration
+		err := rows.Scan(&reg.ID, &reg.UserID, &reg.HackathonID, &reg.GithubURL, &reg.LinkedinURL, &reg.Skills, &reg.TeamPreference, &reg.ApprovalStatus, &reg.ResumeURL, &reg.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, reg)
+	}
+	return list, rows.Err()
+}
+
 func (r *PostgresRepo) GetRegistrationByUserAndHackathon(ctx context.Context, userID, hackathonID string) (*models.Registration, error) {
 	query := `
 		SELECT id, user_id, hackathon_id, github_url, linkedin_url, skills, team_preference, approval_status, resume_url, created_at

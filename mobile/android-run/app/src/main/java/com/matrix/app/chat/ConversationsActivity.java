@@ -11,6 +11,7 @@ import com.cometchat.chat.models.User;
 import com.cometchat.chatuikit.conversations.CometChatConversations;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.matrix.app.ApplicationsActivity;
+import com.matrix.app.AIChatActivity;
 import com.matrix.app.DashboardActivity;
 import com.matrix.app.ExploreActivity;
 import com.matrix.app.ProfileActivity;
@@ -86,5 +87,9 @@ public class ConversationsActivity extends AppCompatActivity {
             }
             return false;
         });
+
+        // AI Chatbot FAB
+        findViewById(R.id.fab_ai_chat).setOnClickListener(v ->
+                startActivity(new Intent(this, AIChatActivity.class)));
     }
 }

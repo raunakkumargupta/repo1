@@ -23,6 +23,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [preference, setPreference] = useState<string | null>(null);
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [mounted, setMounted] = useState(false);
+  const [isCreator, setIsCreator] = useState(false);
 
 
   const pathname = usePathname();
@@ -102,6 +103,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         })
         .catch(() => {});
 
+      // Fetch hackathon details to check creator ownership
+      fetch(`/api/hackathons/${hid}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data && user) {
+            setIsCreator(user.id === data.organizer_id);
+          } else {
+            setIsCreator(false);
+          }
+        })
+        .catch(() => setIsCreator(false));
+
       if (spaceType === "workspace") {
         fetch(`/api/hackathons/${hid}/my-registration`)
           .then((res) => (res.ok ? res.json() : null))
@@ -115,8 +128,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     } else {
       setHackathonId(null);
       setPreference(null);
+      setIsCreator(false);
     }
-  }, [pathname, router]);
+  }, [pathname, router, user]);
 
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -149,7 +163,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (preference === "Solo" || preference === "Has Team") {
           navItems.push({ name: "My Project", href: `/workspace/${hackathonId}/project`, icon: FolderGit2 });
         }
-        if (user?.role === "Organizer") {
+        if (user?.role === "Organizer" && isCreator) {
           navItems.push({ name: "Organizer Console", href: `/workspace/${hackathonId}/organizer`, icon: Settings });
         }
         navItems.push({ name: "Explore", href: "/explore", icon: Compass });
