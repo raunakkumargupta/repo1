@@ -12,7 +12,7 @@ struct LoginRequest: Codable {
 }
 
 struct LoginResponse: Codable {
-    let token: String
+    let token: String?
     let user: User?
 }
 
@@ -28,6 +28,10 @@ struct User: Codable, Identifiable {
     let name: String
     let email: String
     let role: String?
+    let fcmToken: String?
+    let apnsToken: String?
+    let status: String?
+    let createdAt: String?
 }
 
 struct Hackathon: Codable, Identifiable {
@@ -47,6 +51,9 @@ struct Hackathon: Codable, Identifiable {
     let maxTeamSize: Int?
     let registrationFee: String?
     let rounds: String?
+    let organizerId: String?
+    let isApproved: Bool?
+    let createdAt: String?
 }
 
 struct Registration: Codable, Identifiable {
@@ -59,6 +66,7 @@ struct Registration: Codable, Identifiable {
     let teamPreference: String
     let approvalStatus: String
     let resumeUrl: String?
+    let createdAt: String?
 }
 
 struct HackathonApplicationRequest: Codable {
@@ -85,6 +93,7 @@ struct Team: Codable, Identifiable {
     let repositoryUrl: String?
     let isSubmitted: Bool
     let isWinner: Bool
+    let createdAt: String?
 }
 
 struct TeamStatusResponse: Codable {
@@ -134,7 +143,7 @@ struct HackerProfile: Codable {
     var emergencyContactNumber: String?
     var bio: String?
     var readmeMd: String?
-    var hasFormalEducation: Bool
+    var hasFormalEducation: Bool?
     var degreeType: String?
     var institution: String?
     var fieldOfStudy: String?

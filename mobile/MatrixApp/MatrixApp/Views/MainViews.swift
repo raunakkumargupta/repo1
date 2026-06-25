@@ -25,6 +25,7 @@ struct RegisterView: View {
                         )
                     
                     Image("AppLogo")
+                        .renderingMode(.original)
                         .resizable()
                         .scaledToFit()
                         .frame(width: 40, height: 40)
@@ -513,7 +514,28 @@ struct HomeDashboardView: View {
                         } else {
                             ForEach(vm.allRegistrations) { reg in
                                 let matchedHack = vm.hackathons.first(where: { $0.id == reg.hackathonId })
-                                NavigationLink(destination: HackathonDetailView(hackathon: matchedHack ?? Hackathon(id: reg.hackathonId, title: matchedHack?.title ?? "Hackathon Event", description: matchedHack?.description ?? "", coverImage: nil, tracks: nil, startDate: nil, endDate: nil, registrationStatus: nil, problemStatement: nil, prizes: nil, schedule: nil, sponsors: nil, minTeamSize: nil, maxTeamSize: nil, registrationFee: nil, rounds: nil)).onAppear {
+                                let fallbackHack = Hackathon(
+                                    id: reg.hackathonId,
+                                    title: matchedHack?.title ?? "Hackathon Event",
+                                    description: matchedHack?.description ?? "",
+                                    coverImage: nil,
+                                    tracks: nil,
+                                    startDate: nil,
+                                    endDate: nil,
+                                    registrationStatus: nil,
+                                    problemStatement: nil,
+                                    prizes: nil,
+                                    schedule: nil,
+                                    sponsors: nil,
+                                    minTeamSize: nil,
+                                    maxTeamSize: nil,
+                                    registrationFee: nil,
+                                    rounds: nil,
+                                    organizerId: nil,
+                                    isApproved: nil,
+                                    createdAt: nil
+                                )
+                                NavigationLink(destination: HackathonDetailView(hackathon: matchedHack ?? fallbackHack).onAppear {
                                     if let h = matchedHack {
                                         vm.selectedHackathon = h
                                     }
@@ -2153,7 +2175,7 @@ struct ProfileView: View {
                         ProfileInfoSection(title: "Education & Institution", theme: vm.activeTheme) {
                             if vm.currentProfile?.hasFormalEducation == true {
                                 ProfileInfoRow(icon: "building.columns.fill", label: "Institution", value: vm.currentProfile?.institution)
-                                ProfileInfoRow(icon: "academicclass.fill", label: "Degree", value: vm.currentProfile?.degreeType)
+                                ProfileInfoRow(icon: "graduationcap.fill", label: "Degree", value: vm.currentProfile?.degreeType)
                                 ProfileInfoRow(icon: "book.fill", label: "Field", value: vm.currentProfile?.fieldOfStudy)
                                 let yearStr = vm.currentProfile?.gradYear != nil && vm.currentProfile!.gradYear! > 0 ? String(vm.currentProfile!.gradYear!) : ""
                                 ProfileInfoRow(icon: "calendar", label: "Graduation", value: "\(vm.currentProfile?.gradMonth ?? "") \(yearStr)")
@@ -2164,7 +2186,7 @@ struct ProfileView: View {
                         
                         ProfileInfoSection(title: "Preferences & Dietary", theme: vm.activeTheme) {
                             ProfileInfoRow(icon: "fork.knife", label: "Dietary Pref", value: vm.currentProfile?.dietaryPreference)
-                            ProfileInfoRow(icon: "medical.tape", label: "Allergies", value: vm.currentProfile?.allergies)
+                            ProfileInfoRow(icon: "allergens", label: "Allergies", value: vm.currentProfile?.allergies)
                         }
                         
                         ProfileInfoSection(title: "Portfolios & CV", theme: vm.activeTheme) {
@@ -2374,7 +2396,7 @@ struct EditProfileView: View {
                     emergencyContactName = p.emergencyContactName ?? ""
                     emergencyContactNumber = p.emergencyContactNumber ?? ""
                     
-                    hasFormalEducation = p.hasFormalEducation
+                    hasFormalEducation = p.hasFormalEducation ?? false
                     institution = p.institution ?? ""
                     degreeType = p.degreeType ?? "Bachelors"
                     fieldOfStudy = p.fieldOfStudy ?? ""

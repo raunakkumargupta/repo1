@@ -19,7 +19,16 @@ final class NetworkManager {
     static let shared = NetworkManager()
     
     // Connect to the deployed staging backend
-    private let baseURL = "http://192.168.29.115:8080/api"
+    private let baseURL = "https://matrix.cometchat-staging.com/api"
+    
+    // Use a session that doesn't send/store cookies — we rely on Bearer token auth
+    private let session: URLSession = {
+        let config = URLSessionConfiguration.ephemeral
+        config.httpCookieAcceptPolicy = .never
+        config.httpShouldSetCookies = false
+        config.httpCookieStorage = nil
+        return URLSession(configuration: config)
+    }()
     
     private let decoder: JSONDecoder = {
         let dec = JSONDecoder()
@@ -39,6 +48,8 @@ final class NetworkManager {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if let token = KeychainHelper.shared.read() {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            // Also send as cookie since the proxy may read auth from there
+            request.setValue("jwt=\(token)", forHTTPHeaderField: "Cookie")
         }
         return request
     }
@@ -66,10 +77,31 @@ final class NetworkManager {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try encoder.encode(LoginRequest(email: email, password: password))
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
         
-        return try decoder.decode(LoginResponse.self, from: data).token
+        // Try to get token from JSON body first
+        if let loginResponse = try? decoder.decode(LoginResponse.self, from: data),
+           let token = loginResponse.token, !token.isEmpty {
+            return token
+        }
+        
+        // Fallback: extract JWT from Set-Cookie header
+        if let httpResponse = response as? HTTPURLResponse,
+           let cookies = httpResponse.allHeaderFields["Set-Cookie"] as? String {
+            let parts = cookies.components(separatedBy: ";")
+            for part in parts {
+                let trimmed = part.trimmingCharacters(in: .whitespaces)
+                if trimmed.hasPrefix("jwt=") {
+                    let token = String(trimmed.dropFirst(4))
+                    if !token.isEmpty {
+                        return token
+                    }
+                }
+            }
+        }
+        
+        throw APIError.server("Login failed: no authentication token received.")
     }
 
     func register(name: String, email: String, password: String) async throws {
@@ -79,7 +111,7 @@ final class NetworkManager {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try encoder.encode(RegisterRequest(name: name, email: email, password: password, role: "Hacker"))
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
     }
 
@@ -90,7 +122,7 @@ final class NetworkManager {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: ["email": email])
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
     }
 
@@ -98,7 +130,7 @@ final class NetworkManager {
         let url = URL(string: "\(baseURL)/hackathons")!
         let request = authenticatedRequest(url: url, method: "GET")
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
         
         return try decoder.decode([Hackathon].self, from: data)
@@ -108,7 +140,7 @@ final class NetworkManager {
         let url = URL(string: "\(baseURL)/hackathons/\(hackathonId)/broadcasts")!
         let request = authenticatedRequest(url: url, method: "GET")
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
         
         return try decoder.decode([Announcement].self, from: data)
@@ -118,7 +150,7 @@ final class NetworkManager {
         let url = URL(string: "\(baseURL)/hackathons/\(hackathonId)/my-team")!
         let request = authenticatedRequest(url: url, method: "GET")
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         if let http = response as? HTTPURLResponse, http.statusCode == 204 || http.statusCode == 404 {
             return nil
         }
@@ -141,7 +173,7 @@ final class NetworkManager {
         let url = URL(string: "\(baseURL)/hackathons/\(hackathonId)/my-registration")!
         let request = authenticatedRequest(url: url, method: "GET")
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         if let http = response as? HTTPURLResponse, http.statusCode == 404 {
             return nil
         }
@@ -165,7 +197,7 @@ final class NetworkManager {
         var request = authenticatedRequest(url: url, method: "POST")
         request.httpBody = try encoder.encode(requestBody)
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
     }
 
@@ -174,7 +206,7 @@ final class NetworkManager {
         var request = authenticatedRequest(url: url, method: "POST")
         request.httpBody = try encoder.encode(CreateTeamRequest(teamName: teamName))
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
     }
 
@@ -183,7 +215,7 @@ final class NetworkManager {
         var request = authenticatedRequest(url: url, method: "POST")
         request.httpBody = try encoder.encode(JoinTeamRequest(inviteCode: inviteCode))
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
     }
 
@@ -192,7 +224,7 @@ final class NetworkManager {
         var request = authenticatedRequest(url: url, method: "PUT")
         request.httpBody = try encoder.encode(ProjectSubmissionRequest(repositoryUrl: repositoryURL))
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
     }
 
@@ -200,7 +232,7 @@ final class NetworkManager {
         let url = URL(string: "\(baseURL)/auth/me")!
         let request = authenticatedRequest(url: url, method: "GET")
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
         
         return try decoder.decode(User.self, from: data)
@@ -210,7 +242,7 @@ final class NetworkManager {
         let url = URL(string: "\(baseURL)/profile/me")!
         let request = authenticatedRequest(url: url, method: "GET")
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
         
         return try decoder.decode(HackerProfile.self, from: data)
@@ -221,7 +253,7 @@ final class NetworkManager {
         var request = authenticatedRequest(url: url, method: "POST")
         request.httpBody = try encoder.encode(profile)
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
     }
     
@@ -230,7 +262,7 @@ final class NetworkManager {
         var request = authenticatedRequest(url: url, method: "POST")
         request.httpBody = try encoder.encode(SupportTicketRequest(teamId: teamId, description: description))
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
     }
     
@@ -239,14 +271,14 @@ final class NetworkManager {
         var request = authenticatedRequest(url: url, method: "POST")
         request.httpBody = try encoder.encode(FcmTokenRequest(token: token, platform: "ios"))
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
     }
 
     func fetchPublicTeams(for hackathonId: String) async throws -> [Team] {
         let url = URL(string: "\(baseURL)/hackathons/\(hackathonId)/teams/public")!
         let request = authenticatedRequest(url: url, method: "GET")
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
         return try decoder.decode([Team].self, from: data)
     }
@@ -254,7 +286,7 @@ final class NetworkManager {
     func requestToJoinTeam(hackathonId: String, teamId: String) async throws {
         let url = URL(string: "\(baseURL)/hackathons/\(hackathonId)/teams/\(teamId)/request")!
         let request = authenticatedRequest(url: url, method: "POST")
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
     }
 
@@ -262,21 +294,21 @@ final class NetworkManager {
         let url = URL(string: "\(baseURL)/hackathons/\(hackathonId)/teams/\(teamId)/invite")!
         var request = authenticatedRequest(url: url, method: "POST")
         request.httpBody = try encoder.encode(InviteUserRequest(email: email))
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
     }
 
     func removeTeamMember(hackathonId: String, teamId: String, memberId: String) async throws {
         let url = URL(string: "\(baseURL)/hackathons/\(hackathonId)/teams/\(teamId)/members/\(memberId)")!
         let request = authenticatedRequest(url: url, method: "DELETE")
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
     }
 
     func fetchTeamRequests(hackathonId: String, teamId: String) async throws -> [TeamJoinRequest] {
         let url = URL(string: "\(baseURL)/hackathons/\(hackathonId)/teams/\(teamId)/requests")!
         let request = authenticatedRequest(url: url, method: "GET")
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
         return try decoder.decode([TeamJoinRequest].self, from: data)
     }
@@ -284,7 +316,7 @@ final class NetworkManager {
     func fetchMyRequests(hackathonId: String) async throws -> [TeamJoinRequest] {
         let url = URL(string: "\(baseURL)/hackathons/\(hackathonId)/my-requests")!
         let request = authenticatedRequest(url: url, method: "GET")
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
         return try decoder.decode([TeamJoinRequest].self, from: data)
     }
@@ -293,14 +325,14 @@ final class NetworkManager {
         let url = URL(string: "\(baseURL)/hackathons/\(hackathonId)/requests/\(requestId)")!
         var request = authenticatedRequest(url: url, method: "PUT")
         request.httpBody = try encoder.encode(ManageRequestBody(status: status))
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
     }
 
     func fetchMyInvitations(hackathonId: String) async throws -> [TeamInvitation] {
         let url = URL(string: "\(baseURL)/hackathons/\(hackathonId)/my-invitations")!
         let request = authenticatedRequest(url: url, method: "GET")
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         if let http = response as? HTTPURLResponse, http.statusCode == 404 {
             return []
         }
@@ -312,7 +344,7 @@ final class NetworkManager {
         let url = URL(string: "\(baseURL)/hackathons/\(hackathonId)/invitations/\(invitationId)")!
         var request = authenticatedRequest(url: url, method: "PUT")
         request.httpBody = try encoder.encode(ManageRequestBody(status: status))
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         try checkResponse(response, data: data)
     }
 }

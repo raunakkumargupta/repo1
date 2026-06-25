@@ -63,10 +63,14 @@ final class AppViewModel: ObservableObject {
             activeTheme = decoded
         }
         #if DEBUG
-        // In debug mode, we can clear to allow testing fresh login states easily
-        // If you want persistent logins, comment out clear()
-        KeychainHelper.shared.clear()
-        isLoggedIn = false
+        // Persistent login in debug — token stays until manual logout
+        isLoggedIn = KeychainHelper.shared.read() != nil
+        if isLoggedIn {
+            Task {
+                await loadCurrentProfile()
+                await loadHackathons()
+            }
+        }
         #else
         isLoggedIn = KeychainHelper.shared.read() != nil
         if isLoggedIn {
@@ -80,18 +84,28 @@ final class AppViewModel: ObservableObject {
 
     func loadCurrentProfile() async {
         do {
-            async let userFetch = NetworkManager.shared.fetchCurrentUser()
-            async let profileFetch = NetworkManager.shared.fetchMyProfile()
-            
-            currentUser = try await userFetch
-            currentProfile = try await profileFetch
+            currentUser = try await NetworkManager.shared.fetchCurrentUser()
         } catch {
-            authError = "Profile load failed: \(error.localizedDescription)"
+            print("⚠️ Failed to load user: \(error)")
+        }
+        do {
+            currentProfile = try await NetworkManager.shared.fetchMyProfile()
+        } catch {
+            print("⚠️ Failed to load profile: \(error)")
         }
     }
 
     func logout() {
         KeychainHelper.shared.clear()
+        
+        // Clear all cookies for the backend domain
+        if let url = URL(string: "https://matrix.cometchat-staging.com"),
+           let cookies = HTTPCookieStorage.shared.cookies(for: url) {
+            for cookie in cookies {
+                HTTPCookieStorage.shared.deleteCookie(cookie)
+            }
+        }
+        
         currentUser = nil
         currentProfile = nil
         allRegistrations = []
@@ -169,6 +183,7 @@ final class AppViewModel: ObservableObject {
             }
             self.allRegistrations = regs
         } catch {
+            print("⚠️ Failed to load hackathons: \(error)")
             authError = "Failed to load hackathons: \(error.localizedDescription)"
         }
     }

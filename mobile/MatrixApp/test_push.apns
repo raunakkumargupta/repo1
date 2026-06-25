@@ -1,0 +1,11 @@
+{
+  "Simulator Target Bundle": "com.cometchat.MatrixApp",
+  "aps": {
+    "alert": {
+      "title": "Application Accepted ✓",
+      "body": "Congrats! Your registration for Global AI Hackathon has been approved. Start building your team now."
+    },
+    "sound": "default",
+    "badge": 1
+  }
+}

@@ -90,6 +90,7 @@ struct LoginView: View {
                         )
                     
                     Image("AppLogo")
+                        .renderingMode(.original)
                         .resizable()
                         .scaledToFit()
                         .frame(width: 40, height: 40)
