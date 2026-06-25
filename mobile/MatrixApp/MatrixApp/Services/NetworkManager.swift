@@ -420,7 +420,19 @@ final class NetworkManager {
         let (data, response) = try await URLSession.shared.data(for: request)
         try checkResponse(response, data: data)
     }
+
+    func queryChatbot(message: String) async throws -> String {
+        let url = URL(string: "\(baseURL)/chatbot/query")!
+        var request = authenticatedRequest(url: url, method: "POST")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["message": message])
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try checkResponse(response, data: data)
+        
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let reply = json["response"] as? String {
+            return reply
+        }
+        throw APIError.invalidResponse
+    }
 }
-
-
-

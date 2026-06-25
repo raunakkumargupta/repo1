@@ -146,4 +146,8 @@ public interface MatrixApi {
     // ---- Notifications (polling) ----
     @GET("hackathons/{id}/broadcasts")
     Call<List<Map<String, Object>>> getBroadcasts(@Path("id") String hackathonId);
+
+    // ---- Chatbot ----
+    @POST("chatbot/query")
+    Call<Map<String, String>> queryChatbot(@Body Map<String, String> body);
 }

@@ -276,28 +276,34 @@ struct DashboardView: View {
     @State private var selectedTab: Int = 0
     
     var body: some View {
-        TabView(selection: $selectedTab) {
-            HomeDashboardView(selectedTab: $selectedTab)
-                .tabItem { Label("Home", systemImage: "house.fill") }
-                .tag(0)
+        ZStack(alignment: .bottomTrailing) {
+            TabView(selection: $selectedTab) {
+                HomeDashboardView(selectedTab: $selectedTab)
+                    .tabItem { Label("Home", systemImage: "house.fill") }
+                    .tag(0)
+                
+                HackathonsView()
+                    .tabItem { Label("Hackathons", systemImage: "trophy.fill") }
+                    .tag(1)
+                
+                TeamView()
+                    .tabItem { Label("Team", systemImage: "person.3.fill") }
+                    .tag(2)
+                
+                CometChatConversationsView()
+                    .tabItem { Label("Chat", systemImage: "message.fill") }
+                    .tag(3)
+                
+                ProfileView()
+                    .tabItem { Label("Profile", systemImage: "person.crop.circle.fill") }
+                    .tag(4)
+            }
+            .tint(vm.activeTheme.primaryAccent)
             
-            HackathonsView()
-                .tabItem { Label("Hackathons", systemImage: "trophy.fill") }
-                .tag(1)
-            
-            TeamView()
-                .tabItem { Label("Team", systemImage: "person.3.fill") }
-                .tag(2)
-            
-            CometChatConversationsView()
-                .tabItem { Label("Chat", systemImage: "message.fill") }
-                .tag(3)
-            
-            ProfileView()
-                .tabItem { Label("Profile", systemImage: "person.crop.circle.fill") }
-                .tag(4)
+            // Floating AI Chatbot Widget — visible on all tabs
+            AIChatBotWidget()
+                .padding(.bottom, 60) // Above the tab bar
         }
-        .tint(vm.activeTheme.primaryAccent)
     }
 }
 

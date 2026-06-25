@@ -46,6 +46,9 @@
         <activity android:name=".chat.GroupChatActivity" android:exported="false" />
         <activity android:name=".chat.ConversationsActivity" android:exported="false" />
 
+        <!-- AI Chatbot -->
+        <activity android:name=".AIChatActivity" android:exported="false" />
+
         <!-- Incoming Call screen — wraps CometChatIncomingCall view inside a proper Activity -->
         <activity
             android:name=".IncomingCallActivity"

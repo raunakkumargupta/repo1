@@ -138,6 +138,10 @@ public class DashboardActivity extends AppCompatActivity {
             }
         });
 
+        // AI Chatbot FAB
+        findViewById(R.id.fab_ai_chat).setOnClickListener(v ->
+                startActivity(new Intent(this, AIChatActivity.class)));
+
         loadDashboard();
     }
 

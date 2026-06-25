@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/raunakkumargupta/repo1/backend/internal/middleware"
 	"github.com/raunakkumargupta/repo1/backend/internal/models"
+	"github.com/raunakkumargupta/repo1/backend/internal/service"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -78,6 +79,27 @@ func NewRouter(
 				"uid":  "matrix-ai-assistant",
 				"name": "Matrix AI Assistant",
 				"description": "AI-powered hackathon assistant. DM me in chat for help with hackathon questions, coding tips, and team formation!",
+			})
+		})
+
+		// Chatbot query endpoint (public, proxy to Groq AI via ChatbotService)
+		r.Post("/api/chatbot/query", func(w http.ResponseWriter, r *http.Request) {
+			var req struct {
+				Message string `json:"message"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, "invalid request body", http.StatusBadRequest)
+				return
+			}
+			chatbot := service.NewChatbotService()
+			respText, err := chatbot.GenerateResponse(r.Context(), req.Message)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{
+				"response": respText,
 			})
 		})
 	})
